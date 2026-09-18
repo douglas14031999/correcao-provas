@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: correcao_provas_db
+    restart: always
+    environment:
+      POSTGRES_USER: correcao_user
+      POSTGRES_PASSWORD: correcao_password_segura
+      POSTGRES_DB: correcao_provas
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: correcao_provas_app
+    restart: always
+    depends_on:
+      - db
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgresql://correcao_user:correcao_password_segura@db:5432/correcao_provas
+      - SECRET_KEY=sua_chave_secreta_super_segura_de_producao
+    volumes:
+      - ./backend/storage:/app/backend/storage
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres_data:

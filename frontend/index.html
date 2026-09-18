@@ -1,0 +1,2067 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Gabarito OMR — Correção de Provas Inteligente</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css?v=1789650050">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <!-- LOGIN SCREEN (PORTAL DE ACESSO INSTITUCIONAL) -->
+  <div id="login-screen" class="login-overlay" style="display: none;">
+    <div class="login-card">
+      <div class="login-brand-header">
+        <div class="login-logo-wrap">
+          <img id="login-brand-img" src="/api/settings/logo" alt="Brasão Oficial" class="login-brand-img" onerror="this.style.display='none'; document.getElementById('login-brand-fallback').style.display='flex';">
+          <div id="login-brand-fallback" class="login-brand-fallback" style="display: none;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <path d="m9 15 2 2 4-4"></path>
+            </svg>
+          </div>
+        </div>
+        <h2 class="login-title">Portal de Avaliações</h2>
+        <p class="login-subtitle" id="login-sub-text">Secretaria Municipal de Educação • SEMED</p>
+        <span class="login-badge-city">Lagoa da Canoa — AL</span>
+      </div>
+
+      <form id="login-form" class="login-form" onsubmit="handleLoginSubmit(event)">
+        <div id="login-error-box" class="login-error-alert" style="display: none;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <span id="login-error-msg">Usuário ou senha incorretos.</span>
+        </div>
+
+        <div class="login-field-group">
+          <label for="login-username" class="login-label">Usuário de Acesso</label>
+          <div class="login-input-wrap">
+            <svg class="login-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <input type="text" id="login-username" class="login-input" placeholder="admin" required autocomplete="username">
+          </div>
+        </div>
+
+        <div class="login-field-group">
+          <label for="login-password" class="login-label">Senha de Acesso</label>
+          <div class="login-input-wrap">
+            <svg class="login-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <input type="password" id="login-password" class="login-input" placeholder="••••••••" required autocomplete="current-password">
+            <button type="button" class="login-pwd-toggle" id="btn-toggle-pwd" onclick="togglePasswordVisibility()" title="Mostrar/Ocultar Senha">
+              <svg id="icon-eye-show" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              <svg id="icon-eye-hide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="login-row-options">
+          <label class="login-remember-label">
+            <input type="checkbox" id="login-remember" checked>
+            <span>Lembrar de mim neste dispositivo</span>
+          </label>
+        </div>
+
+        <button type="submit" class="login-submit-btn" id="btn-login-submit">
+          <span class="btn-text">Entrar no Sistema</span>
+          <div class="btn-spinner" id="login-spinner" style="display: none;"></div>
+        </button>
+      </form>
+
+      <div class="login-card-footer">
+        <span class="login-hint-text">Acesso restrito à equipe pedagógica e SEMED</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header / Navigation -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand" id="nav-brand-link" title="Ir para o Dashboard Inicial" onclick="switchTab('dashboard-tab')">
+        <div class="brand-logo-container">
+          <img id="header-brand-img" src="/api/settings/logo" alt="Brasão Oficial" class="brand-logo-img" onerror="this.style.display='none'; document.getElementById('header-brand-fallback').style.display='flex';">
+          <div id="header-brand-fallback" class="brand-logo-fallback" style="display: none;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <path d="m9 15 2 2 4-4"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="brand-text-col">
+          <h1 class="brand-title">Correção de Provas</h1>
+          <span class="brand-subtitle" id="header-brand-subtitle">SEMED • Lagoa da Canoa</span>
+        </div>
+      </div>
+      
+      <nav class="nav-tabs">
+        <div class="nav-group-primary">
+          <button class="tab-btn active" data-tab="dashboard-tab" title="Visão geral e indicadores macros da rede">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="9" rx="1"></rect>
+              <rect x="14" y="3" width="7" height="5" rx="1"></rect>
+              <rect x="14" y="12" width="7" height="9" rx="1"></rect>
+              <rect x="3" y="16" width="7" height="5" rx="1"></rect>
+            </svg>
+            <span>Dashboard</span>
+          </button>
+          <button class="tab-btn" data-tab="scanner-tab" title="Leitor e scanner de gabaritos">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            <span>Correção</span>
+          </button>
+          <button class="tab-btn" data-tab="exams-tab" title="Simulados e gabaritos cadastrados">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+            <span>Simulados</span>
+          </button>
+          <button class="tab-btn" data-tab="schools-tab" title="Gestão de escolas, turmas e alunos">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            <span>Turmas & Alunos</span>
+          </button>
+          <button class="tab-btn" data-tab="create-tab" title="Criar novo simulado ou avaliação">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="16"></line>
+              <line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+            <span>Nova Prova</span>
+          </button>
+          <button class="tab-btn" data-tab="users-tab" title="Gestão de usuários e permissões do sistema">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            <span>Usuários</span>
+          </button>
+        </div>
+
+        <div class="nav-divider"></div>
+
+        <div class="nav-group-secondary">
+          <button class="nav-action-btn" id="btn-open-year-report-nav" onclick="openYearReportModal()" type="button" title="Relatório de Rendimento por Ano Escolar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 20V10M18 20V4M6 20v-4"/>
+            </svg>
+            <span>Rendimento</span>
+          </button>
+          <button class="nav-action-btn" id="btn-open-settings-modal" onclick="openSettingsModal()" type="button" title="Configurações do Município e Brasão Oficial">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            <span>Município</span>
+          </button>
+
+          <!-- User Session Profile Badge -->
+          <div class="nav-user-badge-box" id="nav-user-badge-box" title="Usuário conectado ao sistema">
+            <div class="nav-user-avatar" id="nav-user-avatar">AD</div>
+            <div class="nav-user-meta">
+              <span class="nav-user-name" id="nav-user-name">admin</span>
+              <span class="nav-user-role" id="nav-user-role">SEMED</span>
+            </div>
+          </div>
+
+          <button class="nav-action-btn nav-logout-btn" id="btn-logout" onclick="handleLogout()" type="button" title="Encerrar sessão / Sair do sistema">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <span>Sair</span>
+          </button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="main-container">
+
+    <!-- TAB 0: DASHBOARD MACRO (TELA INICIAL) -->
+    <section id="dashboard-tab" class="tab-content active">
+      <!-- Dashboard Top Header Bar -->
+      <!-- Dashboard Top Header Bar -->
+      <div class="dash-header-bar">
+        <div>
+          <h2 class="section-title">Dashboard</h2>
+          <p class="section-subtitle">Indicadores e rendimento da rede municipal</p>
+        </div>
+        <div class="dash-controls">
+          <div class="dash-filter-item">
+            <label for="dash-exam-filter" class="dash-filter-label">Avaliação:</label>
+            <select id="dash-exam-filter" class="form-select dash-select" onchange="onDashboardExamChange()">
+              <option value="all">Todas as Avaliações</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-dash-refresh" onclick="refreshDashboard()" title="Atualizar dados">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>Atualizar</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Row 1: KPI Cards Grid -->
+      <div class="dash-kpi-grid">
+        <!-- KPI 1: Média Geral -->
+        <div class="dash-kpi-card kpi-primary">
+          <div class="dash-kpi-top">
+            <span class="dash-kpi-title">Média Geral</span>
+            <div class="dash-kpi-icon-wrap icon-blue">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <circle cx="12" cy="12" r="6"></circle>
+                <circle cx="12" cy="12" r="2"></circle>
+              </svg>
+            </div>
+          </div>
+          <div class="dash-kpi-val-row">
+            <span class="dash-kpi-main-val" id="dash-kpi-avg">0.0%</span>
+            <span class="dash-kpi-badge" id="dash-kpi-avg-badge">Sem dados</span>
+          </div>
+          <div class="dash-kpi-bar-track">
+            <div class="dash-kpi-bar-fill" id="dash-kpi-avg-bar" style="width: 0%;"></div>
+          </div>
+          <span class="dash-kpi-subtext" id="dash-kpi-avg-sub">Média geral da rede</span>
+        </div>
+
+        <!-- KPI 2: Provas Corrigidas -->
+        <div class="dash-kpi-card">
+          <div class="dash-kpi-top">
+            <span class="dash-kpi-title">Provas Corrigidas</span>
+            <div class="dash-kpi-icon-wrap icon-green">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+            </div>
+          </div>
+          <div class="dash-kpi-val-row">
+            <span class="dash-kpi-main-val" id="dash-kpi-graded">0</span>
+            <span class="dash-kpi-subpill" id="dash-kpi-exams-count">0 simulados</span>
+          </div>
+          <span class="dash-kpi-subtext" id="dash-kpi-graded-sub">Gabaritos processados</span>
+        </div>
+
+        <!-- KPI 3: Participação -->
+        <div class="dash-kpi-card">
+          <div class="dash-kpi-top">
+            <span class="dash-kpi-title">Participação</span>
+            <div class="dash-kpi-icon-wrap icon-amber">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </div>
+          </div>
+          <div class="dash-kpi-val-row">
+            <span class="dash-kpi-main-val" id="dash-kpi-participation">0.0%</span>
+            <span class="dash-kpi-subpill" id="dash-kpi-students-total">0 alunos</span>
+          </div>
+          <div class="dash-kpi-bar-track">
+            <div class="dash-kpi-bar-fill bar-amber" id="dash-kpi-part-bar" style="width: 0%;"></div>
+          </div>
+          <span class="dash-kpi-subtext">Alunos avaliados</span>
+        </div>
+
+        <!-- KPI 4: Rede Ativa -->
+        <div class="dash-kpi-card">
+          <div class="dash-kpi-top">
+            <span class="dash-kpi-title">Rede Ativa</span>
+            <div class="dash-kpi-icon-wrap icon-slate">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+              </svg>
+            </div>
+          </div>
+          <div class="dash-kpi-val-row">
+            <span class="dash-kpi-main-val" id="dash-kpi-schools">0</span>
+            <span class="dash-kpi-subpill" id="dash-kpi-classrooms">0 turmas</span>
+          </div>
+          <span class="dash-kpi-subtext">Escolas e turmas</span>
+        </div>
+      </div>
+
+      <!-- Row 2: Charts Row -->
+      <div class="dash-charts-row">
+        <!-- Chart 1: Desempenho por Escola -->
+        <div class="dash-chart-card">
+          <div class="dash-chart-header">
+            <div>
+              <h3 class="dash-chart-title">Média por Escola (%)</h3>
+              <p class="dash-chart-desc">Percentual por unidade</p>
+            </div>
+            <div class="dash-chart-legend-tag">
+              <span class="leg-indicator" style="background: #2563eb;"></span>
+              <span>Média</span>
+            </div>
+          </div>
+          <div class="dash-canvas-box" style="position: relative; height: 280px;">
+            <canvas id="dash-schools-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 2: Rendimento por Ano Escolar (1º ao 9º Ano) -->
+        <div class="dash-chart-card">
+          <div class="dash-chart-header">
+            <div>
+              <h3 class="dash-chart-title">Rendimento por Ano</h3>
+              <p class="dash-chart-desc">Aproveitamento do 1º ao 9º ano</p>
+            </div>
+            <div class="dash-chart-legend-tag">
+              <span class="leg-indicator" style="background: #10b981;"></span>
+              <span>Aproveitamento</span>
+            </div>
+          </div>
+          <div class="dash-canvas-box" style="position: relative; height: 280px;">
+            <canvas id="dash-years-chart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 3: Tabela Consolidada por Escola -->
+      <div class="dash-section-card">
+        <div class="dash-section-header">
+          <div>
+            <h3 class="dash-section-title">Consolidado por Escola</h3>
+            <p class="dash-section-desc">Resumo por unidade escolar</p>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="exportNetworkReport('xlsx')" title="Exportar dados em Excel">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span>Excel</span>
+          </button>
+        </div>
+
+        <div class="dash-table-wrapper">
+          <table class="dash-table" id="dash-schools-table">
+            <thead>
+              <tr>
+                <th>Escola</th>
+                <th style="text-align: center;">INEP</th>
+                <th style="text-align: center;">Turmas</th>
+                <th style="text-align: center;">Alunos</th>
+                <th style="text-align: center;">Corrigidas</th>
+                <th style="text-align: center;">Participação</th>
+                <th style="text-align: center;">Média</th>
+                <th style="text-align: center;">Status</th>
+              </tr>
+            </thead>
+            <tbody id="dash-schools-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Row 4: Painel de Alertas -->
+      <div class="dash-section-card" id="dash-alerts-section" style="display: none;">
+        <div class="dash-section-header">
+          <div style="display: flex; align-items: center; gap: 0.65rem;">
+            <div class="alert-icon-badge">⚠️</div>
+            <div>
+              <h3 class="dash-section-title" style="color: #991b1b;">Alertas de Rendimento</h3>
+              <p class="dash-section-desc">Turmas com média inferior a 50%</p>
+            </div>
+          </div>
+        </div>
+        <div class="dash-alerts-grid" id="dash-alerts-container">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 1: SCANNER & CORRECTION -->
+    <section id="scanner-tab" class="tab-content">
+      
+      <!-- HTTPS Helper for Mobile Browsers -->
+      <div id="https-helper-banner" class="https-helper-banner" style="display: none;">
+        <span>🔒 Para ativar a câmera direto no navegador do celular:</span>
+        <a id="open-https-link" href="#" class="btn btn-primary btn-sm">Abrir via HTTPS</a>
+      </div>
+
+      <div class="scanner-layout">
+        
+        <!-- Left / Top: Active Exam Selector & Camera Feed -->
+        <div class="scanner-card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Leitor de Prova</h2>
+            </div>
+          </div>
+
+          <!-- Hidden Native Camera and File Inputs -->
+          <input type="file" id="file-fallback-input" accept="image/*" style="display: none;">
+
+          <!-- Camera Stream Box -->
+          <div class="camera-viewport-container">
+            <div id="camera-loading" class="camera-overlay-state">
+              <div class="spinner"></div>
+              <span>Iniciando câmera...</span>
+            </div>
+            
+            <video id="camera-video" autoplay playsinline muted></video>
+            
+            <!-- Viewport Alignment Grid overlay -->
+            <div class="viewfinder-overlay">
+              <div class="guide-corner top-left"></div>
+              <div class="guide-corner top-right"></div>
+              <div class="guide-corner bottom-right"></div>
+              <div class="guide-corner bottom-left"></div>
+              <div class="guide-center-target">
+                <div class="target-cross"></div>
+              </div>
+              <div class="guide-banner">Alinhe a folha dentro da moldura</div>
+            </div>
+            
+            <canvas id="capture-canvas" style="display: none;"></canvas>
+          </div>
+
+          <!-- Camera Action Controls -->
+          <div class="camera-controls">
+            <button id="switch-camera-btn" class="btn btn-secondary" title="Alternar Câmera">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 10c0-4.418-3.582-8-8-8s-8 3.582-8 8c0 2.21 1.01 4.22 2.62 5.57L4 20h6v-6l-2.3 2.3C6.39 15.11 5.5 13.68 5.5 12c0-3.59 2.91-6.5 6.5-6.5s6.5 2.91 6.5 6.5c0 1.68-.89 3.11-2.2 4.3"></path>
+                <polyline points="20 14 20 20 14 20"></polyline>
+              </svg>
+              <span>Câmera</span>
+            </button>
+
+            <button id="capture-btn" class="btn btn-primary btn-lg">
+              <div class="shutter-circle"></div>
+              <span>Corrigir Prova</span>
+            </button>
+
+            <button type="button" id="btn-trigger-gallery" class="btn btn-secondary" title="Enviar foto salva">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <span>Arquivo</span>
+            </button>
+          </div>
+
+        </div>
+
+        <!-- Right / Bottom: Instant Result & X-Ray Viewer -->
+        <div class="result-card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Resultado</h2>
+            </div>
+          </div>
+
+          <!-- Empty placeholder state -->
+          <div id="result-placeholder" class="result-placeholder">
+            <div class="placeholder-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="m15 9-6 6"></path>
+                <path d="m9 9 6 6"></path>
+              </svg>
+            </div>
+            <h3>Aguardando leitura</h3>
+            <p>Aponte a câmera para a folha e clique em <strong>Corrigir Prova</strong>.</p>
+          </div>
+
+          <!-- Active Grading Result Display -->
+          <div id="result-display" class="result-display" style="display: none;">
+            
+            <!-- Summary Score Header -->
+            <div class="score-banner">
+              <div class="score-circle-box">
+                <span class="score-value" id="res-score">0.0</span>
+                <span class="score-total" id="res-max-score">/ 10.0</span>
+              </div>
+              <div class="score-info">
+                <div class="score-student-header">
+                  <span class="student-status-badge status-identified" id="res-student-status-badge">Aluno Vinculado</span>
+                  <h3 id="res-student-name">Douglas Cavalcante</h3>
+                </div>
+                <div class="score-tags">
+                  <span class="tag tag-success" id="res-correct-badge">0 Acertos</span>
+                  <span class="tag tag-danger" id="res-wrong-badge">0 Erros</span>
+                  <span class="tag tag-warning" id="res-blank-badge">0 Em Branco</span>
+                </div>
+                <div class="score-percent-bar">
+                  <div id="res-progress-bar" class="score-progress" style="width: 0%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Full Identification Card: Aluno, Simulado, Escola, Turma -->
+            <div id="res-student-meta-card" class="student-meta-card">
+              <div class="meta-grid">
+                <div class="meta-field-box">
+                  <span class="meta-field-label">Simulado</span>
+                  <span class="meta-field-value" id="res-exam-tag">—</span>
+                </div>
+                <div class="meta-field-box">
+                  <span class="meta-field-label">Escola</span>
+                  <span class="meta-field-value" id="res-school-tag">—</span>
+                </div>
+                <div class="meta-field-box">
+                  <span class="meta-field-label">Turma</span>
+                  <span class="meta-field-value" id="res-classroom-tag">—</span>
+                </div>
+                <div class="meta-field-box">
+                  <span class="meta-field-label">Matrícula</span>
+                  <span class="meta-field-value" id="res-reg-tag">—</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Professor Confirmation Card -->
+            <div id="confirmation-banner" class="professor-confirmation-banner">
+              <div class="confirmation-content">
+                <div class="confirmation-info">
+                  <div class="confirmation-title-row">
+                    <strong id="confirm-exam-title" class="confirm-title-text">Simulado • Aluno</strong>
+                  </div>
+                  <p class="confirm-subtext" id="confirm-subtext">
+                    Revise os dados apurados e confirme o registro no boletim escolar.
+                  </p>
+                </div>
+                <div class="confirmation-actions">
+                  <button type="button" class="btn btn-confirm-action" id="btn-confirm-grade">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    Confirmar Nota
+                  </button>
+                  <button type="button" class="btn btn-reject-action" id="btn-reject-grade">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    Descartar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tabs: Question List vs Visual X-Ray Overlay -->
+            <div class="result-view-toggle">
+              <button class="toggle-btn active" id="view-xray-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                  <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+                <span>Visual</span>
+              </button>
+              <button class="toggle-btn" id="view-list-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="8" y1="6" x2="21" y2="6"></line>
+                  <line x1="8" y1="12" x2="21" y2="12"></line>
+                  <line x1="8" y1="18" x2="21" y2="18"></line>
+                  <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                  <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                  <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
+                <span>Tabela</span>
+              </button>
+            </div>
+
+            <!-- X-Ray Overlay Image Container -->
+            <div id="xray-container" class="xray-container">
+              <div class="xray-legend">
+                <span class="legend-item"><span class="dot dot-success"></span> Acerto</span>
+                <span class="legend-item"><span class="dot dot-danger"></span> Erro</span>
+                <span class="legend-item"><span class="dot dot-warning"></span> Branco/Rasura</span>
+              </div>
+              <div class="xray-image-wrap">
+                <img id="res-overlay-img" src="" alt="Raio-X OMR">
+              </div>
+            </div>
+
+            <!-- Questions Table List -->
+            <div id="table-container" class="table-container" style="display: none;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Marcado</th>
+                    <th>Gabarito</th>
+                    <th>Status</th>
+                    <th>Pontos</th>
+                  </tr>
+                </thead>
+                <tbody id="res-questions-tbody">
+                  <!-- Dynamically filled -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Action bar to discard/delete current scan -->
+            <div style="margin-top: 1rem; display: flex; justify-content: flex-end; gap: 0.5rem; border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-delete-current-result" style="color: var(--danger); border-color: #fecaca;" title="Excluir esta correção">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                <span>Excluir Correção</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- TAB 2: MY EXAMS & RESULTS -->
+    <section id="exams-tab" class="tab-content">
+      <div class="exams-header-bar">
+        <div class="exams-header-title-wrap">
+          <h2 class="section-title">Simulados</h2>
+          <span id="exams-count-badge" class="search-stats-badge" style="display: none;"></span>
+        </div>
+        <div class="exams-header-actions">
+          <div class="search-box-wrap" id="exams-search-box-wrap">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="search-box-icon">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="exams-search-input" class="search-box-input" placeholder="Buscar por nome, série, questões..." autocomplete="off" spellcheck="false">
+            <kbd class="search-kbd-hint" id="exams-search-kbd" title="Pressione / para buscar">/</kbd>
+            <button type="button" id="exams-search-clear" class="search-box-clear" title="Limpar busca (Esc)" style="display: none;">✕</button>
+          </div>
+          <button class="btn btn-primary" id="go-to-create-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>Nova Prova</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="school-card" style="padding: 1rem 1.15rem; background: #ffffff; border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-sm);">
+        <div class="exams-table-header">
+          <span>Prova</span>
+          <span>Questões</span>
+          <span style="text-align: center;">Correções</span>
+          <span style="text-align: right;">Ações</span>
+        </div>
+        <div id="exams-list" class="classroom-list">
+          <!-- Dynamically filled with exam row-cards -->
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: SCHOOLS & CLASSROOMS -->
+    <section id="schools-tab" class="tab-content">
+      <div class="schools-header-bar">
+        <div>
+          <h2 class="section-title">Turmas & Alunos</h2>
+          <p class="section-subtitle">Escolas, turmas e matrículas da rede</p>
+        </div>
+        <div class="schools-actions">
+          <button type="button" class="btn btn-secondary" id="btn-open-year-report-modal" onclick="openYearReportModal()" title="Rendimento geral por ano escolar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 20V10M18 20V4M6 20v-4"/>
+            </svg>
+            <span>Rendimento</span>
+          </button>
+          <div class="export-dropdown-wrapper" style="position: relative; display: inline-block;">
+            <button type="button" class="btn btn-secondary" id="btn-toggle-export-network" title="Relatório panorâmico com todas as escolas e turmas">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+              </svg>
+              <span>Panorâmico ▾</span>
+            </button>
+            <div class="report-dropdown-menu" id="dropdown-menu-export-network" style="display: none;">
+              <button type="button" class="report-dropdown-item" onclick="exportNetworkReport('pdf')">
+                <span class="report-fmt-badge fmt-pdf">PDF</span>
+                <div class="report-fmt-info">
+                  <strong>PDF Oficial (A4)</strong>
+                  <small>Todas as escolas, turmas e taxas de presença</small>
+                </div>
+              </button>
+              <button type="button" class="report-dropdown-item" onclick="exportNetworkReport('xlsx')">
+                <span class="report-fmt-badge fmt-xlsx">XLSX</span>
+                <div class="report-fmt-info">
+                  <strong>Planilha Excel (.xlsx)</strong>
+                  <small>Consolidação de turmas e matrículas</small>
+                </div>
+              </button>
+              <button type="button" class="report-dropdown-item" onclick="exportNetworkReport('docx')">
+                <span class="report-fmt-badge fmt-docx">DOCX</span>
+                <div class="report-fmt-info">
+                  <strong>Documento Word (.docx)</strong>
+                  <small>Arquivo formal editável</small>
+                </div>
+              </button>
+            </div>
+          </div>
+          <button type="button" class="btn btn-primary" id="btn-open-new-school-modal">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 21h18"></path>
+              <path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"></path>
+            </svg>
+            <span>Nova Escola</span>
+          </button>
+          <button type="button" class="btn btn-secondary" id="btn-open-csv-modal" title="Importar alunos e turmas via CSV">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="12" y1="18" x2="12" y2="12"></line>
+              <line x1="9" y1="15" x2="15" y2="15"></line>
+            </svg>
+            <span>Importar CSV</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Search & Filter Bar for Schools & Classrooms -->
+      <div class="schools-search-toolbar">
+        <div class="search-box-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-box-icon">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="schools-search-input" class="search-box-input" placeholder="Buscar por escola, turma ou aluno..." autocomplete="off" spellcheck="false">
+          <kbd class="search-kbd-hint" title="Pressione / para buscar">/</kbd>
+          <button type="button" id="schools-search-clear" class="search-box-clear" title="Limpar busca (Esc)" style="display: none;">✕</button>
+        </div>
+        <div id="schools-search-stats" class="search-stats-badge" style="display: none;"></div>
+      </div>
+
+      <div id="schools-container" class="schools-grid">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- VIEW: FULL CLASSROOM REPORT & RANKING PAGE -->
+    <section id="classroom-report-view" class="tab-content" style="display: none;">
+      <!-- Top Header Navigation & Controls -->
+      <div class="report-page-header">
+        <div class="report-header-left">
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-back-to-schools">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            <span>Voltar para Turmas</span>
+          </button>
+          <div class="report-title-group">
+            <h2 class="page-title" id="page-rep-class-title">Relatório da Turma</h2>
+            <div class="page-subtitle" id="page-rep-school-subtitle">ESCOLA MUNICIPAL</div>
+          </div>
+        </div>
+        <div class="report-header-actions">
+          <div class="exam-select-pill">
+            <label for="page-rep-exam-select">Simulado:</label>
+            <select id="page-rep-exam-select" class="form-select"></select>
+          </div>
+          <!-- Executive Multi-Format Export Dropdown -->
+          <div class="export-dropdown-wrapper" style="position: relative; display: inline-block;">
+            <button type="button" class="btn btn-primary btn-sm" id="btn-toggle-export-class">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              <span>Exportar Relatório ▾</span>
+            </button>
+            <div class="report-dropdown-menu" id="dropdown-menu-export-class" style="display: none;">
+              <button type="button" class="report-dropdown-item" onclick="exportClassroomReport('pdf')">
+                <span class="report-fmt-badge fmt-pdf">PDF</span>
+                <div class="report-fmt-info">
+                  <strong>PDF Oficial (A4)</strong>
+                  <small>Padrão i-Diário com Brasão e cabeçalho</small>
+                </div>
+              </button>
+              <button type="button" class="report-dropdown-item" onclick="exportClassroomReport('xlsx')">
+                <span class="report-fmt-badge fmt-xlsx">XLSX</span>
+                <div class="report-fmt-info">
+                  <strong>Planilha Excel (.xlsx)</strong>
+                  <small>Células formatadas, fórmulas e cores</small>
+                </div>
+              </button>
+              <button type="button" class="report-dropdown-item" onclick="exportClassroomReport('docx')">
+                <span class="report-fmt-badge fmt-docx">DOCX</span>
+                <div class="report-fmt-info">
+                  <strong>Documento Word (.docx)</strong>
+                  <small>Arquivo formal institucional editável</small>
+                </div>
+              </button>
+              <div class="report-dropdown-divider"></div>
+              <button type="button" class="report-dropdown-item" onclick="exportClassroomDiagnostic('pdf')">
+                <span class="report-fmt-badge fmt-pdf">PDF</span>
+                <div class="report-fmt-info">
+                  <strong>Diagnóstico por Questão (A4)</strong>
+                  <small>Taxa de acertos e descritores</small>
+                </div>
+              </button>
+              <button type="button" class="report-dropdown-item" onclick="exportClassroomDiagnostic('xlsx')">
+                <span class="report-fmt-badge fmt-xlsx">XLSX</span>
+                <div class="report-fmt-info">
+                  <strong>Diagnóstico em Excel</strong>
+                  <small>Estatísticas item a item</small>
+                </div>
+              </button>
+              <div class="report-dropdown-divider"></div>
+              <button type="button" class="report-dropdown-item" id="btn-page-export-report-csv">
+                <span class="report-fmt-badge" style="background: #64748b; color: #fff;">CSV</span>
+                <div class="report-fmt-info">
+                  <strong>Dados Brutos (.csv)</strong>
+                  <small>Exportação simples sem formatação</small>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-page-print-report">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 6 2 18 2 18 9"/>
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+              <rect x="6" y="14" width="12" height="8"/>
+            </svg>
+            <span>Imprimir</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Secondary Sub-Nav Tabs (Overview vs Comparison) -->
+      <div class="report-subnav-bar">
+        <button type="button" class="subnav-pill active" id="btn-subnav-single" onclick="switchReportSubTab('single')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          <span>Visão Geral do Simulado</span>
+        </button>
+        <button type="button" class="subnav-pill" id="btn-subnav-compare" onclick="switchReportSubTab('compare')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+          <span>Comparar Gabaritos</span>
+        </button>
+      </div>
+
+      <!-- CONTAINER: SINGLE EXAM VIEW -->
+      <div id="report-view-single">
+        <!-- KPI Summary Cards Grid -->
+        <div class="report-kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-icon icon-blue">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div class="kpi-content">
+            <span class="kpi-label">Total de Estudantes</span>
+            <div class="kpi-value" id="page-rep-total-students">0</div>
+            <span class="kpi-subtext" id="page-rep-enrolled-sub">Matriculados</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon icon-green">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div class="kpi-content">
+            <span class="kpi-label">Provas Corrigidas</span>
+            <div class="kpi-value kpi-green" id="page-rep-graded-students">0</div>
+            <span class="kpi-subtext" id="page-rep-graded-pct">0% de presença</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon icon-amber">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="kpi-content">
+            <span class="kpi-label">Pendentes</span>
+            <div class="kpi-value kpi-amber" id="page-rep-pending-students">0</div>
+            <span class="kpi-subtext">Aguardando correção</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon icon-navy">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/><circle cx="12" cy="12" r="4"/></svg>
+          </div>
+          <div class="kpi-content">
+            <span class="kpi-label">Média da Turma</span>
+            <div class="kpi-value" id="page-rep-avg-score">0.0</div>
+            <span class="kpi-subtext" id="page-rep-max-score-sub">de 10.0 pontos</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon icon-emerald">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          </div>
+          <div class="kpi-content">
+            <span class="kpi-label">Aproveitamento</span>
+            <div class="kpi-value kpi-emerald" id="page-rep-avg-pct">0%</div>
+            <span class="kpi-subtext">Acertos gerais</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top 3 Best Students -->
+      <div class="podium-card-section">
+        <div class="section-card-header">
+          <h3 class="section-card-title">Destaques da Turma</h3>
+        </div>
+        <div class="podium-stage" id="podium-stage-container">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- Analytics Charts Grid -->
+      <div class="report-charts-grid">
+        <!-- Chart 1: Questions Accuracy Bar Chart -->
+        <div class="chart-box-card">
+          <div class="chart-header">
+            <div>
+              <h3 class="chart-title">Taxa de Acertos por Questão (%)</h3>
+            </div>
+            <div class="chart-legend-custom">
+              <span class="leg-item"><span class="dot dot-green"></span> ≥ 70%</span>
+              <span class="leg-item"><span class="dot dot-amber"></span> 40–69%</span>
+              <span class="leg-item"><span class="dot dot-red"></span> &lt; 40%</span>
+            </div>
+          </div>
+          <div class="chart-canvas-wrapper">
+            <canvas id="chart-questions-accuracy"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 2: Grade Distribution -->
+        <div class="chart-box-card">
+          <div class="chart-header">
+            <div>
+              <h3 class="chart-title">Distribuição de Notas</h3>
+            </div>
+          </div>
+          <div class="chart-canvas-wrapper" style="height: 250px;">
+            <canvas id="chart-grade-distribution"></canvas>
+          </div>
+          <div class="grade-distribution-summary" id="grade-dist-summary-box">
+            <!-- Dynamically populated counters -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Full Ranking Table Section -->
+      <div class="ranking-card-section">
+        <div class="ranking-header-bar">
+          <div>
+            <h3 class="section-card-title">Classificação dos Alunos</h3>
+          </div>
+          <div class="ranking-search-wrap">
+            <input type="text" id="report-ranking-search" class="form-input" placeholder="Filtrar por nome do aluno...">
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table ranking-table">
+            <thead>
+              <tr>
+                <th style="width: 70px; text-align: center;">Posição</th>
+                <th>Nome do Estudante</th>
+                <th style="width: 110px; text-align: center;">Nota</th>
+                <th style="width: 130px; text-align: center;">Acertos</th>
+                <th style="width: 140px; text-align: center;">Aproveitamento</th>
+                <th style="width: 120px; text-align: center;">Status</th>
+                <th style="width: 90px; text-align: center;">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="page-rep-students-tbody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      </div> <!-- /report-view-single -->
+
+      <!-- CONTAINER: COMPARISON BETWEEN TWO EXAMS -->
+      <div id="report-view-compare" style="display: none;">
+        <!-- Comparison Exam Selectors Bar -->
+        <div class="compare-selector-card">
+          <div class="compare-selector-grid">
+            <div class="compare-col">
+              <label class="compare-label" for="compare-select-exam1">
+                <span class="exam-color-indicator exam-a-dot"></span>
+                <strong>Gabarito A (Principal):</strong>
+              </label>
+              <select id="compare-select-exam1" class="form-select"></select>
+            </div>
+            
+            <div class="compare-vs-badge">VS</div>
+
+            <div class="compare-col">
+              <label class="compare-label" for="compare-select-exam2">
+                <span class="exam-color-indicator exam-b-dot"></span>
+                <strong>Gabarito B (Comparado):</strong>
+              </label>
+              <select id="compare-select-exam2" class="form-select"></select>
+            </div>
+
+            <div class="compare-btn-col">
+              <button type="button" class="btn btn-primary btn-sm" id="btn-run-comparison">
+                <span>Atualizar Comparativo</span>
+              </button>
+              
+              <!-- Multi-Format Compare Export Dropdown -->
+              <div class="export-dropdown-wrapper" style="position: relative; display: inline-block;">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-export-compare" title="Baixar relatório comparativo">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <span>Exportar Comparativo ▾</span>
+                </button>
+                <div class="report-dropdown-menu" id="dropdown-menu-export-compare" style="display: none;">
+                  <button type="button" class="report-dropdown-item" onclick="exportCompareReport('pdf')">
+                    <span class="report-fmt-badge fmt-pdf">PDF</span>
+                    <div class="report-fmt-info">
+                      <strong>Comparativo em PDF (A4)</strong>
+                      <small>Documento oficial com gráficos comparativos</small>
+                    </div>
+                  </button>
+                  <button type="button" class="report-dropdown-item" onclick="exportCompareReport('xlsx')">
+                    <span class="report-fmt-badge fmt-xlsx">XLSX</span>
+                    <div class="report-fmt-info">
+                      <strong>Planilha Excel Comparativa</strong>
+                      <small>Cálculo de evolução por estudante</small>
+                    </div>
+                  </button>
+                  <button type="button" class="report-dropdown-item" onclick="exportCompareReport('docx')">
+                    <span class="report-fmt-badge fmt-docx">DOCX</span>
+                    <div class="report-fmt-info">
+                      <strong>Documento Word Editável</strong>
+                      <small>Registro institucional pedagógico</small>
+                    </div>
+                  </button>
+                  <div class="report-dropdown-divider"></div>
+                  <button type="button" class="report-dropdown-item" id="btn-export-compare-csv">
+                    <span class="report-fmt-badge" style="background: #64748b; color: #fff;">CSV</span>
+                    <div class="report-fmt-info">
+                      <strong>Dados Brutos (.csv)</strong>
+                      <small>Tabela simples de notas</small>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Highlight Pedagogical Insight Banner -->
+        <div class="compare-insight-banner" id="compare-insight-banner">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <div class="insight-text" id="compare-insight-text">
+            Selecione dois gabaritos para analisar a comparação de desempenho da turma.
+          </div>
+        </div>
+
+        <!-- Comparison KPI Cards -->
+        <div class="compare-kpi-grid">
+          <!-- Card 1: Média da Turma -->
+          <div class="compare-kpi-card">
+            <div class="compare-kpi-title">MÉDIA GERAL DA TURMA</div>
+            <div class="compare-kpi-body">
+              <div class="compare-stat-side side-a">
+                <span class="stat-name" id="comp-kpi-name1">Gabarito A</span>
+                <span class="stat-score" id="comp-kpi-score1">0.0</span>
+                <span class="stat-pct" id="comp-kpi-pct1">0%</span>
+              </div>
+              <div class="compare-divider"></div>
+              <div class="compare-stat-side side-b">
+                <span class="stat-name" id="comp-kpi-name2">Gabarito B</span>
+                <span class="stat-score" id="comp-kpi-score2">0.0</span>
+                <span class="stat-pct" id="comp-kpi-pct2">0%</span>
+              </div>
+            </div>
+            <div class="compare-kpi-footer" id="comp-kpi-diff-footer">Diferença: 0.0 pts</div>
+          </div>
+
+          <!-- Card 2: Participação / Presença -->
+          <div class="compare-kpi-card">
+            <div class="compare-kpi-title">PROVAS CORRIGIDAS (PRESENÇA)</div>
+            <div class="compare-kpi-body">
+              <div class="compare-stat-side side-a">
+                <span class="stat-name" id="comp-kpi-pres-name1">Gabarito A</span>
+                <span class="stat-score" id="comp-kpi-graded1">0</span>
+                <span class="stat-pct" id="comp-kpi-pres-pct1">alunos</span>
+              </div>
+              <div class="compare-divider"></div>
+              <div class="compare-stat-side side-b">
+                <span class="stat-name" id="comp-kpi-pres-name2">Gabarito B</span>
+                <span class="stat-score" id="comp-kpi-graded2">0</span>
+                <span class="stat-pct" id="comp-kpi-pres-pct2">alunos</span>
+              </div>
+            </div>
+            <div class="compare-kpi-footer" id="comp-kpi-total-students-footer">Total: 0 matriculados</div>
+          </div>
+        </div>
+
+        <!-- Grouped Bar Chart: Questions Accuracy Side-by-Side -->
+        <div class="chart-box-card" style="margin-bottom: 1.5rem;">
+          <div class="chart-header">
+            <div>
+              <h3 class="chart-title">Acertos por Questão (%)</h3>
+            </div>
+            <div class="chart-legend-custom">
+              <span class="leg-item"><span class="dot" style="background: #2563eb;"></span> <span id="leg-exam1-name">Gabarito A</span></span>
+              <span class="leg-item"><span class="dot" style="background: #10b981;"></span> <span id="leg-exam2-name">Gabarito B</span></span>
+            </div>
+          </div>
+          <div class="chart-canvas-wrapper" style="height: 300px;">
+            <canvas id="chart-compare-questions"></canvas>
+          </div>
+        </div>
+
+        <!-- Student-by-Student Comparison Table -->
+        <div class="ranking-card-section">
+          <div class="ranking-header-bar">
+            <div>
+              <h3 class="section-card-title">Comparativo Individual</h3>
+            </div>
+            <div class="ranking-search-wrap">
+              <input type="text" id="compare-students-search" class="form-input" placeholder="Filtrar por aluno ou matrícula...">
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="data-table compare-table">
+              <thead>
+                <tr>
+                  <th>Nome do Estudante</th>
+                  <th style="width: 150px; text-align: center;" id="th-comp-exam1">Nota (A)</th>
+                  <th style="width: 150px; text-align: center;" id="th-comp-exam2">Nota (B)</th>
+                  <th style="width: 120px; text-align: center;">Média</th>
+                  <th style="width: 180px; text-align: center;">Melhor Desempenho</th>
+                </tr>
+              </thead>
+              <tbody id="compare-students-tbody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: CREATE NEW EXAM -->
+    <section id="create-tab" class="tab-content">
+      <div class="create-exam-layout">
+        
+        <!-- Left: Form Controls -->
+        <div class="create-exam-card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title" id="create-card-title">Nova Prova</h2>
+            </div>
+          </div>
+
+          <!-- Edit Mode Alert Bar -->
+          <div id="edit-mode-banner" class="edit-mode-banner" style="display: none;">
+            <div class="edit-mode-info">
+              <span class="badge-tag" style="background-color: #fef3c7; color: #b45309;">✏️ EDIÇÃO</span>
+              <span>Editando: <strong id="edit-exam-title"></strong></span>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-cancel-edit">Cancelar</button>
+          </div>
+
+          <form id="create-exam-form" class="exam-form">
+            
+            <!-- Section 1: Header & Visual Identity -->
+            <div class="form-section-title">Cabeçalho</div>
+            
+            <div class="form-row">
+              <div class="form-group flex-2">
+                <label for="exam-title-input">Título: *</label>
+                <input type="text" id="exam-title-input" class="form-input" value="PROVA CANOA 2026 – LÍNGUA PORTUGUESA" placeholder="Ex: SIMULADO 2026" required>
+              </div>
+              <div class="form-group flex-1">
+                <label for="exam-subtitle-input">Subtítulo / Série:</label>
+                <input type="text" id="exam-subtitle-input" class="form-input" value="2º ANO DO ENSINO FUNDAMENTAL" placeholder="Ex: 2º ANO">
+              </div>
+            </div>
+
+            <!-- Logo Selector Box -->
+            <div class="logo-selector-card">
+              <div class="logo-preview-box">
+                <img id="logo-preview-img" src="/static/assets/logo_lagoa_da_canoa.png" alt="Logo Selecionada">
+              </div>
+              <div class="logo-controls">
+                <span class="logo-title">Logo da Prova</span>
+                <div class="logo-buttons">
+                  <input type="file" id="exam-logo-file" accept="image/png, image/jpeg, image/svg+xml" style="display: none;">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-upload-logo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="17 8 12 3 7 8"></polyline>
+                      <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <span>Alterar</span>
+                  </button>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-default-logo">
+                    <span>Padrão Canoa</span>
+                  </button>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-remove-logo" style="color: var(--danger);">
+                    <span>Sem Logo</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- School & Class Data -->
+            <div class="form-section-title">Dados da Escola (Opcional)</div>
+            <div class="form-row">
+              <div class="form-group flex-2">
+                <label for="exam-school-input">Escola:</label>
+                <input type="text" id="exam-school-input" class="form-input" placeholder="Nome da escola (ou em branco)">
+              </div>
+              <div class="form-group flex-1">
+                <label for="exam-class-input">Turma:</label>
+                <input type="text" id="exam-class-input" class="form-input" placeholder="Ex: 2º Ano A">
+              </div>
+              <div class="form-group flex-1">
+                <label for="exam-shift-input">Turno:</label>
+                <input type="text" id="exam-shift-input" class="form-input" value="(  ) MANHÃ       (  ) TARDE">
+              </div>
+            </div>
+
+            <!-- Exam Parameters -->
+            <div class="form-section-title">Questões</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="exam-num-q-input">Qtd. Questões:</label>
+                <input type="number" id="exam-num-q-input" class="form-input" value="20" min="5" max="100" required>
+              </div>
+              <div class="form-group">
+                <label for="exam-num-opts-select">Alternativas:</label>
+                <select id="exam-num-opts-select" class="form-select">
+                  <option value="4" selected>4 Opções (A-D)</option>
+                  <option value="5">5 Opções (A-E)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="exam-points-input">Pontos p/ Questão:</label>
+                <input type="number" id="exam-points-input" class="form-input" value="1.0" step="0.1" min="0.1">
+              </div>
+            </div>
+
+            <!-- Interactive Answer Key Matrix -->
+            <div class="answer-key-section">
+              <div class="answer-key-header">
+                <h3>Gabarito Oficial</h3>
+              </div>
+              
+              <div id="answer-key-matrix" class="answer-key-matrix">
+                <!-- Dynamically populated buttons -->
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" id="cancel-create-btn">Cancelar</button>
+              <button type="submit" class="btn btn-primary btn-lg" id="save-exam-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                  <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                  <polyline points="7 3 7 8 15 8"></polyline>
+                </svg>
+                <span>Salvar Prova</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Right: Live Sheet Preview Mockup -->
+        <div class="preview-panel">
+          <div class="preview-panel-header">
+            <h3>Prévia da Folha</h3>
+            <span class="badge-tag">Oficial</span>
+          </div>
+          <div class="live-sheet-mockup" id="live-sheet-mockup">
+            
+            <!-- ArUco Top Markers -->
+            <div class="mockup-marker tl">0</div>
+            <div class="mockup-marker tr">1</div>
+
+            <!-- Sheet Header -->
+            <div class="mockup-banner">
+              <div class="mockup-banner-title" id="preview-title">PROVA CANOA 2026 – LÍNGUA PORTUGUESA</div>
+              <div class="mockup-banner-sub" id="preview-sub">2º ANO DO ENSINO FUNDAMENTAL</div>
+            </div>
+
+            <!-- Identification Table -->
+            <div class="mockup-table">
+              <div class="mockup-col-logo">
+                <img id="preview-logo-img" src="/static/assets/logo_lagoa_da_canoa.png" alt="Logo">
+              </div>
+              <div class="mockup-col-data">
+                <div class="mockup-row"><span class="m-lbl">ESCOLA:</span> <span id="preview-school">_________________________________________</span></div>
+                <div class="mockup-row"><span class="m-lbl">ESTUDANTE:</span> <span>_________________________________________</span></div>
+                <div class="mockup-row split">
+                  <div class="m-sub"><span class="m-lbl">TURMA:</span> <span id="preview-class">___________</span></div>
+                  <div class="m-sub"><span class="m-lbl">TURNO:</span> <span id="preview-shift">(  ) MANHÃ   (  ) TARDE</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Orientation Note -->
+            <div class="mockup-instructions">
+              <span>ORIENTAÇÕES: Preencha totalmente a bolha da opção escolhida.</span>
+              <span>[ ⬤ ] CORRETO</span>
+            </div>
+
+            <!-- Questions Table Mockup -->
+            <div class="mockup-questions-grid" id="preview-questions-grid">
+              <!-- Dynamically populated sample questions table -->
+            </div>
+
+            <!-- ArUco Bottom Markers -->
+            <div class="mockup-marker bl">3</div>
+            <div class="mockup-marker br">2</div>
+
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB: GESTÃO DE USUÁRIOS E ACESSOS -->
+    <section id="users-tab" class="tab-content" style="display: none;">
+      <!-- Header da Página de Usuários -->
+      <div class="users-page-header">
+        <div>
+          <h2 class="users-page-title">Gestão de Usuários & Acessos</h2>
+          <p class="users-page-subtitle">Controle de operadores municipais e permissões de acesso ao sistema</p>
+        </div>
+        <div class="users-header-actions">
+          <button type="button" class="btn btn-primary btn-sm" onclick="openUserModal()" style="display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 600; box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <line x1="19" y1="8" x2="19" y2="14"></line>
+              <line x1="16" y1="11" x2="22" y2="11"></line>
+            </svg>
+            <span>Novo Usuário</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Cards de Usuários -->
+      <div class="dash-kpi-grid" style="margin-bottom: 1.5rem;">
+        <!-- Card 1: Total Usuários -->
+        <div class="dash-kpi-card">
+          <div class="dash-kpi-top">
+            <span class="dash-kpi-title">Total de Operadores</span>
+            <div class="dash-kpi-icon-wrap icon-blue">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </div>
+          </div>
+          <div class="dash-kpi-val-row">
+            <span class="dash-kpi-main-val" id="users-kpi-total">0</span>
+            <span class="dash-kpi-subpill" id="users-kpi-active-pill">0 ativos</span>
+          </div>
+          <span class="dash-kpi-subtext">Usuários cadastrados no sistema</span>
+        </div>
+
+        <!-- Card 2: Administradores -->
+        <div class="dash-kpi-card">
+          <div class="dash-kpi-top">
+            <span class="dash-kpi-title">Administradores</span>
+            <div class="dash-kpi-icon-wrap icon-green">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+            </div>
+          </div>
+          <div class="dash-kpi-val-row">
+            <span class="dash-kpi-main-val" id="users-kpi-admins">0</span>
+            <span class="dash-kpi-subpill">Acesso Total</span>
+          </div>
+          <span class="dash-kpi-subtext">Equipe SEMED e gestão geral</span>
+        </div>
+
+        <!-- Card 3: Coordenadores Pedagógicos -->
+        <div class="dash-kpi-card">
+          <div class="dash-kpi-top">
+            <span class="dash-kpi-title">Coordenadores</span>
+            <div class="dash-kpi-icon-wrap icon-amber">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+              </svg>
+            </div>
+          </div>
+          <div class="dash-kpi-val-row">
+            <span class="dash-kpi-main-val" id="users-kpi-coords">0</span>
+            <span class="dash-kpi-subpill">Pedagógico</span>
+          </div>
+          <span class="dash-kpi-subtext">Gestão de provas e relatórios</span>
+        </div>
+
+        <!-- Card 4: Professores e Aplicadores -->
+        <div class="dash-kpi-card">
+          <div class="dash-kpi-top">
+            <span class="dash-kpi-title">Professores / Aplicadores</span>
+            <div class="dash-kpi-icon-wrap icon-slate">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+              </svg>
+            </div>
+          </div>
+          <div class="dash-kpi-val-row">
+            <span class="dash-kpi-main-val" id="users-kpi-teachers">0</span>
+            <span class="dash-kpi-subpill">Leitura OMR</span>
+          </div>
+          <span class="dash-kpi-subtext">Aplicação e correção móvel</span>
+        </div>
+      </div>
+
+      <!-- Barra de Filtros e Busca de Usuários -->
+      <div class="dash-section-card">
+        <div class="users-toolbar">
+          <div class="users-search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="users-search-input" placeholder="Buscar por nome, usuário ou e-mail..." oninput="filterUsersList()">
+            <button type="button" id="users-search-clear" onclick="clearUsersSearch()" style="display: none;">✕</button>
+          </div>
+          <div class="users-filter-group">
+            <label for="users-role-filter">Filtrar Função:</label>
+            <select id="users-role-filter" class="form-select" onchange="filterUsersList()">
+              <option value="">Todas as Funções</option>
+              <option value="admin">Administrador (SEMED)</option>
+              <option value="coordenador">Coordenador Pedagógico</option>
+              <option value="professor">Professor / Aplicador</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Tabela de Usuários -->
+        <div class="dash-table-wrapper">
+          <table class="dash-table" id="users-table">
+            <thead>
+              <tr>
+                <th style="width: 25%;">Nome Completo</th>
+                <th style="text-align: center; width: 15%;">Usuário (Login)</th>
+                <th style="width: 20%;">E-mail Institucional</th>
+                <th style="text-align: center; width: 14%;">Perfil / Função</th>
+                <th style="text-align: center; width: 10%;">Status</th>
+                <th style="text-align: center; width: 16%;">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  <!-- Modal: Gestão de Usuário (Criar / Editar) -->
+  <div id="user-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 540px;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="user-modal-title">Novo Usuário</h3>
+        <button type="button" class="modal-close" onclick="closeUserModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="user-form" onsubmit="saveUser(event)">
+          <input type="hidden" id="user-form-id" value="">
+          
+          <div class="form-group" style="margin-bottom: 0.9rem;">
+            <label for="user-form-name">Nome Completo: *</label>
+            <input type="text" id="user-form-name" class="form-input" placeholder="Ex: Maria das Graças Silva" required>
+          </div>
+
+          <div class="form-row" style="margin-bottom: 0.9rem;">
+            <div class="form-group flex-1">
+              <label for="user-form-username">Usuário (Login): *</label>
+              <input type="text" id="user-form-username" class="form-input" placeholder="Ex: maria.silva" autocomplete="off" required>
+            </div>
+            <div class="form-group flex-1">
+              <label for="user-form-role">Função / Perfil: *</label>
+              <select id="user-form-role" class="form-select" required>
+                <option value="admin">Administrador (SEMED)</option>
+                <option value="coordenador" selected>Coordenador Pedagógico</option>
+                <option value="professor">Professor / Aplicador</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0.9rem;">
+            <label for="user-form-email">E-mail: (Opcional)</label>
+            <input type="email" id="user-form-email" class="form-input" placeholder="Ex: maria@semedcanoa.al.gov.br">
+          </div>
+
+          <div class="form-row" style="margin-bottom: 0.4rem;">
+            <div class="form-group flex-1">
+              <label for="user-form-pwd" id="user-form-pwd-label">Senha de Acesso: *</label>
+              <input type="password" id="user-form-pwd" class="form-input" placeholder="Mínimo 4 caracteres" autocomplete="new-password">
+            </div>
+            <div class="form-group flex-1">
+              <label for="user-form-pwd-confirm" id="user-form-pwd-confirm-label">Confirmar Senha: *</label>
+              <input type="password" id="user-form-pwd-confirm" class="form-input" placeholder="Repita a senha" autocomplete="new-password">
+            </div>
+          </div>
+          <p id="user-pwd-help" style="display: none; color: var(--text-secondary); font-size: 0.76rem; margin-top: 0.15rem; margin-bottom: 0.75rem;">
+            ℹ️ Deixe os campos de senha em branco se desejar manter a senha atual.
+          </p>
+
+          <div class="form-group" style="margin-top: 0.75rem; display: flex; align-items: center; gap: 0.6rem;">
+            <input type="checkbox" id="user-form-active" checked style="width: 17px; height: 17px; cursor: pointer;">
+            <label for="user-form-active" style="margin: 0; cursor: pointer; font-weight: 500; font-size: 0.88rem;">Usuário ativo (permite login no sistema)</label>
+          </div>
+
+          <div id="user-form-error" style="display: none; color: #dc2626; background: #fee2e2; border: 1px solid #fca5a5; padding: 0.6rem 0.8rem; border-radius: 6px; font-size: 0.82rem; margin-top: 0.75rem;"></div>
+
+          <div class="form-actions" style="margin-top: 1.25rem;">
+            <button type="button" class="btn btn-secondary" onclick="closeUserModal()">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="btn-save-user">
+              <span>Salvar Usuário</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Nova Escola -->
+  <div id="new-school-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Cadastrar Nova Escola</h3>
+        <button type="button" class="modal-close" id="btn-close-new-school-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="new-school-form">
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label for="new-school-name-input">Nome da Escola: *</label>
+            <input type="text" id="new-school-name-input" class="form-input" placeholder="Ex: Escola Municipal Manoel Pereira Filho" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 1.25rem;">
+            <label for="new-school-inep-input">Código INEP (Opcional):</label>
+            <input type="text" id="new-school-inep-input" class="form-input" placeholder="Ex: 27012345">
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" id="btn-cancel-new-school">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="btn-save-new-school">
+              <span>Salvar Escola</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Import CSV -->
+  <div id="csv-import-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Importar Turmas e Alunos (.CSV)</h3>
+        <button type="button" class="modal-close" id="btn-close-csv-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label for="csv-school-select">Selecione a Escola de Destino: *</label>
+          <select id="csv-school-select" class="form-select">
+            <option value="">-- Selecione a Escola --</option>
+          </select>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.85rem;">
+          <a href="/api/students/csv-template?etapa=fundamental2" download="modelo_fundamental_2_6_ao_9_ano.csv" class="btn btn-secondary btn-sm" style="font-size: 0.78rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 600;" title="Baixar modelo pronto para turmas do 6º ao 9º Ano">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span>Modelo 6º ao 9º Ano (.CSV)</span>
+          </a>
+          <a href="/api/students/csv-template" download="modelo_importacao_alunos.csv" class="btn btn-secondary btn-sm" style="font-size: 0.78rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.35rem;" title="Baixar modelo padrão">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span>Modelo Padrão</span>
+          </a>
+        </div>
+
+        <p class="modal-instruction" style="font-size: 0.8rem; line-height: 1.45; margin-bottom: 0.85rem;">
+          Compatível com arquivos da <strong>Plataforma CNCA, CAEd, SGE ou planilha própria</strong>. Colunas reconhecidas: <strong>Código da Turma</strong>, <strong>Turma</strong>, <strong>Ano Escolar</strong> (6º, 7º, 8º ou 9º Ano) e <strong>Estudante</strong> (Nome do Aluno).
+        </p>
+        
+        <div class="csv-dropzone" id="csv-dropzone">
+          <div class="csv-dropzone-icon">📁</div>
+          <div class="csv-dropzone-text">Clique aqui para selecionar o arquivo .CSV</div>
+          <div class="csv-dropzone-sub">Colunas: Código da Turma; Turma; Ano Escolar; Turno; Matrícula; Estudante</div>
+          <input type="file" id="csv-file-input" accept=".csv, text/csv, text/plain" style="display: none;">
+        </div>
+
+        <div id="csv-file-info" style="display: none; margin-bottom: 1rem; padding: 0.75rem; background: #e0f2fe; border-radius: 6px; font-size: 0.85rem; color: #0369a1;">
+          📄 Arquivo selecionado: <strong id="csv-file-name"></strong>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-csv">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btn-submit-csv" disabled>
+            <span>Processar e Importar</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Gerar Gabaritos em Lote -->
+  <div id="batch-pdf-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Gerar Gabaritos da Turma</h3>
+        <button type="button" class="modal-close" id="btn-close-batch-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-instruction" style="margin-bottom: 0.35rem;">Turma: <strong id="batch-modal-class-name"></strong> (<span id="batch-modal-school-name"></span>)</p>
+        <p class="modal-instruction" style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 1rem;">Serão gerados gabaritos nominais com QR Code individualizado para os <strong id="batch-modal-student-count">0</strong> alunos.</p>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label for="batch-exam-select">Selecione o Simulado / Prova: *</label>
+          <select id="batch-exam-select" class="form-select"></select>
+        </div>
+
+        <div id="batch-dual-notice" style="display: none; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; border-radius: 6px; padding: 0.65rem 0.85rem; font-size: 0.8rem; margin-bottom: 1rem; line-height: 1.45;">
+          <strong>Modo 2 em 1 ativado:</strong> Esta turma possui 2 simulados vinculados e a opção "2 por folha" está ativa. Cada aluno receberá <strong>ambos os gabaritos na mesma folha A4</strong> (superior e inferior).
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label>Modelo de Impressão:</label>
+          <div class="radio-group" style="display: flex; gap: 1rem; margin-top: 0.35rem;">
+            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; cursor: pointer;">
+              <input type="radio" name="batch-layout-radio" value="double" checked>
+              <strong>2 por folha (A5 - Econômico)</strong>
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; cursor: pointer;">
+              <input type="radio" name="batch-layout-radio" value="single">
+              <span>1 por folha (A4 - Completo)</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-batch">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btn-confirm-batch-pdf">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 6 2 18 2 18 9"></polyline>
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+              <rect x="6" y="14" width="12" height="8"></rect>
+            </svg>
+            <span>Baixar Gabaritos em Lote (PDF)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Relatório de Desempenho da Turma -->
+  <div id="classroom-report-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card modal-card-lg">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="report-modal-class-title">Relatório da Turma</h3>
+          <span id="report-modal-school-subtitle" style="font-size: 0.75rem; color: var(--text-secondary);"></span>
+        </div>
+        <button type="button" class="modal-close" id="btn-close-report-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 200px;">
+            <label for="report-exam-select" style="font-size: 0.85rem; font-weight: 700;">Simulado:</label>
+            <select id="report-exam-select" class="form-select" style="max-width: 300px;"></select>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-export-report-csv">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Exportar Planilha (.CSV)</span>
+          </button>
+        </div>
+
+        <!-- Metric Cards -->
+        <div class="report-stat-grid" id="report-stat-grid">
+          <div class="stat-box">
+            <div class="stat-box-val" id="rep-total-students">0</div>
+            <div class="stat-box-lbl">Total Alunos</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-box-val" id="rep-graded-students" style="color: #10b981;">0</div>
+            <div class="stat-box-lbl">Corrigidos</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-box-val" id="rep-pending-students" style="color: #f59e0b;">0</div>
+            <div class="stat-box-lbl">Pendentes</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-box-val" id="rep-avg-score">0.0</div>
+            <div class="stat-box-lbl">Nota Média</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-box-val" id="rep-avg-pct">0%</div>
+            <div class="stat-box-lbl">Aproveitamento</div>
+          </div>
+        </div>
+
+        <!-- Question Accuracy -->
+        <div style="margin-bottom: 1rem;">
+          <h4 style="font-size: 0.85rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-primary);">Desempenho por Questão (% de Acertos):</h4>
+          <div class="accuracy-list" id="report-accuracy-list"></div>
+        </div>
+
+        <!-- Student Results Table -->
+        <div style="max-height: 260px; overflow-y: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nome do Aluno</th>
+                <th>Nota</th>
+                <th>Acertos</th>
+                <th>Status</th>
+                <th style="text-align: center;">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="report-students-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Vincular Múltiplos Gabaritos à Turma -->
+  <div id="link-exams-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Gabaritos da Turma</h3>
+          <span id="link-exams-class-subtitle" style="font-size: 0.75rem; color: var(--text-secondary);"></span>
+        </div>
+        <button type="button" class="modal-close" id="btn-close-link-exams-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-instruction">
+          Selecione quais simulados ou provas esta turma irá realizar (ex: Língua Portuguesa, Matemática):
+        </p>
+        <div id="link-exams-list-container" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.25rem; border: 1px solid var(--border-color); border-radius: 6px; padding: 0.75rem;">
+          <!-- Dynamically filled with checkboxes -->
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-link-exams">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btn-save-link-exams">
+            <span>Salvar Gabaritos da Turma</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Configurações Institucionais do Município & Brasão Oficial -->
+  <div id="settings-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Configurações Institucionais</h3>
+          <span style="font-size: 0.78rem; color: var(--text-secondary);">Cabeçalho oficial para relatórios em PDF, Excel e Word (Padrão i-Diário)</span>
+        </div>
+        <button type="button" class="modal-close" id="btn-close-settings-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="settings-form" onsubmit="event.preventDefault(); saveSystemSettings();">
+          
+          <!-- Brasão Upload & Preview -->
+          <div class="settings-logo-section">
+            <div class="settings-logo-preview" id="settings-logo-preview-box">
+              <img id="settings-logo-img" src="/static/assets/logo-placeholder.svg" alt="Brasão Oficial" onerror="this.src='/static/assets/logo-placeholder.svg';">
+            </div>
+            <div class="settings-logo-upload">
+              <label class="form-label" style="font-weight: 700; margin-bottom: 0.25rem;">Brasão da Prefeitura / Secretaria</label>
+              <p style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.6rem;">
+                Envie a imagem do Brasão Municipal oficial (PNG ou JPG). Será incluído automaticamente em todos os relatórios emitidos.
+              </p>
+              <input type="file" id="settings-logo-input" accept="image/png, image/jpeg, image/webp" style="display: none;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('settings-logo-input').click();">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <span>Selecionar Brasão</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top: 1rem;">
+            <label for="settings-prefeitura" class="form-label">Prefeitura Municipal / Órgão:</label>
+            <input type="text" id="settings-prefeitura" class="form-input" placeholder="Ex: PREFEITURA MUNICIPAL DE LAGOA DA CANOA" required>
+          </div>
+
+          <div class="form-group">
+            <label for="settings-secretaria" class="form-label">Secretaria de Educação:</label>
+            <input type="text" id="settings-secretaria" class="form-input" placeholder="Ex: SECRETARIA MUNICIPAL DE EDUCAÇÃO E CULTURA" required>
+          </div>
+
+          <div class="form-group">
+            <label for="settings-state" class="form-label">Estado (UF):</label>
+            <input type="text" id="settings-state" class="form-input" placeholder="Ex: AL" maxlength="2" style="max-width: 100px; text-transform: uppercase;">
+          </div>
+
+          <div class="settings-divider" style="margin: 1.5rem 0 1rem 0; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+            <h4 style="font-size: 0.9rem; font-weight: 700; color: #0f172a; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.4rem;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+              <span>Segurança & Senha do Administrador</span>
+            </h4>
+            <p style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.85rem;">Preencha somente se desejar alterar a senha de acesso (SEMED).</p>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="settings-current-pwd" class="form-label" style="font-size: 0.8rem;">Senha Atual:</label>
+                <input type="password" id="settings-current-pwd" class="form-input" placeholder="Senha atual">
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="settings-new-pwd" class="form-label" style="font-size: 0.8rem;">Nova Senha:</label>
+                <input type="password" id="settings-new-pwd" class="form-input" placeholder="Nova senha (min. 4 carac.)">
+              </div>
+            </div>
+            <div id="settings-pwd-msg" style="display: none; font-size: 0.8rem; margin-top: 0.5rem; padding: 0.4rem 0.65rem; border-radius: 6px;"></div>
+          </div>
+
+          <div class="form-actions" style="margin-top: 1.5rem;">
+            <button type="button" class="btn btn-secondary" id="btn-cancel-settings">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="btn-save-settings">
+              <span>Salvar Configurações</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Editar Turma (Nome, Turno, Ano Escolar) -->
+  <div id="edit-classroom-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Editar Dados da Turma</h3>
+          <span id="edit-classroom-school-subtitle" style="font-size: 0.8rem; color: var(--text-secondary);">Escola</span>
+        </div>
+        <button type="button" class="modal-close" onclick="closeEditClassroomModal()">&times;</button>
+      </div>
+      <form id="edit-classroom-form">
+        <input type="hidden" id="edit-classroom-id-input">
+        <div class="modal-body" style="padding: 1.25rem;">
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label for="edit-classroom-name-input" class="form-label" style="font-weight: 600; font-size: 0.82rem; margin-bottom: 0.35rem;">Nome da Turma / Identificação:</label>
+            <input type="text" id="edit-classroom-name-input" class="form-input" required placeholder="Ex: 2º ANO A, 5º ANO B...">
+          </div>
+
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label for="edit-classroom-shift-select" class="form-label" style="font-weight: 600; font-size: 0.82rem; margin-bottom: 0.35rem;">Turno:</label>
+            <select id="edit-classroom-shift-select" class="form-select">
+              <option value="MANHÃ">Manhã (Matutino)</option>
+              <option value="TARDE">Tarde (Vespertino)</option>
+              <option value="NOITE">Noite (Noturno)</option>
+              <option value="INTEGRAL">Tempo Integral</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0.5rem;">
+            <label for="edit-classroom-grade-select" class="form-label" style="font-weight: 600; font-size: 0.82rem; margin-bottom: 0.35rem;">Ano Escolar / Série / Etapa:</label>
+            <select id="edit-classroom-grade-select" class="form-select">
+              <option value="ENSINO FUNDAMENTAL DE 9 ANOS - 1º ANO">1º Ano do Ensino Fundamental</option>
+              <option value="ENSINO FUNDAMENTAL DE 9 ANOS - 2º ANO">2º Ano do Ensino Fundamental</option>
+              <option value="ENSINO FUNDAMENTAL DE 9 ANOS - 3º ANO">3º Ano do Ensino Fundamental</option>
+              <option value="ENSINO FUNDAMENTAL DE 9 ANOS - 4º ANO">4º Ano do Ensino Fundamental</option>
+              <option value="ENSINO FUNDAMENTAL DE 9 ANOS - 5º ANO">5º Ano do Ensino Fundamental</option>
+              <option value="ENSINO FUNDAMENTAL DE 9 ANOS - 6º ANO">6º Ano do Ensino Fundamental</option>
+              <option value="ENSINO FUNDAMENTAL DE 9 ANOS - 7º ANO">7º Ano do Ensino Fundamental</option>
+              <option value="ENSINO FUNDAMENTAL DE 9 ANOS - 8º ANO">8º Ano do Ensino Fundamental</option>
+              <option value="ENSINO FUNDAMENTAL DE 9 ANOS - 9º ANO">9º Ano do Ensino Fundamental</option>
+              <option value="EDUCAÇÃO INFANTIL">Educação Infantil</option>
+              <option value="EJA">EJA (Educação de Jovens e Adultos)</option>
+              <option value="OUTRO">Outra Etapa / Personalizada...</option>
+            </select>
+          </div>
+          
+          <div id="edit-classroom-grade-custom-wrap" class="form-group" style="display: none; margin-top: 0.5rem; margin-bottom: 0;">
+            <input type="text" id="edit-classroom-grade-custom-input" class="form-input" placeholder="Digite o nome da série personalizada">
+          </div>
+        </div>
+
+        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.5rem; padding: 1rem 1.25rem; border-top: 1px solid var(--border-color); background: #f8fafc;">
+          <button type="button" class="btn btn-secondary" onclick="closeEditClassroomModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-edit-classroom">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Salvar Alterações</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Relatório de Rendimento Geral por Ano Escolar (R2) -->
+  <div id="year-report-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card modal-card-xl">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Relatório de Rendimento por Ano Escolar</h3>
+          <span style="font-size: 0.8rem; color: var(--text-secondary);">Desempenho acadêmico e classificação dos estudantes por etapa e unidade escolar</span>
+        </div>
+        <button type="button" class="modal-close" id="btn-close-year-report-modal" onclick="closeYearReportModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="overflow-y: auto; padding: 1.25rem;">
+        
+        <!-- Filters Row -->
+        <div class="year-report-filters-grid" style="display: grid; grid-template-columns: 1fr 1.15fr 1.15fr auto; gap: 0.85rem; align-items: flex-end; background: #f8fafc; padding: 1rem; border-radius: 10px; border: 1px solid var(--border-color); margin-bottom: 1rem;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="year-rep-grade-select" class="form-label" style="font-weight: 600; font-size: 0.82rem;">Ano Escolar:</label>
+            <select id="year-rep-grade-select" class="form-select">
+              <option value="2º Ano" selected>2º Ano (Fundamental)</option>
+              <option value="1º Ano">1º Ano (Fundamental)</option>
+              <option value="3º Ano">3º Ano (Fundamental)</option>
+              <option value="4º Ano">4º Ano (Fundamental)</option>
+              <option value="5º Ano">5º Ano (Fundamental)</option>
+              <option value="6º Ano">6º Ano (Fundamental)</option>
+              <option value="7º Ano">7º Ano (Fundamental)</option>
+              <option value="8º Ano">8º Ano (Fundamental)</option>
+              <option value="9º Ano">9º Ano (Fundamental)</option>
+              <option value="">Todos os Anos da Rede</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="year-rep-school-select" class="form-label" style="font-weight: 600; font-size: 0.82rem;">Escola / Abrangência:</label>
+            <select id="year-rep-school-select" class="form-select">
+              <option value="">🌐 Toda a Rede Municipal</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="year-rep-exam-select" class="form-label" style="font-weight: 600; font-size: 0.82rem;">Simulado / Avaliação:</label>
+            <select id="year-rep-exam-select" class="form-select">
+              <option value="">Todos os simulados (Média consolidada)</option>
+            </select>
+          </div>
+
+          <div>
+            <button type="button" class="btn btn-primary" id="btn-load-year-report" style="display: inline-flex; align-items: center; gap: 0.4rem; height: 38px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <span>Consultar</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- KPI Summary Cards -->
+        <div class="year-kpis-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1rem;">
+          <div class="kpi-mini-card" style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 0.75rem 1rem; text-align: center;">
+            <div style="font-size: 0.72rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Total de Alunos</div>
+            <div id="year-kpi-total" style="font-size: 1.35rem; font-weight: 800; color: #0f172a; margin-top: 0.2rem;">0</div>
+          </div>
+          <div class="kpi-mini-card" style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 0.75rem 1rem; text-align: center;">
+            <div style="font-size: 0.72rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Provas Corrigidas</div>
+            <div id="year-kpi-graded" style="font-size: 1.35rem; font-weight: 800; color: #0284c7; margin-top: 0.2rem;">0</div>
+          </div>
+          <div class="kpi-mini-card" style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 0.75rem 1rem; text-align: center;">
+            <div style="font-size: 0.72rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Média da Rede</div>
+            <div id="year-kpi-avg" style="font-size: 1.35rem; font-weight: 800; color: #0f172a; margin-top: 0.2rem;">0.0</div>
+          </div>
+          <div class="kpi-mini-card" style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 0.75rem 1rem; text-align: center;">
+            <div style="font-size: 0.72rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Maior Nota</div>
+            <div id="year-kpi-highest" style="font-size: 1.35rem; font-weight: 800; color: #16a34a; margin-top: 0.2rem;">0.0</div>
+          </div>
+        </div>
+
+        <!-- Ranking Table Header Bar -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+          <div style="font-weight: 700; font-size: 0.92rem; color: #0f172a; display: flex; align-items: center; gap: 0.5rem;">
+            <span>Classificação dos Estudantes</span>
+            <span id="year-rep-results-count" class="badge" style="background: #e2e8f0; color: #334155; font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 9999px;">0 alunos</span>
+          </div>
+          <div style="width: 270px;">
+            <input type="text" id="year-rep-search-input" class="form-input form-input-sm" placeholder="Filtrar por estudante, escola ou turma..." style="padding: 0.35rem 0.65rem; font-size: 0.82rem;">
+          </div>
+        </div>
+
+        <!-- Ranking Table Container -->
+        <div class="table-responsive" style="max-height: 360px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px;">
+          <table class="data-table" id="year-rep-table" style="width: 100%; margin: 0;">
+            <thead style="position: sticky; top: 0; background: #1e293b; color: #ffffff; z-index: 2;">
+              <tr>
+                <th style="width: 70px; text-align: center;">Posição</th>
+                <th>Estudante</th>
+                <th style="width: 240px;">Escola</th>
+                <th style="width: 130px; text-align: center;">Turma</th>
+                <th style="width: 100px; text-align: center;">Nota</th>
+                <th style="width: 110px; text-align: center;">% Acertos</th>
+                <th style="width: 110px; text-align: center;">Status</th>
+              </tr>
+            </thead>
+            <tbody id="year-rep-tbody">
+              <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-secondary);">Carregando dados do relatório...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Export Buttons Footer -->
+        <div style="margin-top: 1.15rem; padding-top: 0.95rem; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+          <div style="font-size: 0.82rem; color: var(--text-secondary); font-weight: 500;">
+            Exportar documento oficial com cabeçalho institucional:
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button type="button" class="btn btn-primary btn-sm" onclick="exportYearPerformance('pdf')" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+              <span class="format-tag format-tag-pdf">PDF</span>
+              <span>Baixar PDF</span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="exportYearPerformance('xlsx')" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+              <span class="format-tag format-tag-xlsx">XLSX</span>
+              <span>Planilha Excel</span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="exportYearPerformance('docx')" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+              <span class="format-tag format-tag-docx">DOCX</span>
+              <span>Documento Word</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast Container -->
+  <div id="toast" class="toast"></div>
+
+  <script src="/static/app.js?v=1789650050"></script>
+</body>
+</html>

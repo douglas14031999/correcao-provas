@@ -1,0 +1,70 @@
+# Python & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment variables & secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.crt
+
+# SQLite & Local Databases
+*.db
+*.db-journal
+*.db.bak
+backend/storage/*.db
+backend/storage/*.db.bak
+backend/storage/*.sqlite3
+
+# Backup and Archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Uploaded Files & Generated Scans
+storage/
+backend/storage/scans/*
+!backend/storage/scans/.gitkeep
+backend/storage/overlays/*
+!backend/storage/overlays/.gitkeep
+backend/storage/sheets/*
+!backend/storage/sheets/.gitkeep
+backend/storage/output_verification/
+
+# Temporary debug, sample & test files in backend/storage
+backend/storage/debug_*
+backend/storage/verify_*
+backend/storage/test_*
+backend/storage/sample_*
+backend/storage/case_*
+backend/storage/crop_*
+backend/storage/header_*
+backend/storage/verified_*
+backend/storage/*.png
+backend/storage/*.jpg
+backend/storage/*.pdf
+backend/storage/*.xlsx
+backend/storage/*.docx
+!backend/storage/assets/**
+
+# IDE & Editor Files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+.DS_Store
+Thumbs.db
+
+# OS / Scratch artifacts
+.agents/scratch/
