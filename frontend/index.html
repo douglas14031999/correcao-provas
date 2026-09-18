@@ -105,9 +105,10 @@
       </div>
       
       <nav class="nav-tabs">
+        <!-- Abas Pedagógicas Principais -->
         <div class="nav-group-primary">
           <button class="tab-btn active" data-tab="dashboard-tab" title="Visão geral e indicadores macros da rede">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="7" height="9" rx="1"></rect>
               <rect x="14" y="3" width="7" height="5" rx="1"></rect>
               <rect x="14" y="12" width="7" height="9" rx="1"></rect>
@@ -116,21 +117,21 @@
             <span>Dashboard</span>
           </button>
           <button class="tab-btn" data-tab="scanner-tab" title="Leitor e scanner de gabaritos">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
               <circle cx="12" cy="13" r="4"></circle>
             </svg>
             <span>Correção</span>
           </button>
           <button class="tab-btn" data-tab="exams-tab" title="Simulados e gabaritos cadastrados">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
               <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
             </svg>
             <span>Simulados</span>
           </button>
           <button class="tab-btn" data-tab="schools-tab" title="Gestão de escolas, turmas e alunos">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
               <circle cx="9" cy="7" r="4"></circle>
               <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
@@ -139,54 +140,81 @@
             <span>Turmas & Alunos</span>
           </button>
           <button class="tab-btn" data-tab="create-tab" title="Criar novo simulado ou avaliação">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10"></circle>
               <line x1="12" y1="8" x2="12" y2="16"></line>
               <line x1="8" y1="12" x2="16" y2="12"></line>
             </svg>
             <span>Nova Prova</span>
           </button>
-          <button class="tab-btn" data-tab="users-tab" title="Gestão de usuários e permissões do sistema">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-              <circle cx="9" cy="7" r="4"></circle>
-              <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-            </svg>
-            <span>Usuários</span>
-          </button>
-          <button class="tab-btn" data-tab="backup-tab" id="nav-backup-tab" title="Backup e Restauração do Sistema (Exclusivo Administrador)">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            <span>Backup</span>
-          </button>
         </div>
 
         <div class="nav-divider"></div>
 
+        <!-- Menu de Gestão Administrativa & Perfil -->
         <div class="nav-group-secondary">
-          <button class="nav-action-btn" id="btn-open-year-report-nav" onclick="openYearReportModal()" type="button" title="Relatório de Rendimento por Ano Escolar">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 20V10M18 20V4M6 20v-4"/>
-            </svg>
-            <span>Rendimento</span>
-          </button>
-          <button class="nav-action-btn" id="btn-open-settings-modal" onclick="openSettingsModal()" type="button" title="Configurações do Município e Brasão Oficial">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-            </svg>
-            <span>Município</span>
-          </button>
+          <!-- Dropdown Unificado: Gestão Administrativa -->
+          <div class="nav-dropdown-wrap" id="wrap-admin-dropdown">
+            <button class="nav-action-btn nav-gestao-btn" id="btn-admin-dropdown" onclick="toggleAdminDropdown(event)" type="button" title="Menu de Administração e Configurações">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              <span>Gestão</span>
+              <svg class="dropdown-arrow-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+
+            <!-- Menu Flutuante -->
+            <div class="nav-dropdown-menu" id="admin-dropdown-menu" style="display: none;">
+              <button type="button" class="nav-dropdown-item" id="menu-item-users" onclick="switchTab('users-tab'); closeAdminDropdown();">
+                <div class="nav-dd-icon icon-blue">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                </div>
+                <div class="nav-dd-text">
+                  <span class="nav-dd-title">Gestão de Usuários</span>
+                  <span class="nav-dd-desc">Operadores e permissões</span>
+                </div>
+              </button>
+
+              <button type="button" class="nav-dropdown-item admin-only-item" id="menu-item-backup" onclick="switchTab('backup-tab'); closeAdminDropdown();">
+                <div class="nav-dd-icon icon-emerald">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                </div>
+                <div class="nav-dd-text">
+                  <span class="nav-dd-title">Backup & Restauração</span>
+                  <span class="nav-dd-desc">Download e upload em .ZIP</span>
+                </div>
+              </button>
+
+              <div class="nav-dd-separator"></div>
+
+              <button type="button" class="nav-dropdown-item" id="menu-item-settings" onclick="openSettingsModal(); closeAdminDropdown();">
+                <div class="nav-dd-icon icon-amber">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                </div>
+                <div class="nav-dd-text">
+                  <span class="nav-dd-title">Dados do Município</span>
+                  <span class="nav-dd-desc">Brasão e configurações</span>
+                </div>
+              </button>
+
+              <button type="button" class="nav-dropdown-item" id="menu-item-rendimento" onclick="openYearReportModal(); closeAdminDropdown();">
+                <div class="nav-dd-icon icon-indigo">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
+                </div>
+                <div class="nav-dd-text">
+                  <span class="nav-dd-title">Rendimento da Rede</span>
+                  <span class="nav-dd-desc">Métricas por ano escolar</span>
+                </div>
+              </button>
+            </div>
+          </div>
 
           <!-- User Session Profile Badge -->
           <div class="nav-user-badge-box" id="nav-user-badge-box" title="Usuário conectado ao sistema">
-            <div class="nav-user-avatar" id="nav-user-avatar">AD</div>
+            <div class="nav-user-avatar" id="nav-user-avatar">DG</div>
             <div class="nav-user-meta">
-              <span class="nav-user-name" id="nav-user-name">admin</span>
+              <span class="nav-user-name" id="nav-user-name">Douglas</span>
               <span class="nav-user-role" id="nav-user-role">SEMED</span>
             </div>
           </div>

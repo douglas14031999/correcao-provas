@@ -175,6 +175,16 @@ function switchTab(tabId) {
   } else {
     stopCamera();
   }
+
+  // Update Gestão dropdown active indicator
+  const adminBtn = document.getElementById("btn-admin-dropdown");
+  if (adminBtn) {
+    adminBtn.classList.toggle("active", tabId === "users-tab" || tabId === "backup-tab");
+  }
+  const itemUsers = document.getElementById("menu-item-users");
+  const itemBackup = document.getElementById("menu-item-backup");
+  if (itemUsers) itemUsers.classList.toggle("active", tabId === "users-tab");
+  if (itemBackup) itemBackup.classList.toggle("active", tabId === "backup-tab");
 }
 
 // --- Toast System ---
@@ -3955,28 +3965,28 @@ function applyRolePermissions(role) {
   if (!role && currentUserProfile) role = currentUserProfile.role;
   if (!role) role = "admin";
 
-  const settingsBtn = document.getElementById("btn-open-settings-modal");
   const newSchoolBtn = document.getElementById("btn-open-new-school-modal");
   const importCsvBtn = document.getElementById("btn-open-csv-modal");
-  const yearReportBtn = document.getElementById("btn-open-year-report-nav");
+  const adminDropdownWrap = document.getElementById("wrap-admin-dropdown");
+  const backupMenuItem = document.getElementById("menu-item-backup");
 
   document.body.classList.remove("role-admin", "role-coordenador", "role-professor");
 
   if (role === "admin") {
     document.body.classList.add("role-admin");
     document.querySelectorAll('.tab-btn').forEach(btn => btn.style.display = "");
-    if (yearReportBtn) yearReportBtn.style.display = "";
-    if (settingsBtn) settingsBtn.style.display = "";
+    if (adminDropdownWrap) adminDropdownWrap.style.display = "";
+    if (backupMenuItem) backupMenuItem.style.display = "";
     if (newSchoolBtn) newSchoolBtn.style.display = "";
     if (importCsvBtn) importCsvBtn.style.display = "";
   } else if (role === "coordenador") {
     document.body.classList.add("role-coordenador");
-    // Coordenador tem acesso pedagógico geral, exceto exclusões e aba de backup do banco
+    // Coordenador tem acesso a turmas, simulados e itens de gestão permitidos
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.style.display = (btn.dataset.tab === "backup-tab") ? "none" : "";
     });
-    if (yearReportBtn) yearReportBtn.style.display = "";
-    if (settingsBtn) settingsBtn.style.display = "";
+    if (adminDropdownWrap) adminDropdownWrap.style.display = "";
+    if (backupMenuItem) backupMenuItem.style.display = "none";
     if (newSchoolBtn) newSchoolBtn.style.display = "";
     if (importCsvBtn) importCsvBtn.style.display = "";
 
@@ -3990,8 +4000,7 @@ function applyRolePermissions(role) {
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.style.display = (btn.dataset.tab === "scanner-tab") ? "" : "none";
     });
-    if (yearReportBtn) yearReportBtn.style.display = "none";
-    if (settingsBtn) settingsBtn.style.display = "none";
+    if (adminDropdownWrap) adminDropdownWrap.style.display = "none";
     if (newSchoolBtn) newSchoolBtn.style.display = "none";
     if (importCsvBtn) importCsvBtn.style.display = "none";
 
@@ -5268,5 +5277,48 @@ window.openBackupConfirmModal = openBackupConfirmModal;
 window.closeBackupConfirmModal = closeBackupConfirmModal;
 window.toggleRestoreExecuteBtn = toggleRestoreExecuteBtn;
 window.executeBackupRestore = executeBackupRestore;
+
+/* ==========================================================================
+   MENU SUSPENSO: GESTÃO ADMINISTRATIVA
+   ========================================================================== */
+function toggleAdminDropdown(event) {
+  if (event) {
+    event.stopPropagation();
+  }
+  const menu = document.getElementById("admin-dropdown-menu");
+  const wrap = document.getElementById("wrap-admin-dropdown");
+  if (!menu) return;
+
+  const isHidden = menu.style.display === "none" || !menu.classList.contains("show");
+  if (isHidden) {
+    menu.style.display = "flex";
+    menu.classList.add("show");
+    if (wrap) wrap.classList.add("open");
+  } else {
+    closeAdminDropdown();
+  }
+}
+
+function closeAdminDropdown() {
+  const menu = document.getElementById("admin-dropdown-menu");
+  const wrap = document.getElementById("wrap-admin-dropdown");
+  if (menu) {
+    menu.style.display = "none";
+    menu.classList.remove("show");
+  }
+  if (wrap) wrap.classList.remove("open");
+}
+
+// Fechar menu suspenso de gestão ao clicar fora
+document.addEventListener("click", (e) => {
+  const wrap = document.getElementById("wrap-admin-dropdown");
+  if (wrap && !wrap.contains(e.target)) {
+    closeAdminDropdown();
+  }
+});
+
+window.toggleAdminDropdown = toggleAdminDropdown;
+window.closeAdminDropdown = closeAdminDropdown;
+
 
 

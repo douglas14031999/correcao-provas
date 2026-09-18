@@ -4838,21 +4838,173 @@ body.role-professor .btn-edit-classroom,
 body.role-professor .cl-action-btn-danger,
 body.role-professor .action-delete,
 body.role-professor #btn-delete-current-result,
-body.role-professor [data-action="delete"] {
+body.role-professor [data-action="delete"],
+body.role-professor #wrap-admin-dropdown {
   display: none !important;
 }
 
 /* ==========================================================================
-   BACKUP & RESTAURAÇÃO - REGRAS DE RBAC (EXCLUSIVO ADMIN)
+   MENU SUSPENSO: GESTÃO ADMINISTRATIVA
    ========================================================================== */
-body:not(.role-admin) .tab-btn[data-tab="backup-tab"],
-body:not(.role-admin) #nav-backup-tab,
+.nav-dropdown-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.nav-gestao-btn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #1e293b;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.38rem 0.65rem;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.nav-gestao-btn:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.nav-gestao-btn.active {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.28);
+}
+
+.nav-gestao-btn.active svg {
+  stroke: #ffffff;
+}
+
+.dropdown-arrow-icon {
+  transition: transform 0.2s ease;
+}
+
+.nav-dropdown-wrap.open .dropdown-arrow-icon {
+  transform: rotate(180deg);
+}
+
+.nav-dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
+  padding: 0.4rem;
+  min-width: 240px;
+  z-index: 1050;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  animation: dropdownFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nav-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.nav-dropdown-item:hover {
+  background: #f1f5f9;
+}
+
+.nav-dropdown-item.active {
+  background: #eff6ff;
+}
+
+.nav-dd-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.nav-dd-icon.icon-blue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.nav-dd-icon.icon-emerald {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.nav-dd-icon.icon-amber {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.nav-dd-icon.icon-indigo {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.nav-dd-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.nav-dd-title {
+  font-size: 0.81rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.nav-dd-desc {
+  font-size: 0.68rem;
+  color: #64748b;
+}
+
+.nav-dd-separator {
+  height: 1px;
+  background: #f1f5f9;
+  margin: 0.25rem 0;
+}
+
+/* ==========================================================================
+   REGRAS DE RBAC PARA GESTÃO & BACKUP
+   ========================================================================== */
+body:not(.role-admin) .admin-only-item,
+body.role-coordenador .admin-only-item,
+body.role-professor .admin-only-item {
+  display: none !important;
+}
+
 body:not(.role-admin) #backup-tab,
-body.role-coordenador .tab-btn[data-tab="backup-tab"],
-body.role-coordenador #nav-backup-tab,
-body.role.coordenador #backup-tab,
-body.role-professor .tab-btn[data-tab="backup-tab"],
-body.role-professor #nav-backup-tab,
+body.role-coordenador #backup-tab,
 body.role-professor #backup-tab {
   display: none !important;
 }
@@ -4863,6 +5015,7 @@ body.role-professor #backup-tab {
   border-color: #3b82f6 !important;
   transform: scale(1.01);
 }
+
 
 
 
