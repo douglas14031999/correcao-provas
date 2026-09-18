@@ -1031,8 +1031,8 @@ function updateLiveSheetMockup() {
     const cl = examClassInput.value.trim();
     previewClassEl.textContent = cl ? cl.toUpperCase() : "___________";
   }
-  if (previewShiftEl && examShiftInput) {
-    const sh = examShiftInput.value.trim();
+  if (previewShiftEl) {
+    const sh = examShiftInput ? examShiftInput.value.trim() : "";
     previewShiftEl.textContent = sh || "(  ) MANHÃ       (  ) TARDE";
   }
 
@@ -1200,41 +1200,102 @@ function initAnswerKeyMatrix() {
   matrixContainer.innerHTML = "";
   const opts = ["A", "B", "C", "D", "E"].slice(0, numOpts);
 
-  for (let i = 1; i <= numQ; i++) {
-    const qStr = String(i);
-    // Keep draft if exists, else default to 'A'
-    if (!currentAnswerKeyDraft[qStr] || !opts.includes(currentAnswerKeyDraft[qStr])) {
-      currentAnswerKeyDraft[qStr] = opts[(i - 1) % opts.length];
-    }
+  // Layout em colunas idêntico ao gabarito impresso (ex: 20 questões -> 2 colunas verticais)
+  let cols = 1;
+  let questionsPerCol = numQ;
+  if (numQ <= 12) {
+    cols = 1;
+    questionsPerCol = numQ;
+  } else if (numQ <= 24) {
+    cols = 2;
+    questionsPerCol = 12;
+  } else if (numQ <= 36) {
+    cols = 3;
+    questionsPerCol = 12;
+  } else if (numQ <= 48) {
+    cols = 4;
+    questionsPerCol = 12;
+  } else {
+    cols = Math.min(5, Math.ceil(numQ / 12));
+    questionsPerCol = Math.ceil(numQ / cols);
+  }
 
-    const item = document.createElement("div");
-    item.className = "key-item";
+  for (let c = 0; c < cols; c++) {
+    const startQ = c * questionsPerCol + 1;
+    if (startQ > numQ) break;
 
-    const qNumSpan = document.createElement("span");
-    qNumSpan.className = "key-q-num";
-    qNumSpan.textContent = `${String(i).padStart(2, '0')}.`;
-    item.appendChild(qNumSpan);
+    const colCard = document.createElement("div");
+    colCard.className = "key-col-card";
 
-    const optsWrap = document.createElement("div");
-    optsWrap.className = "key-opts";
+    const table = document.createElement("table");
+    table.className = "key-col-table";
+
+    // Cabeçalho da coluna: ITEM | A | B | C | D
+    const thead = document.createElement("thead");
+    const headerTr = document.createElement("tr");
+
+    const thItem = document.createElement("th");
+    thItem.className = "key-th-item";
+    thItem.textContent = "ITEM";
+    headerTr.appendChild(thItem);
 
     opts.forEach(letter => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = `key-opt-btn ${currentAnswerKeyDraft[qStr] === letter ? 'selected' : ''}`;
-      btn.textContent = letter;
+      const thOpt = document.createElement("th");
+      thOpt.className = "key-th-opt";
+      thOpt.textContent = letter;
+      headerTr.appendChild(thOpt);
+    });
+    thead.appendChild(headerTr);
+    table.appendChild(thead);
 
-      btn.addEventListener("click", () => {
-        currentAnswerKeyDraft[qStr] = letter;
-        optsWrap.querySelectorAll(".key-opt-btn").forEach(b => b.classList.remove("selected"));
-        btn.classList.add("selected");
+    // Linhas de questões descendo na vertical nesta coluna
+    const tbody = document.createElement("tbody");
+    for (let r = 0; r < questionsPerCol; r++) {
+      const qNum = c * questionsPerCol + r + 1;
+      if (qNum > numQ) break;
+
+      const qStr = String(qNum);
+      if (!currentAnswerKeyDraft[qStr] || !opts.includes(currentAnswerKeyDraft[qStr])) {
+        currentAnswerKeyDraft[qStr] = opts[(qNum - 1) % opts.length];
+      }
+
+      const tr = document.createElement("tr");
+      tr.className = "key-tr-row";
+
+      // Célula do número do item (01, 02...)
+      const tdItem = document.createElement("td");
+      tdItem.className = "key-td-item";
+      tdItem.textContent = String(qNum).padStart(2, "0");
+      tr.appendChild(tdItem);
+
+      // Células das alternativas com bolhas interativas
+      opts.forEach(letter => {
+        const tdOpt = document.createElement("td");
+        tdOpt.className = "key-td-opt";
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `key-bubble-btn ${currentAnswerKeyDraft[qStr] === letter ? 'selected' : ''}`;
+        btn.textContent = letter;
+        btn.title = `Questão ${String(qNum).padStart(2, "0")}: Alternativa ${letter}`;
+
+        btn.addEventListener("click", () => {
+          currentAnswerKeyDraft[qStr] = letter;
+          tr.querySelectorAll(".key-bubble-btn").forEach(b => b.classList.remove("selected"));
+          btn.classList.add("selected");
+          updateLiveSheetMockup();
+        });
+
+        tdOpt.appendChild(btn);
+        tr.appendChild(tdOpt);
       });
 
-      optsWrap.appendChild(btn);
-    });
+      tbody.appendChild(tr);
+    }
 
-    item.appendChild(optsWrap);
-    matrixContainer.appendChild(item);
+    table.appendChild(tbody);
+    colCard.appendChild(table);
+    matrixContainer.appendChild(colCard);
   }
 
   updateLiveSheetMockup();
