@@ -4842,4 +4842,27 @@ body.role-professor [data-action="delete"] {
   display: none !important;
 }
 
+/* ==========================================================================
+   BACKUP & RESTAURAÇÃO - REGRAS DE RBAC (EXCLUSIVO ADMIN)
+   ========================================================================== */
+body:not(.role-admin) .tab-btn[data-tab="backup-tab"],
+body:not(.role-admin) #nav-backup-tab,
+body:not(.role-admin) #backup-tab,
+body.role-coordenador .tab-btn[data-tab="backup-tab"],
+body.role-coordenador #nav-backup-tab,
+body.role.coordenador #backup-tab,
+body.role-professor .tab-btn[data-tab="backup-tab"],
+body.role-professor #nav-backup-tab,
+body.role-professor #backup-tab {
+  display: none !important;
+}
+
+/* Backup Dropzone Drag & Drop Hover States */
+#backup-dropzone.drag-over {
+  background: #eff6ff !important;
+  border-color: #3b82f6 !important;
+  transform: scale(1.01);
+}
+
+
 

@@ -136,6 +136,9 @@ function switchTab(tabId) {
     if (role === "professor" && tabId !== "scanner-tab") {
       showToast("Acesso restrito. Professores têm acesso exclusivo à Correção de Provas.", "warning");
       tabId = "scanner-tab";
+    } else if (tabId === "backup-tab" && role !== "admin") {
+      showToast("Acesso restrito. Apenas administradores podem gerenciar backups do sistema.", "warning");
+      tabId = "dashboard-tab";
     }
   }
 
@@ -166,6 +169,9 @@ function switchTab(tabId) {
   } else if (tabId === "users-tab") {
     stopCamera();
     loadUsers();
+  } else if (tabId === "backup-tab") {
+    stopCamera();
+    loadBackupStats();
   } else {
     stopCamera();
   }
@@ -3965,12 +3971,19 @@ function applyRolePermissions(role) {
     if (importCsvBtn) importCsvBtn.style.display = "";
   } else if (role === "coordenador") {
     document.body.classList.add("role-coordenador");
-    // Coordenador tem acesso a tudo no sistema, exceto exclusões
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.style.display = "");
+    // Coordenador tem acesso pedagógico geral, exceto exclusões e aba de backup do banco
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.style.display = (btn.dataset.tab === "backup-tab") ? "none" : "";
+    });
     if (yearReportBtn) yearReportBtn.style.display = "";
     if (settingsBtn) settingsBtn.style.display = "";
     if (newSchoolBtn) newSchoolBtn.style.display = "";
     if (importCsvBtn) importCsvBtn.style.display = "";
+
+    const activeBtn = document.querySelector('.tab-btn.active');
+    if (activeBtn && activeBtn.dataset.tab === "backup-tab") {
+      switchTab("dashboard-tab");
+    }
   } else {
     // Professor: acesso exclusivo à Correção de Provas (scanner-tab)
     document.body.classList.add("role-professor");
@@ -5005,4 +5018,255 @@ window.filterUsersList = filterUsersList;
 window.clearUsersSearch = clearUsersSearch;
 window.toggleUserStatus = toggleUserStatus;
 window.deleteUser = deleteUser;
+
+/* ==========================================================================
+   BACKUP & RESTAURAÇÃO DO SISTEMA (EXCLUSIVO ADMINISTRADOR)
+   ========================================================================== */
+let selectedBackupFile = null;
+
+async function loadBackupStats() {
+  try {
+    const res = await fetch("/api/backup/stats", {
+      headers: { ...getAuthHeaders() }
+    });
+    if (!res.ok) {
+      if (res.status === 403) return; // Não é admin
+      throw new Error("Erro ao carregar estatísticas do banco.");
+    }
+    const stats = await res.json();
+
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = Number(val || 0).toLocaleString("pt-BR");
+    };
+
+    setVal("backup-stat-schools", stats.schools);
+    setVal("backup-stat-classrooms", stats.classrooms);
+    setVal("backup-stat-students", stats.students);
+    setVal("backup-stat-exams", stats.exams);
+    setVal("backup-stat-submissions", stats.submissions);
+    setVal("backup-stat-users", stats.users);
+  } catch (err) {
+    console.error("[Backup] Erro ao carregar estatísticas:", err);
+  }
+}
+
+async function handleExportBackup() {
+  const btn = document.getElementById("btn-export-backup");
+  const btnText = document.getElementById("btn-export-text");
+  const spinner = document.getElementById("export-spinner");
+  const statusMsg = document.getElementById("export-status-msg");
+
+  try {
+    if (btn) btn.disabled = true;
+    if (spinner) spinner.style.display = "inline-block";
+    if (btnText) btnText.textContent = "Gerando Backup (.ZIP)...";
+    if (statusMsg) statusMsg.textContent = "Compactando tabelas e arquivos institucionais...";
+
+    const res = await fetch("/api/backup/export", {
+      headers: { ...getAuthHeaders() }
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.detail || "Falha ao gerar arquivo de backup.");
+    }
+
+    // Extrair nome do arquivo do header ou usar padrão com timestamp
+    let filename = "backup_omr_canoa.zip";
+    const disposition = res.headers.get("Content-Disposition");
+    if (disposition && disposition.indexOf("filename=") !== -1) {
+      const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+      if (matches != null && matches[1]) {
+        filename = matches[1].replace(/['"]/g, '');
+      }
+    }
+
+    const blob = await res.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = downloadUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(downloadUrl);
+    document.body.removeChild(a);
+
+    showToast("Backup baixado com sucesso!", "success");
+    if (statusMsg) statusMsg.textContent = `Último backup baixado: ${filename}`;
+  } catch (err) {
+    showToast(err.message, "danger");
+    if (statusMsg) statusMsg.textContent = "Erro na exportação. Tente novamente.";
+  } finally {
+    if (btn) btn.disabled = false;
+    if (spinner) spinner.style.display = "none";
+    if (btnText) btnText.textContent = "Gerar e Baixar Backup (.ZIP)";
+  }
+}
+
+function handleBackupFileSelect(files) {
+  if (!files || files.length === 0) return;
+  const file = files[0];
+
+  if (!file.name.toLowerCase().endsWith(".zip")) {
+    showToast("Por favor, selecione um arquivo válido com extensão .ZIP", "warning");
+    clearSelectedBackupFile();
+    return;
+  }
+
+  selectedBackupFile = file;
+
+  const nameEl = document.getElementById("backup-selected-filename");
+  const sizeEl = document.getElementById("backup-selected-filesize");
+  const box = document.getElementById("backup-file-selected-box");
+  const triggerBtn = document.getElementById("btn-trigger-restore");
+  const statusMsg = document.getElementById("restore-status-msg");
+
+  if (nameEl) nameEl.textContent = file.name;
+  if (sizeEl) {
+    const sizeKb = (file.size / 1024).toFixed(1);
+    sizeEl.textContent = `(${sizeKb} KB)`;
+  }
+  if (box) box.style.display = "flex";
+  if (triggerBtn) triggerBtn.disabled = false;
+  if (statusMsg) statusMsg.textContent = "Arquivo pronto. Clique no botão acima para iniciar a restauração.";
+}
+
+function clearSelectedBackupFile(event) {
+  if (event) event.stopPropagation();
+  selectedBackupFile = null;
+
+  const fileInput = document.getElementById("backup-file-input");
+  if (fileInput) fileInput.value = "";
+
+  const box = document.getElementById("backup-file-selected-box");
+  if (box) box.style.display = "none";
+
+  const triggerBtn = document.getElementById("btn-trigger-restore");
+  if (triggerBtn) triggerBtn.disabled = true;
+
+  const statusMsg = document.getElementById("restore-status-msg");
+  if (statusMsg) statusMsg.textContent = "Selecione um arquivo .ZIP para habilitar a restauração.";
+}
+
+function openBackupConfirmModal() {
+  if (!selectedBackupFile) {
+    showToast("Nenhum arquivo de backup selecionado.", "warning");
+    return;
+  }
+
+  const modal = document.getElementById("backup-confirm-modal");
+  const modalFilename = document.getElementById("backup-modal-file-name");
+  const checkbox = document.getElementById("backup-confirm-checkbox");
+  const executeBtn = document.getElementById("btn-execute-restore");
+  const progressBox = document.getElementById("backup-restore-progress");
+
+  if (modalFilename) modalFilename.textContent = selectedBackupFile.name;
+  if (checkbox) checkbox.checked = false;
+  if (executeBtn) executeBtn.disabled = true;
+  if (progressBox) progressBox.style.display = "none";
+
+  if (modal) modal.style.display = "flex";
+}
+
+function closeBackupConfirmModal() {
+  const modal = document.getElementById("backup-confirm-modal");
+  if (modal) modal.style.display = "none";
+}
+
+function toggleRestoreExecuteBtn() {
+  const checkbox = document.getElementById("backup-confirm-checkbox");
+  const executeBtn = document.getElementById("btn-execute-restore");
+  if (checkbox && executeBtn) {
+    executeBtn.disabled = !checkbox.checked;
+  }
+}
+
+async function executeBackupRestore() {
+  if (!selectedBackupFile) return;
+
+  const progressBox = document.getElementById("backup-restore-progress");
+  const executeBtn = document.getElementById("btn-execute-restore");
+  const cancelBtn = document.getElementById("btn-cancel-restore");
+
+  if (progressBox) progressBox.style.display = "block";
+  if (executeBtn) executeBtn.disabled = true;
+  if (cancelBtn) cancelBtn.disabled = true;
+
+  try {
+    const formData = new FormData();
+    formData.append("file", selectedBackupFile);
+
+    const res = await fetch("/api/backup/import", {
+      method: "POST",
+      headers: {
+        "X-Auth-Token": getAuthToken()
+      },
+      body: formData
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || "Erro ao restaurar arquivo de backup.");
+    }
+
+    closeBackupConfirmModal();
+    clearSelectedBackupFile();
+
+    showToast(data.message || "Backup restaurado com sucesso!", "success");
+
+    // Recarregar contadores do backup e views principais
+    await loadBackupStats();
+    if (typeof loadSchools === "function") loadSchools();
+    if (typeof loadExams === "function") loadExams(false);
+    if (typeof loadDashboardData === "function") loadDashboardData();
+  } catch (err) {
+    showToast(err.message, "danger");
+  } finally {
+    if (progressBox) progressBox.style.display = "none";
+    if (cancelBtn) cancelBtn.disabled = false;
+    toggleRestoreExecuteBtn();
+  }
+}
+
+// Inicializar Drag and Drop na zona de backup
+document.addEventListener("DOMContentLoaded", () => {
+  const dropzone = document.getElementById("backup-dropzone");
+  if (dropzone) {
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.add("drag-over");
+      }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove("drag-over");
+      }, false);
+    });
+
+    dropzone.addEventListener("drop", (e) => {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      if (files && files.length > 0) {
+        handleBackupFileSelect(files);
+      }
+    }, false);
+  }
+});
+
+// Backup Window Exports
+window.loadBackupStats = loadBackupStats;
+window.handleExportBackup = handleExportBackup;
+window.handleBackupFileSelect = handleBackupFileSelect;
+window.clearSelectedBackupFile = clearSelectedBackupFile;
+window.openBackupConfirmModal = openBackupConfirmModal;
+window.closeBackupConfirmModal = closeBackupConfirmModal;
+window.toggleRestoreExecuteBtn = toggleRestoreExecuteBtn;
+window.executeBackupRestore = executeBackupRestore;
+
 
