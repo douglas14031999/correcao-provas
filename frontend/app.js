@@ -5325,7 +5325,14 @@ async function loadDashboardData(examId = null) {
       url += `?exam_id=${encodeURIComponent(selectedId)}`;
     }
     const res = await fetch(url, { headers: { ...getAuthHeaders() } });
-    if (!res.ok) throw new Error("Falha ao obter os dados consolidados.");
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const errJson = await res.json();
+        if (errJson && errJson.detail) detail = " (" + errJson.detail + ")";
+      } catch (_) {}
+      throw new Error("Falha ao obter os dados consolidados" + detail);
+    }
     const data = await res.json();
     currentDashboardData = data;
     renderDashboardUI(data);
