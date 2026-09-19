@@ -242,26 +242,50 @@ async def import_backup(
             except Exception as e:
                 print(f"[Backup] Aviso ao limpar tabela {tbl}: {e}")
 
+        # Obter colunas reais existentes na tabela de destino
+        def get_table_columns(table_name: str) -> set:
+            if is_postgres():
+                cursor.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = %s
+                """, (table_name,))
+                return {row[0].lower() for row in cursor.fetchall()}
+            else:
+                cursor.execute(f"PRAGMA table_info({table_name})")
+                return {row["name"].lower() for row in cursor.fetchall()}
+
         # 2. Inserção dos registros por tabela
         for tbl in TABLE_ORDER_RESTORE:
             records = database_dump.get(tbl, [])
             count = 0
             if records:
-                # Obter colunas a partir do primeiro registro
-                first_rec = records[0]
-                cols = list(first_rec.keys())
-                col_names = ", ".join(cols)
-                placeholders = ", ".join(["?"] * len(cols))
+                db_cols = get_table_columns(tbl)
+                if not db_cols:
+                    continue
 
-                sql = f"INSERT INTO {tbl} ({col_names}) VALUES ({placeholders})"
                 for r in records:
-                    # Normalizar caminhos de logos locais para o STORAGE_DIR do servidor atual
-                    if tbl == "exams" and "logo_path" in r:
-                        r["logo_path"] = rebase_storage_path(r["logo_path"])
+                    # Mapeamento de compatibilidade de campos legados
+                    if tbl == "exams":
+                        if "primary_color" in r and ("header_color" not in r or not r["header_color"]):
+                            r["header_color"] = r["primary_color"]
+                        elif "header_color" in r and ("primary_color" not in r or not r["primary_color"]):
+                            r["primary_color"] = r["header_color"]
+
+                        if "logo_path" in r:
+                            r["logo_path"] = rebase_storage_path(r["logo_path"])
+
                     elif tbl == "system_settings" and r.get("key") == "logo_path":
                         r["value"] = rebase_storage_path(r.get("value"))
 
-                    values = [r.get(c) for c in cols]
+                    # Filtrar apenas colunas que realmente existem na tabela de destino
+                    valid_cols = [c for c in r.keys() if c.lower() in db_cols]
+                    if not valid_cols:
+                        continue
+
+                    col_names = ", ".join(valid_cols)
+                    placeholders = ", ".join(["?"] * len(valid_cols))
+                    sql = f"INSERT INTO {tbl} ({col_names}) VALUES ({placeholders})"
+                    values = [r.get(c) for c in valid_cols]
                     cursor.execute(sql, values)
                     count += 1
 

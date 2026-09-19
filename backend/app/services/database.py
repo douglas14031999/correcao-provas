@@ -214,6 +214,9 @@ def init_db():
                 last_login TEXT DEFAULT ''
             );
         """)
+        # Migrações seguras de compatibilidade de colunas no PostgreSQL
+        cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS header_color TEXT DEFAULT '#244061';")
+        cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS primary_color TEXT DEFAULT '#244061';")
     else:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS exams (
@@ -247,7 +250,8 @@ def init_db():
             ("student_name", "TEXT DEFAULT ''"),
             ("shift", "TEXT DEFAULT '(  ) MANHÃ       (  ) TARDE'"),
             ("logo_path", "TEXT DEFAULT ''"),
-            ("header_color", "TEXT DEFAULT '#244061'")
+            ("header_color", "TEXT DEFAULT '#244061'"),
+            ("primary_color", "TEXT DEFAULT '#244061'")
         ]
         for col_name, col_type in new_cols:
             if col_name not in existing_cols:
