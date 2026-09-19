@@ -403,7 +403,7 @@ def generate_overlay_visualization(
 
 def grade_submission(
     image_bytes: bytes,
-    exam: Dict[str, Any],
+    exam: Any,
     student_name: str = "Aluno",
     storage_dir: str = "storage"
 ) -> Dict[str, Any]:
@@ -416,6 +416,11 @@ def grade_submission(
     5. Grade against answer key
     6. Generate annotated overlay image
     """
+    if isinstance(exam, str):
+        from app.services.database import get_exam
+        loaded_exam = get_exam(exam.strip())
+        if loaded_exam:
+            exam = loaded_exam
     nparr = np.frombuffer(image_bytes, np.uint8)
     image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     

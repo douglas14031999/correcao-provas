@@ -29,6 +29,13 @@ class ReportTableColumn:
     format_type: Optional[str] = None # 'decimal', 'percent', 'integer', 'status', 'badge'
 
 @dataclass
+class ReportTableSection:
+    title: str
+    columns: List[ReportTableColumn]
+    rows: List[Dict[str, Any]]
+    subtitle: str = ""
+
+@dataclass
 class ReportData:
     title: str
     metadata: ReportMetadata
@@ -36,6 +43,7 @@ class ReportData:
     rows: List[Dict[str, Any]]
     subtitle: str = ""
     summary_cards: List[Dict[str, Any]] = field(default_factory=list)
+    sections: List[ReportTableSection] = field(default_factory=list)
     signatures: List[str] = field(default_factory=lambda: [
         "Professor(a) / Aplicador(a)",
         "Coordenação Pedagógica / Direção"

@@ -112,6 +112,7 @@ def get_connection():
     else:
         os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
         conn = sqlite3.connect(DB_PATH)
+        conn.execute("PRAGMA foreign_keys = ON")
         conn.row_factory = sqlite3.Row
         return conn
 
@@ -137,7 +138,8 @@ def init_db():
                 student_name TEXT DEFAULT '',
                 shift TEXT DEFAULT '(  ) MANHÃ       (  ) TARDE',
                 logo_path TEXT DEFAULT '',
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                header_color TEXT DEFAULT '#244061'
             );
 
             CREATE TABLE IF NOT EXISTS submissions (
@@ -230,7 +232,8 @@ def init_db():
                 student_name TEXT,
                 shift TEXT,
                 logo_path TEXT,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                header_color TEXT DEFAULT '#244061'
             )
         """)
         
@@ -243,7 +246,8 @@ def init_db():
             ("classroom", "TEXT DEFAULT ''"),
             ("student_name", "TEXT DEFAULT ''"),
             ("shift", "TEXT DEFAULT '(  ) MANHÃ       (  ) TARDE'"),
-            ("logo_path", "TEXT DEFAULT ''")
+            ("logo_path", "TEXT DEFAULT ''"),
+            ("header_color", "TEXT DEFAULT '#244061'")
         ]
         for col_name, col_type in new_cols:
             if col_name not in existing_cols:
@@ -408,9 +412,9 @@ def save_exam(exam_data: Dict[str, Any]) -> Dict[str, Any]:
         INSERT INTO exams (
             id, title, institution, num_questions, num_alternatives, points_per_question,
             answer_key, weights, sheet_template, subtitle, school_name, classroom,
-            student_name, shift, logo_path, created_at
+            student_name, shift, logo_path, created_at, header_color
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         exam_data["id"],
         exam_data["title"],
@@ -427,7 +431,8 @@ def save_exam(exam_data: Dict[str, Any]) -> Dict[str, Any]:
         exam_data.get("student_name", ""),
         exam_data.get("shift", "(  ) MANHÃ       (  ) TARDE"),
         exam_data.get("logo_path", ""),
-        datetime.utcnow().isoformat()
+        datetime.utcnow().isoformat(),
+        exam_data.get("header_color", "#244061")
     ))
     conn.commit()
     conn.close()
@@ -445,6 +450,8 @@ def get_exam(exam_id: str) -> Optional[Dict[str, Any]]:
     data["answer_key"] = json.loads(data["answer_key"] or "{}")
     data["weights"] = json.loads(data["weights"] or "{}")
     data["sheet_template"] = json.loads(data["sheet_template"] or "{}")
+    if not data.get("header_color"):
+        data["header_color"] = "#244061"
     return data
 
 def list_exams() -> List[Dict[str, Any]]:
@@ -459,6 +466,8 @@ def list_exams() -> List[Dict[str, Any]]:
         item["answer_key"] = json.loads(item["answer_key"] or "{}")
         item["weights"] = json.loads(item["weights"] or "{}")
         item["sheet_template"] = json.loads(item["sheet_template"] or "{}")
+        if not item.get("header_color"):
+            item["header_color"] = "#244061"
         result.append(item)
     return result
 
@@ -469,7 +478,8 @@ def update_exam(exam_id: str, exam_data: Dict[str, Any]) -> Optional[Dict[str, A
         UPDATE exams
         SET title = ?, subtitle = ?, school_name = ?, classroom = ?, student_name = ?,
             shift = ?, logo_path = ?, num_questions = ?, num_alternatives = ?,
-            points_per_question = ?, answer_key = ?, weights = ?, sheet_template = ?
+            points_per_question = ?, answer_key = ?, weights = ?, sheet_template = ?,
+            header_color = ?
         WHERE id = ?
     """, (
         exam_data["title"],
@@ -485,6 +495,7 @@ def update_exam(exam_id: str, exam_data: Dict[str, Any]) -> Optional[Dict[str, A
         json.dumps(exam_data.get("answer_key", {})),
         json.dumps(exam_data.get("weights", {})),
         json.dumps(exam_data.get("sheet_template", {})),
+        exam_data.get("header_color", "#244061"),
         exam_id
     ))
     updated = cursor.rowcount > 0
@@ -626,10 +637,56 @@ def get_school(school_id: str) -> Optional[Dict[str, Any]]:
     return dict(row) if row else None
 
 def delete_school(school_id: str) -> bool:
+    """Deletes a school and all associated data in cascade:
+    - classrooms
+    - classroom_exams
+    - students
+    - submissions (linked to school_id or any of its classrooms)
+    - school record
+    """
     conn = get_connection()
     cursor = conn.cursor()
+
+    # Find all classrooms belonging to this school
+    cursor.execute("SELECT id FROM classrooms WHERE school_id = ?", (school_id,))
+    cl_rows = cursor.fetchall()
+    cl_ids = [r["id"] for r in cl_rows]
+
+    # 1. Delete submissions for this school or any of its classrooms
+    if cl_ids:
+        placeholders = ",".join(["?"] * len(cl_ids))
+        cursor.execute(
+            f"DELETE FROM submissions WHERE school_id = ? OR classroom_id IN ({placeholders})",
+            [school_id] + cl_ids
+        )
+    else:
+        cursor.execute("DELETE FROM submissions WHERE school_id = ?", (school_id,))
+
+    # 2. Delete classroom_exams links
+    if cl_ids:
+        placeholders = ",".join(["?"] * len(cl_ids))
+        cursor.execute(
+            f"DELETE FROM classroom_exams WHERE classroom_id IN ({placeholders})",
+            cl_ids
+        )
+
+    # 3. Delete students of this school or its classrooms
+    if cl_ids:
+        placeholders = ",".join(["?"] * len(cl_ids))
+        cursor.execute(
+            f"DELETE FROM students WHERE school_id = ? OR classroom_id IN ({placeholders})",
+            [school_id] + cl_ids
+        )
+    else:
+        cursor.execute("DELETE FROM students WHERE school_id = ?", (school_id,))
+
+    # 4. Delete classrooms
+    cursor.execute("DELETE FROM classrooms WHERE school_id = ?", (school_id,))
+
+    # 5. Delete school
     cursor.execute("DELETE FROM schools WHERE id = ?", (school_id,))
     deleted = cursor.rowcount > 0
+
     conn.commit()
     conn.close()
     return deleted
@@ -733,6 +790,67 @@ def get_classroom_exams(classroom_id: str) -> List[Dict[str, Any]]:
     conn.close()
     return [dict(r) for r in rows]
 
+def get_exam_linked_schools(exam_id: str) -> List[Dict[str, Any]]:
+    """Returns all schools linked to an exam (via classroom_exams or submissions)."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    schools_map = {}
+    
+    # 1. Linked via classrooms
+    cursor.execute("""
+        SELECT DISTINCT s.id as school_id, s.name as school_name, c.name as classroom_name
+        FROM classroom_exams ce
+        JOIN classrooms c ON ce.classroom_id = c.id
+        JOIN schools s ON c.school_id = s.id
+        WHERE ce.exam_id = ?
+        ORDER BY s.name ASC, c.name ASC
+    """, (exam_id,))
+    rows = cursor.fetchall()
+    for r in rows:
+        sid = r["school_id"]
+        sname = r["school_name"]
+        cname = r["classroom_name"]
+        if sid not in schools_map:
+            schools_map[sid] = {"id": sid, "name": sname, "classrooms": []}
+        if cname and cname not in schools_map[sid]["classrooms"]:
+            schools_map[sid]["classrooms"].append(cname)
+
+    # 2. Linked via submissions with school_id
+    cursor.execute("""
+        SELECT DISTINCT s.id as school_id, s.name as school_name
+        FROM submissions sub
+        JOIN schools s ON sub.school_id = s.id
+        WHERE sub.exam_id = ? AND s.name IS NOT NULL AND s.name != ''
+    """, (exam_id,))
+    sub_rows = cursor.fetchall()
+    for r in sub_rows:
+        sid = r["school_id"]
+        sname = r["school_name"]
+        if sid not in schools_map:
+            schools_map[sid] = {"id": sid, "name": sname, "classrooms": []}
+
+    # 3. Linked via submissions with classroom_id
+    cursor.execute("""
+        SELECT DISTINCT s.id as school_id, s.name as school_name, c.name as classroom_name
+        FROM submissions sub
+        JOIN classrooms c ON sub.classroom_id = c.id
+        JOIN schools s ON c.school_id = s.id
+        WHERE sub.exam_id = ?
+    """, (exam_id,))
+    sub_cls_rows = cursor.fetchall()
+    for r in sub_cls_rows:
+        sid = r["school_id"]
+        sname = r["school_name"]
+        cname = r["classroom_name"]
+        if sid not in schools_map:
+            schools_map[sid] = {"id": sid, "name": sname, "classrooms": []}
+        if cname and cname not in schools_map[sid]["classrooms"]:
+            schools_map[sid]["classrooms"].append(cname)
+
+    conn.close()
+    return list(schools_map.values())
+
 def get_or_create_student(classroom_id: str, name: str, registration: str = "", school_id: Optional[str] = None) -> Dict[str, Any]:
     name_clean = name.strip()
     conn = get_connection()
@@ -777,7 +895,9 @@ def list_schools_tree() -> List[Dict[str, Any]]:
         classes = [dict(c) for c in cursor.fetchall()]
         for cl in classes:
             cursor.execute("SELECT COUNT(*) as total FROM students WHERE classroom_id = ?", (cl["id"],))
-            cl["student_count"] = cursor.fetchone()["total"]
+            cnt = cursor.fetchone()["total"]
+            cl["student_count"] = cnt
+            cl["students_count"] = cnt
             cursor.execute("""
                 SELECT e.id, e.title, e.num_questions
                 FROM classroom_exams ce
@@ -790,7 +910,9 @@ def list_schools_tree() -> List[Dict[str, Any]]:
         sch["classrooms"] = classes
         sch["classroom_count"] = len(classes)
         cursor.execute("SELECT COUNT(*) as total FROM students WHERE school_id = ?", (sch["id"],))
-        sch["student_count"] = cursor.fetchone()["total"]
+        sch_cnt = cursor.fetchone()["total"]
+        sch["student_count"] = sch_cnt
+        sch["students_count"] = sch_cnt
         
     conn.close()
     return schools
@@ -1287,7 +1409,8 @@ def get_schools_overview_report() -> Dict[str, Any]:
     scores_accum = []
 
     for school in tree:
-        sch_students_count = sum(c.get("students_count", 0) for c in school.get("classrooms", []))
+        cl_students = sum(c.get("student_count", c.get("students_count", 0)) for c in school.get("classrooms", []))
+        sch_students_count = max(school.get("student_count", school.get("students_count", 0)), cl_students)
         cursor.execute("SELECT score FROM submissions WHERE school_id = ?", (school["id"],))
         subs = cursor.fetchall()
         sch_graded_count = len(subs)
@@ -1320,6 +1443,240 @@ def get_schools_overview_report() -> Dict[str, Any]:
         "network_average": network_avg,
         "schools": overview
     }
+
+def get_school_report_details(school_id: str) -> Optional[Dict[str, Any]]:
+    """Gathers all consolidated statistics and tables for an individual school report:
+    1. School info (name, inep, etc.)
+    2. Classrooms breakdown with exam stats (enrolled, evaluated, attendance_rate, average_score, average_percentage)
+    3. Top 3 students of the school overall (best exam score per student)
+    4. Top 3 students per grade/school year (1º ao 9º ano, etc.)
+    """
+    school = get_school(school_id)
+    if not school:
+        return None
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # 1. Classrooms breakdown
+    cursor.execute("""
+        SELECT * FROM classrooms 
+        WHERE school_id = ? 
+        ORDER BY grade_year ASC, name ASC
+    """, (school_id,))
+    classrooms = [dict(c) for c in cursor.fetchall()]
+
+    classroom_rows = []
+    total_enrolled = 0
+    total_evaluated = 0
+    scores_accum = []
+    pcts_accum = []
+
+    for cl in classrooms:
+        # Enrolled students in this classroom
+        cursor.execute("SELECT COUNT(*) as total FROM students WHERE classroom_id = ?", (cl["id"],))
+        cl_enrolled = cursor.fetchone()["total"]
+        total_enrolled += cl_enrolled
+
+        # Find linked exams or exams with submissions for this classroom
+        cursor.execute("""
+            SELECT DISTINCT e.id, e.title, e.num_questions, e.points_per_question
+            FROM exams e
+            LEFT JOIN classroom_exams ce ON ce.exam_id = e.id AND ce.classroom_id = ?
+            LEFT JOIN submissions s ON s.exam_id = e.id AND s.classroom_id = ?
+            WHERE ce.classroom_id IS NOT NULL OR s.classroom_id IS NOT NULL
+            ORDER BY e.title ASC
+        """, (cl["id"], cl["id"]))
+        exams = [dict(e) for e in cursor.fetchall()]
+
+        if not exams:
+            classroom_rows.append({
+                "classroom_id": cl["id"],
+                "classroom_name": cl["name"],
+                "grade_year": cl.get("grade_year", "") or "-",
+                "shift": cl.get("shift", "MANHÃ") or "MANHÃ",
+                "exam_title": "-",
+                "enrolled_count": cl_enrolled,
+                "evaluated_count": 0,
+                "attendance_rate": "0.0%",
+                "average_score": "-",
+                "average_percentage": "-"
+            })
+        else:
+            for ex in exams:
+                cursor.execute("""
+                    SELECT score, max_score, results_detail
+                    FROM submissions
+                    WHERE exam_id = ? AND classroom_id = ?
+                """, (ex["id"], cl["id"]))
+                subs = cursor.fetchall()
+                evaluated = len(subs)
+                total_evaluated += evaluated
+                
+                if evaluated > 0:
+                    avg_sc = round(sum(s["score"] for s in subs) / evaluated, 2)
+                    avg_pct = round(sum((s["score"] / max(1.0, s["max_score"])) * 100 for s in subs) / evaluated, 1)
+                    att_rate = round((evaluated / max(1, cl_enrolled)) * 100, 1) if cl_enrolled > 0 else 0.0
+                    
+                    scores_accum.append(avg_sc)
+                    pcts_accum.append(avg_pct)
+
+                    classroom_rows.append({
+                        "classroom_id": cl["id"],
+                        "classroom_name": cl["name"],
+                        "grade_year": cl.get("grade_year", "") or "-",
+                        "shift": cl.get("shift", "MANHÃ") or "MANHÃ",
+                        "exam_title": ex["title"],
+                        "enrolled_count": cl_enrolled,
+                        "evaluated_count": evaluated,
+                        "attendance_rate": f"{att_rate:.1f}%",
+                        "average_score": f"{avg_sc:.1f}",
+                        "average_percentage": f"{avg_pct:.1f}%"
+                    })
+                else:
+                    classroom_rows.append({
+                        "classroom_id": cl["id"],
+                        "classroom_name": cl["name"],
+                        "grade_year": cl.get("grade_year", "") or "-",
+                        "shift": cl.get("shift", "MANHÃ") or "MANHÃ",
+                        "exam_title": ex["title"],
+                        "enrolled_count": cl_enrolled,
+                        "evaluated_count": 0,
+                        "attendance_rate": "0.0%",
+                        "average_score": "-",
+                        "average_percentage": "-"
+                    })
+
+    # 2. Submissions across the school for Top rankings
+    cursor.execute("""
+        SELECT 
+            sub.id as submission_id,
+            sub.student_id,
+            sub.student_name,
+            sub.classroom_id,
+            sub.score,
+            sub.max_score,
+            sub.results_detail,
+            e.title as exam_title,
+            c.name as classroom_name,
+            c.grade_year
+        FROM submissions sub
+        JOIN exams e ON sub.exam_id = e.id
+        LEFT JOIN classrooms c ON sub.classroom_id = c.id
+        WHERE sub.school_id = ? OR c.school_id = ?
+        ORDER BY sub.score DESC
+    """, (school_id, school_id))
+    all_subs = cursor.fetchall()
+
+    # Deduplicate by student, keeping their highest score
+    students_best = {}
+    for sub in all_subs:
+        st_name = (sub["student_name"] or "").strip()
+        st_id = sub["student_id"] or ""
+        st_key = st_id if st_id else st_name.lower()
+        if not st_key:
+            continue
+
+        sc = round(float(sub["score"] or 0.0), 1)
+        max_sc = max(1.0, float(sub["max_score"] or 10.0))
+        pct = round((sc / max_sc) * 100, 1)
+        
+        details = []
+        try:
+            details = json.loads(sub["results_detail"] or "[]")
+        except Exception:
+            details = []
+        correct_c = sum(1 for r in details if r.get("is_correct"))
+
+        entry = {
+            "student_id": st_id,
+            "student_name": st_name,
+            "classroom_name": sub["classroom_name"] or "-",
+            "grade_year": sub["grade_year"] or "-",
+            "exam_title": sub["exam_title"] or "-",
+            "score": sc,
+            "max_score": max_sc,
+            "percentage": pct,
+            "correct_count": correct_c
+        }
+
+        if st_key not in students_best or sc > students_best[st_key]["score"]:
+            students_best[st_key] = entry
+
+    all_ranked_students = list(students_best.values())
+    all_ranked_students.sort(key=lambda x: (-x["score"], -x["percentage"], x["student_name"]))
+
+    # Top 3 Overall
+    top_overall = []
+    medals = ["1º", "2º", "3º"]
+    for idx, st in enumerate(all_ranked_students[:3]):
+        pos_str = medals[idx] if idx < len(medals) else f"{idx+1}º"
+        top_overall.append({
+            "rank": pos_str,
+            "student_name": st["student_name"],
+            "classroom_name": st["classroom_name"],
+            "grade_year": st["grade_year"],
+            "exam_title": st["exam_title"],
+            "score": f"{st['score']:.1f}",
+            "correct_count": st["correct_count"],
+            "percentage": f"{st['percentage']:.1f}%"
+        })
+
+    # 3. Top 3 Per Grade/Year
+    def extract_grade_order(gy_str: str) -> tuple:
+        if not gy_str or gy_str == "-":
+            return (999, gy_str)
+        match = re.search(r'(\d+)\s*(?:º|°|a|o)?\s*ano', gy_str, re.IGNORECASE)
+        if match:
+            return (int(match.group(1)), gy_str)
+        digits = re.findall(r'\d+', gy_str)
+        if digits:
+            d = int(digits[-1] if len(digits) > 1 and "9 ANOS" in gy_str.upper() else digits[0])
+            return (d, gy_str)
+        return (999, gy_str)
+
+    # Group students by grade_year
+    students_by_grade: Dict[str, List[Dict[str, Any]]] = {}
+    for st in all_ranked_students:
+        gy = st["grade_year"] if st["grade_year"] and st["grade_year"].strip() not in ("", "-", "None") else "Não Informado"
+        students_by_grade.setdefault(gy, []).append(st)
+
+    # Sort grade groups naturally (1º Ano, 2º Ano, etc.)
+    sorted_grades = sorted(students_by_grade.keys(), key=lambda g: extract_grade_order(g))
+
+    top_by_grade = []
+    for gy in sorted_grades:
+        grade_students = students_by_grade[gy]
+        grade_students.sort(key=lambda x: (-x["score"], -x["percentage"], x["student_name"]))
+        for idx, st in enumerate(grade_students[:3]):
+            top_by_grade.append({
+                "rank": f"{idx+1}º",
+                "grade_year": gy,
+                "student_name": st["student_name"],
+                "classroom_name": st["classroom_name"],
+                "exam_title": st["exam_title"],
+                "score": f"{st['score']:.1f}",
+                "percentage": f"{st['percentage']:.1f}%"
+            })
+
+    conn.close()
+
+    overall_avg_score = round(sum(scores_accum) / max(1, len(scores_accum)), 2) if scores_accum else 0.0
+    overall_avg_pct = round(sum(pcts_accum) / max(1, len(pcts_accum)), 1) if pcts_accum else 0.0
+
+    return {
+        "school": school,
+        "total_classrooms": len(classrooms),
+        "total_enrolled": total_enrolled,
+        "total_evaluated": total_evaluated,
+        "average_score": overall_avg_score,
+        "average_percentage": overall_avg_pct,
+        "classrooms": classroom_rows,
+        "top_overall": top_overall,
+        "top_by_grade": top_by_grade
+    }
+
+
 
 def get_system_settings() -> Dict[str, str]:
     """Retrieves current municipal institutional settings (names and logo path)."""

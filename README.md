@@ -4,7 +4,17 @@ Sistema 100% open-source, autohospedável e pronto para uso para criação de fo
 
 ---
 
-## 🚀 Como Executar
+## ⚡ Deploy Automatizado em VPS (1 Linha)
+
+Para implantar em produção em uma VPS (Ubuntu/Debian) com **PostgreSQL**, **Nginx**, **Systemd** e **Certificado SSL**:
+
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/douglas14031999/correcao-provas/main/install.sh)
+```
+
+---
+
+## 🚀 Como Executar Localmente
 
 ### 1. Iniciar o Servidor
 No terminal, execute:

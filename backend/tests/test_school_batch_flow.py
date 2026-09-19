@@ -144,7 +144,13 @@ class TestSchoolBatchFlow(unittest.TestCase):
             file=io.BytesIO(csv_bytes)
         )
         import asyncio
-        res = asyncio.run(import_students_csv(upload_file))
+        from datetime import datetime, timedelta
+        from app.services.database import update_system_settings
+        update_system_settings({
+            "admin_session_token": "test-token-batch",
+            "admin_session_expires": (datetime.utcnow() + timedelta(hours=2)).isoformat()
+        })
+        res = asyncio.run(import_students_csv(upload_file, authorization="Bearer test-token-batch"))
         self.assertTrue(res["success"])
         self.assertEqual(res["imported_students"], 2)
 

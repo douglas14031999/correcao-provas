@@ -168,7 +168,7 @@ def main():
                 "id", "title", "institution", "num_questions", "num_alternatives",
                 "points_per_question", "answer_key", "weights", "sheet_template",
                 "subtitle", "school_name", "classroom", "student_name", "shift",
-                "logo_path", "created_at"
+                "logo_path", "created_at", "header_color"
             ]
         )
         migrate_table(

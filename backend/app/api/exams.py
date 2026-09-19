@@ -8,7 +8,8 @@ from pydantic import BaseModel, Field
 from app.services.database import (
     save_exam, get_exam, list_exams, update_exam, delete_exam,
     get_submissions_by_exam, update_exam_template,
-    get_submission, delete_submission, delete_submissions_by_exam
+    get_submission, delete_submission, delete_submissions_by_exam,
+    get_exam_linked_schools
 )
 from app.services.pdf_generator import generate_answer_sheet_pdf, DEFAULT_LOGO_PATH
 from app.api.auth import require_roles
@@ -36,6 +37,7 @@ class CreateExamRequest(BaseModel):
     points_per_question: float = Field(1.0, gt=0)
     answer_key: Dict[str, str] = Field(default_factory=dict)
     weights: Optional[Dict[str, float]] = Field(default_factory=dict)
+    header_color: Optional[str] = Field("#244061", example="#244061")
 
 @router.post("/upload-logo")
 async def upload_logo_file(file: UploadFile = File(...), authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)):
@@ -95,7 +97,8 @@ def create_exam(req: CreateExamRequest, authorization: Optional[str] = Header(No
         num_questions=req.num_questions,
         num_alternatives=req.num_alternatives,
         logo_path=logo_path,
-        output_path=pdf_path
+        output_path=pdf_path,
+        header_color=req.header_color or "#244061"
     )
     
     exam_data = {
@@ -112,7 +115,8 @@ def create_exam(req: CreateExamRequest, authorization: Optional[str] = Header(No
         "points_per_question": req.points_per_question,
         "answer_key": ans_key,
         "weights": req.weights or {},
-        "sheet_template": template_data
+        "sheet_template": template_data,
+        "header_color": req.header_color or "#244061"
     }
     
     saved = save_exam(exam_data)
@@ -124,6 +128,9 @@ def get_all_exams():
     for ex in exams:
         subs = get_submissions_by_exam(ex["id"])
         ex["submissions_count"] = len(subs)
+        linked = get_exam_linked_schools(ex["id"])
+        ex["linked_schools"] = linked
+        ex["is_linked_to_school"] = len(linked) > 0
     return exams
 
 @router.get("/{exam_id}")
@@ -133,6 +140,9 @@ def get_single_exam(exam_id: str):
         raise HTTPException(status_code=404, detail="Simulado não encontrado")
     subs = get_submissions_by_exam(exam_id)
     exam["submissions_count"] = len(subs)
+    linked = get_exam_linked_schools(exam_id)
+    exam["linked_schools"] = linked
+    exam["is_linked_to_school"] = len(linked) > 0
     return exam
 
 @router.put("/{exam_id}")
@@ -179,7 +189,8 @@ def update_existing_exam(exam_id: str, req: CreateExamRequest, authorization: Op
         num_questions=req.num_questions,
         num_alternatives=req.num_alternatives,
         logo_path=logo_path,
-        output_path=pdf_path
+        output_path=pdf_path,
+        header_color=req.header_color or existing.get("header_color", "#244061")
     )
     
     updated_data = {
@@ -196,7 +207,8 @@ def update_existing_exam(exam_id: str, req: CreateExamRequest, authorization: Op
         "points_per_question": req.points_per_question,
         "answer_key": ans_key,
         "weights": req.weights or {},
-        "sheet_template": template_data
+        "sheet_template": template_data,
+        "header_color": req.header_color or existing.get("header_color", "#244061")
     }
     
     res = update_exam(exam_id, updated_data)
@@ -221,6 +233,28 @@ def remove_exam(exam_id: str, authorization: Optional[str] = Header(None), x_aut
     exam = get_exam(exam_id)
     if not exam:
         raise HTTPException(status_code=404, detail="Simulado não encontrado")
+
+    # Only allow deleting if not linked to any school
+    linked_schools = get_exam_linked_schools(exam_id)
+    if linked_schools:
+        school_items = []
+        for s in linked_schools:
+            if s.get("classrooms"):
+                turmas = ", ".join(s["classrooms"][:3])
+                if len(s["classrooms"]) > 3:
+                    turmas += f" e mais {len(s['classrooms']) - 3} turma(s)"
+                school_items.append(f"• {s['name']} (Turmas: {turmas})")
+            else:
+                school_items.append(f"• {s['name']}")
+        escolas_detalhe = "\n".join(school_items)
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Não é permitido excluir o gabarito '{exam['title']}' pois ele está vinculado à(s) seguinte(s) escola(s):\n"
+                f"{escolas_detalhe}\n\n"
+                "Para excluí-lo, desvincule este gabarito das turmas na aba 'Turmas'."
+            )
+        )
 
     # Clean up associated submission files
     subs = get_submissions_by_exam(exam_id)
@@ -278,7 +312,7 @@ def remove_single_submission(submission_id: str, authorization: Optional[str] = 
     return {"message": "Correção excluída com sucesso."}
 
 @router.get("/{exam_id}/sheet.pdf")
-def download_sheet_pdf(exam_id: str, layout: str = "single"):
+def download_sheet_pdf(exam_id: str, layout: str = "single", filled: bool = True):
     exam = get_exam(exam_id)
     if not exam:
         raise HTTPException(status_code=404, detail="Simulado não encontrado")
@@ -289,33 +323,42 @@ def download_sheet_pdf(exam_id: str, layout: str = "single"):
     if not logo_p or not os.path.exists(logo_p):
         logo_p = DEFAULT_LOGO_PATH if os.path.exists(DEFAULT_LOGO_PATH) else None
 
-    # Generate on the fly with requested layout
+    # Determine if answers should be filled (Gabarito Oficial)
+    ans_key = exam.get("answer_key", {}) if filled else None
+    student_title = exam.get("student_name", "")
+    if filled and not student_title:
+        student_title = "GABARITO OFICIAL"
+
+    # Generate on the fly with requested layout, selected color and filled answers
     pdf_bytes, template_data = generate_answer_sheet_pdf(
         exam_id=exam_id,
         title=exam["title"],
         subtitle=exam.get("subtitle", "2º ANO DO ENSINO FUNDAMENTAL"),
         school_name=exam.get("school_name", ""),
-        student_name=exam.get("student_name", ""),
+        student_name=student_title,
         classroom=exam.get("classroom", ""),
         shift=exam.get("shift", "(  ) MANHÃ       (  ) TARDE"),
         num_questions=exam["num_questions"],
         num_alternatives=exam["num_alternatives"],
         sheets_per_page=sheets_per_page,
-        logo_path=logo_p
+        logo_path=logo_p,
+        header_color=exam.get("header_color", "#244061"),
+        filled_answers=ans_key
     )
     
     # Keep exam template in sync with high-precision bubble positions
-    if sheets_per_page == 1 and template_data:
+    if sheets_per_page == 1 and template_data and not filled:
         try:
             update_exam_template(exam_id, template_data)
         except Exception:
             pass
             
     filename_suffix = "2_por_folha" if sheets_per_page == 2 else "completa"
+    prefix = "gabarito_oficial_preenchido" if filled else "gabarito"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="gabarito_{exam_id[:8]}_{filename_suffix}.pdf"'}
+        headers={"Content-Disposition": f'inline; filename="{prefix}_{exam_id[:8]}_{filename_suffix}.pdf"'}
     )
 
 @router.get("/{exam_id}/submissions")

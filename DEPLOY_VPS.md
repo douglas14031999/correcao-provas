@@ -1,14 +1,35 @@
 # Guia Completo de Deploy na VPS (Ubuntu / Debian)
 
-Este documento descreve o processo completo para colocar o **Sistema OMR de Correção de Provas & Gabaritos** em produção na sua VPS com **PostgreSQL**, **FastAPI** e **Nginx (com HTTPS/SSL)**.
+Este documento descreve o processo para colocar o **Sistema OMR de Correção de Provas & Gabaritos** em produção na sua VPS com **PostgreSQL**, **FastAPI** e **Nginx (com HTTPS/SSL)**.
 
 ---
 
-## 📋 Pré-requisitos na VPS
+## ⚡ Instalação Automática em 1 Linha (Recomendado)
+
+Basta conectar na sua VPS via SSH e rodar o comando abaixo:
+
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/douglas14031999/correcao-provas/main/install.sh)
+```
+
+> [!TIP]
+> **O instalador faz absolutamente tudo sozinho de forma interativa:**
+> 1. Atualiza o sistema (`apt update`) e instala todas as bibliotecas necessárias (`Python`, `pip`, `venv`, `Nginx`, `OpenSSL`, `libgl1`, `zbar-tools`, etc.).
+> 2. Verifica se o **PostgreSQL** já está instalado; caso não esteja, instala, inicia e habilita o serviço.
+> 3. Cria automaticamente o banco de dados `correcao_provas` e o usuário `correcao_user` com senha segura aleatória.
+> 4. Clona e configura a aplicação em `/var/www/correcao-provas`, criando o ambiente virtual Python e instalando todas as dependências.
+> 5. Cria o serviço do sistema **Systemd** (`correcao-provas.service`) para inicialização e recuperação automática contínua.
+> 6. Pergunta se você possui um domínio apontado:
+>    - **Se SIM:** Configura o Nginx com o domínio e emite o certificado oficial gratuito **Let's Encrypt SSL**.
+>    - **Se NÃO:** Gera certificado SSL com extensão SAN para o IP público, garantindo que navegadores móveis permitam abrir a câmera fotográfica para escaneamento.
+
+---
+
+## 📋 Pré-requisitos na VPS (Modo Manual)
 
 - Sistema Operacional: Ubuntu 22.04 LTS / 24.04 LTS ou Debian 11/12
-- Acesso SSH com privilégios `sudo`
-- Domínio ou subdomínio apontando para o IP da VPS (ex: `provas.semed.seudominio.gov.br`)
+- Acesso SSH com privilégios `sudo` ou `root`
+- Porta 80 e 443 liberadas no firewall da VPS
 
 ---
 
@@ -18,7 +39,7 @@ Execute no terminal da VPS:
 
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y python3 python3-pip python3-venv git nginx certbot python3-certbot-nginx postgresql postgresql-contrib libgl1 libglib2.0-0
+sudo apt install -y python3 python3-pip python3-venv git nginx certbot python3-certbot-nginx postgresql postgresql-contrib libgl1 libglib2.0-0 zbar-tools libpq-dev
 ```
 
 ---

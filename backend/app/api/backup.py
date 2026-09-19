@@ -96,6 +96,9 @@ def export_backup(
 
     conn.close()
 
+    # Contar mídias institucionais e provas
+    media_counts = {"assets": 0, "overlays": 0, "scans": 0}
+
     now_iso = datetime.utcnow().isoformat()
     manifest = {
         "version": "1.0.0",
@@ -103,7 +106,8 @@ def export_backup(
         "created_at": now_iso,
         "database_type": "postgresql" if is_postgres() else "sqlite",
         "table_counts": counts,
-        "total_records": sum(counts.values())
+        "total_records": sum(counts.values()),
+        "media_counts": media_counts
     }
 
     # Gerar arquivo ZIP em memória
@@ -115,24 +119,31 @@ def export_backup(
             json.dumps(database_dump, ensure_ascii=False, indent=2)
         )
 
-        # 2. Manifesto com informações e hash
-        zf.writestr(
-            "manifest.json",
-            json.dumps(manifest, ensure_ascii=False, indent=2)
-        )
-
-        # 3. Arquivos de ativos institucionais (brasão, logos municipais)
-        if os.path.exists(ASSETS_DIR):
-            for root, _, files in os.walk(ASSETS_DIR):
-                for f in files:
-                    full_p = os.path.join(root, f)
-                    rel_p = os.path.relpath(full_p, STORAGE_DIR)
-                    zf.write(full_p, arcname=os.path.join("storage", rel_p))
+        # 2. Arquivos de armazenamento: assets, brasão, overlays (Raio-X) e scans originais
+        media_folders = ["assets", "overlays", "scans"]
+        for folder in media_folders:
+            folder_path = os.path.join(STORAGE_DIR, folder)
+            if os.path.exists(folder_path):
+                for root, _, files in os.walk(folder_path):
+                    for f in files:
+                        full_p = os.path.join(root, f)
+                        rel_p = os.path.relpath(full_p, STORAGE_DIR)
+                        zf.write(full_p, arcname=os.path.join("storage", rel_p))
+                        media_counts[folder] = media_counts.get(folder, 0) + 1
 
         # Brasão oficial na raiz de storage se existir
         logo_muni = os.path.join(STORAGE_DIR, "logo_municipal.jpg")
         if os.path.exists(logo_muni):
             zf.write(logo_muni, arcname="storage/logo_municipal.jpg")
+            media_counts["assets"] = media_counts.get("assets", 0) + 1
+
+        # 3. Manifesto com informações consolidadas
+        manifest["media_counts"] = media_counts
+        manifest["total_media_files"] = sum(media_counts.values())
+        zf.writestr(
+            "manifest.json",
+            json.dumps(manifest, ensure_ascii=False, indent=2)
+        )
 
     zip_bytes = zip_buffer.getvalue()
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -143,7 +154,8 @@ def export_backup(
         media_type="application/zip",
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
-            "X-Backup-Records": str(manifest["total_records"])
+            "X-Backup-Records": str(manifest["total_records"]),
+            "X-Backup-Media": str(manifest["total_media_files"])
         }
     )
 
@@ -206,7 +218,23 @@ async def import_backup(
 
     restored_stats = {}
 
+    def rebase_storage_path(val: Any) -> Any:
+        if not val or not isinstance(val, str):
+            return val
+        norm_val = val.replace("\\", "/")
+        if "storage/" in norm_val:
+            sub_rel = norm_val.split("storage/", 1)[1]
+            return os.path.join(STORAGE_DIR, sub_rel.replace("/", os.sep))
+        return val
+
     try:
+        # Desativar chaves estrangeiras temporariamente se SQLite para limpeza sem conflitos
+        if not is_postgres():
+            try:
+                cursor.execute("PRAGMA foreign_keys = OFF;")
+            except Exception:
+                pass
+
         # 1. Limpeza em cascata respeitando Foreign Keys
         for tbl in TABLE_ORDER_CLEAR:
             try:
@@ -227,11 +255,24 @@ async def import_backup(
 
                 sql = f"INSERT INTO {tbl} ({col_names}) VALUES ({placeholders})"
                 for r in records:
+                    # Normalizar caminhos de logos locais para o STORAGE_DIR do servidor atual
+                    if tbl == "exams" and "logo_path" in r:
+                        r["logo_path"] = rebase_storage_path(r["logo_path"])
+                    elif tbl == "system_settings" and r.get("key") == "logo_path":
+                        r["value"] = rebase_storage_path(r.get("value"))
+
                     values = [r.get(c) for c in cols]
                     cursor.execute(sql, values)
                     count += 1
 
             restored_stats[tbl] = count
+
+        # Reativar chaves estrangeiras se SQLite
+        if not is_postgres():
+            try:
+                cursor.execute("PRAGMA foreign_keys = ON;")
+            except Exception:
+                pass
 
         # 3. Salvaguarda de Segurança: garantir que existe pelo menos 1 administrador ativo
         cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND is_active = 1")

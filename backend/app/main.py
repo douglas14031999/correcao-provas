@@ -1,6 +1,6 @@
 import os
 import sys
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -44,6 +44,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
 )
 
 # Initialize DB and directories
@@ -73,6 +74,49 @@ if os.path.exists(FRONTEND_DIR):
     @app.get("/")
     async def serve_index():
         return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+
+    @app.get("/manifest.json")
+    async def serve_manifest():
+        manifest_path = os.path.join(FRONTEND_DIR, "manifest.json")
+        if os.path.exists(manifest_path):
+            return FileResponse(manifest_path, media_type="application/manifest+json")
+        raise HTTPException(status_code=404, detail="Manifest não encontrado")
+
+    @app.get("/sw.js")
+    async def serve_sw():
+        sw_path = os.path.join(FRONTEND_DIR, "sw.js")
+        if os.path.exists(sw_path):
+            return FileResponse(
+                sw_path,
+                media_type="application/javascript",
+                headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"}
+            )
+        raise HTTPException(status_code=404, detail="Service Worker não encontrado")
+
+    @app.get("/pwa-icon-192.png")
+    async def serve_pwa_icon_192():
+        icon_path = os.path.join(FRONTEND_DIR, "pwa-icon-192.png")
+        if os.path.exists(icon_path):
+            return FileResponse(icon_path, media_type="image/png")
+        raise HTTPException(status_code=404, detail="Ícone não encontrado")
+
+    @app.get("/pwa-icon-512.png")
+    async def serve_pwa_icon_512():
+        icon_path = os.path.join(FRONTEND_DIR, "pwa-icon-512.png")
+        if os.path.exists(icon_path):
+            return FileResponse(icon_path, media_type="image/png")
+        raise HTTPException(status_code=404, detail="Ícone não encontrado")
+
+    @app.get("/prova-canoa-ca.crt")
+    async def serve_ca_cert():
+        ca_path = os.path.join(FRONTEND_DIR, "prova-canoa-ca.crt")
+        if os.path.exists(ca_path):
+            return FileResponse(
+                ca_path,
+                media_type="application/x-x509-ca-cert",
+                filename="prova-canoa-ca.crt"
+            )
+        raise HTTPException(status_code=404, detail="Certificado CA não encontrado")
         
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="frontend_static")
 

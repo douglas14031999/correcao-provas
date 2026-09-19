@@ -3,14 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" content="#244061">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <title>Gabarito OMR — Correção de Provas Inteligente</title>
+  <meta name="apple-mobile-web-app-title" content="Prova Canoa">
+  <meta name="application-name" content="Prova Canoa">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="/api/settings/pwa-icon?size=192">
+  <link rel="apple-touch-icon" href="/api/settings/pwa-icon?size=192">
+  <link rel="apple-touch-icon" sizes="512x512" href="/api/settings/pwa-icon?size=512">
+  <title>Prova Canoa — Correção de Provas e Gabaritos Inteligente</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css?v=1789650050">
+  <link rel="stylesheet" href="/static/styles.css?v=1789790000">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -137,7 +144,7 @@
               <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
               <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
             </svg>
-            <span>Turmas & Alunos</span>
+            <span>Turmas</span>
           </button>
           <button class="tab-btn" data-tab="create-tab" title="Criar novo simulado ou avaliação">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -229,8 +236,187 @@
           </button>
         </div>
       </nav>
+
+      <!-- Mobile Header Actions (Visible on screens <= 1024px) -->
+      <div class="mobile-header-actions" id="mobile-header-actions">
+        <div class="mobile-header-avatar" id="mobile-header-avatar" onclick="toggleMobileMenu()" title="Perfil e Menu">DG</div>
+        <button class="mobile-menu-toggle-btn" id="btn-mobile-menu-toggle" type="button" aria-label="Abrir menu de navegação" onclick="toggleMobileMenu()">
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+        </button>
+      </div>
     </div>
   </header>
+
+  <!-- Mobile Navigation Drawer Backdrop -->
+  <div class="mobile-nav-backdrop" id="mobile-nav-backdrop" onclick="closeMobileMenu()"></div>
+
+  <!-- Mobile Navigation Drawer -->
+  <aside class="mobile-nav-drawer" id="mobile-nav-drawer" aria-label="Menu Lateral de Navegação">
+    <!-- Drawer Header: User Card & Close Button -->
+    <div class="mobile-drawer-header">
+      <div class="mobile-drawer-user-card">
+        <div class="mobile-drawer-avatar" id="mobile-drawer-avatar">DG</div>
+        <div class="mobile-drawer-user-meta">
+          <span class="mobile-drawer-name" id="mobile-drawer-name">Douglas Guilherme</span>
+          <span class="mobile-drawer-role" id="mobile-drawer-role">SEMED • Administrador</span>
+        </div>
+      </div>
+      <button type="button" class="mobile-drawer-close-btn" onclick="closeMobileMenu()" aria-label="Fechar menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Drawer Body with Scroll -->
+    <div class="mobile-drawer-body">
+      <!-- Fast Quick Action: Cadastrar Nova Prova -->
+      <div class="mobile-drawer-quick-action">
+        <button type="button" class="mobile-quick-btn" onclick="resetCreateForm(); switchTab('create-tab'); closeMobileMenu();">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="16"></line>
+            <line x1="8" y1="12" x2="16" y2="12"></line>
+          </svg>
+          <span>Nova Prova / Gabarito</span>
+        </button>
+      </div>
+
+      <!-- Group 1: Navegação Pedagógica -->
+      <div class="mobile-drawer-group-label">Navegação Pedagógica</div>
+      <div class="mobile-drawer-nav-list">
+        <button type="button" class="mobile-drawer-item active" data-tab="dashboard-tab" onclick="switchTab('dashboard-tab'); closeMobileMenu();">
+          <div class="mobile-item-icon-box icon-blue">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="9" rx="1"></rect>
+              <rect x="14" y="3" width="7" height="5" rx="1"></rect>
+              <rect x="14" y="12" width="7" height="9" rx="1"></rect>
+              <rect x="3" y="16" width="7" height="5" rx="1"></rect>
+            </svg>
+          </div>
+          <div class="mobile-item-info">
+            <span class="mobile-item-title">Dashboard</span>
+            <span class="mobile-item-desc">Métricas e rendimento da rede</span>
+          </div>
+        </button>
+
+        <button type="button" class="mobile-drawer-item" data-tab="scanner-tab" onclick="switchTab('scanner-tab'); closeMobileMenu();">
+          <div class="mobile-item-icon-box icon-emerald">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+          </div>
+          <div class="mobile-item-info">
+            <span class="mobile-item-title">Correção de Provas</span>
+            <span class="mobile-item-desc">Scanner de gabaritos via câmera</span>
+          </div>
+          <span class="mobile-badge-chip">OMR</span>
+        </button>
+
+        <button type="button" class="mobile-drawer-item" data-tab="exams-tab" onclick="switchTab('exams-tab'); closeMobileMenu();">
+          <div class="mobile-item-icon-box icon-indigo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+          </div>
+          <div class="mobile-item-info">
+            <span class="mobile-item-title">Simulados & Gabaritos</span>
+            <span class="mobile-item-desc">Provas cadastradas e downloads</span>
+          </div>
+        </button>
+
+        <button type="button" class="mobile-drawer-item" data-tab="schools-tab" onclick="switchTab('schools-tab'); closeMobileMenu();">
+          <div class="mobile-item-icon-box icon-sky">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </div>
+          <div class="mobile-item-info">
+            <span class="mobile-item-title">Turmas</span>
+            <span class="mobile-item-desc">Escolas, turmas e estudantes</span>
+          </div>
+        </button>
+      </div>
+
+      <!-- Group 2: Gestão Administrativa & Sistema -->
+      <div class="mobile-drawer-group-label">Gestão & Sistema</div>
+      <div class="mobile-drawer-nav-list">
+        <button type="button" class="mobile-drawer-item" onclick="switchTab('users-tab'); closeMobileMenu();">
+          <div class="mobile-item-icon-box icon-purple">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </div>
+          <div class="mobile-item-info">
+            <span class="mobile-item-title">Gestão de Usuários</span>
+            <span class="mobile-item-desc">Operadores e permissões</span>
+          </div>
+        </button>
+
+        <button type="button" class="mobile-drawer-item admin-only-item" onclick="switchTab('backup-tab'); closeMobileMenu();">
+          <div class="mobile-item-icon-box icon-emerald">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+          </div>
+          <div class="mobile-item-info">
+            <span class="mobile-item-title">Backup & Restauração</span>
+            <span class="mobile-item-desc">Download e upload em .ZIP</span>
+          </div>
+        </button>
+
+        <button type="button" class="mobile-drawer-item" onclick="openSettingsModal(); closeMobileMenu();">
+          <div class="mobile-item-icon-box icon-amber">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </div>
+          <div class="mobile-item-info">
+            <span class="mobile-item-title">Dados do Município</span>
+            <span class="mobile-item-desc">Brasão e configurações</span>
+          </div>
+        </button>
+
+        <button type="button" class="mobile-drawer-item" onclick="openYearReportModal(); closeMobileMenu();">
+          <div class="mobile-item-icon-box icon-indigo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 20V10M18 20V4M6 20v-4"></path>
+            </svg>
+          </div>
+          <div class="mobile-item-info">
+            <span class="mobile-item-title">Rendimento da Rede</span>
+            <span class="mobile-item-desc">Métricas por ano escolar</span>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Drawer Footer: Logout -->
+    <div class="mobile-drawer-footer">
+      <button type="button" class="mobile-drawer-logout-btn" onclick="closeMobileMenu(); handleLogout();">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
+        <span>Sair do Sistema</span>
+      </button>
+    </div>
+  </aside>
 
   <!-- Main Content Container -->
   <main class="main-container">
@@ -455,7 +641,7 @@
           <input type="file" id="file-fallback-input" accept="image/*" style="display: none;">
 
           <!-- Camera Stream Box -->
-          <div class="camera-viewport-container">
+          <div class="camera-viewport-container" id="camera-viewport-container">
             <div id="camera-loading" class="camera-overlay-state">
               <div class="spinner"></div>
               <span>Iniciando câmera...</span>
@@ -476,14 +662,73 @@
             </div>
             
             <canvas id="capture-canvas" style="display: none;"></canvas>
+
+            <!-- Landscape Fullscreen Camera HUD (Mobile Horizontal) -->
+            <div class="landscape-camera-hud" id="landscape-camera-hud">
+              <!-- Top HUD Bar -->
+              <div class="landscape-hud-top">
+                <div class="landscape-exam-badge">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <rect x="7" y="7" width="3" height="3"></rect>
+                    <rect x="14" y="7" width="3" height="3"></rect>
+                    <rect x="7" y="14" width="3" height="3"></rect>
+                  </svg>
+                  <span id="landscape-hud-exam-title">Identificação Automática (QR Code)</span>
+                </div>
+                <div class="landscape-top-actions">
+                  <button type="button" id="landscape-torch-btn" class="landscape-hud-btn" title="Alternar Lanterna">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                  </button>
+                  <button type="button" id="landscape-switch-cam-btn" class="landscape-hud-btn" title="Alternar Câmera">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"></path>
+                      <path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                      <path d="m18 22-3-3 3-3"></path>
+                      <path d="m6 2 3 3-3 3"></path>
+                    </svg>
+                  </button>
+                  <button type="button" id="landscape-exit-btn" class="landscape-hud-btn landscape-btn-exit" title="Sair do modo tela cheia">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Right Thumb Zone (Ergonomic Shutter & Gallery) -->
+              <div class="landscape-hud-right">
+                <button type="button" id="landscape-shutter-btn" class="landscape-shutter-trigger" title="Corrigir Prova">
+                  <div class="landscape-shutter-inner">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  </div>
+                </button>
+                <button type="button" id="landscape-gallery-btn" class="landscape-hud-btn" title="Selecionar da Galeria">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                  </svg>
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- Camera Action Controls -->
           <div class="camera-controls">
             <button id="switch-camera-btn" class="btn btn-secondary" title="Alternar Câmera">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M20 10c0-4.418-3.582-8-8-8s-8 3.582-8 8c0 2.21 1.01 4.22 2.62 5.57L4 20h6v-6l-2.3 2.3C6.39 15.11 5.5 13.68 5.5 12c0-3.59 2.91-6.5 6.5-6.5s6.5 2.91 6.5 6.5c0 1.68-.89 3.11-2.2 4.3"></path>
-                <polyline points="20 14 20 20 14 20"></polyline>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"></path>
+                <path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="m18 22-3-3 3-3"></path>
+                <path d="m6 2 3 3-3 3"></path>
               </svg>
               <span>Câmera</span>
             </button>
@@ -717,7 +962,7 @@
     <section id="schools-tab" class="tab-content">
       <div class="schools-header-bar">
         <div>
-          <h2 class="section-title">Turmas & Alunos</h2>
+          <h2 class="section-title">Turmas</h2>
           <p class="section-subtitle">Escolas, turmas e matrículas da rede</p>
         </div>
         <div class="schools-actions">
@@ -727,38 +972,14 @@
             </svg>
             <span>Rendimento</span>
           </button>
-          <div class="export-dropdown-wrapper" style="position: relative; display: inline-block;">
-            <button type="button" class="btn btn-secondary" id="btn-toggle-export-network" title="Relatório panorâmico com todas as escolas e turmas">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                <polyline points="9 22 9 12 15 12 15 22"></polyline>
-              </svg>
-              <span>Panorâmico ▾</span>
-            </button>
-            <div class="report-dropdown-menu" id="dropdown-menu-export-network" style="display: none;">
-              <button type="button" class="report-dropdown-item" onclick="exportNetworkReport('pdf')">
-                <span class="report-fmt-badge fmt-pdf">PDF</span>
-                <div class="report-fmt-info">
-                  <strong>PDF Oficial (A4)</strong>
-                  <small>Todas as escolas, turmas e taxas de presença</small>
-                </div>
-              </button>
-              <button type="button" class="report-dropdown-item" onclick="exportNetworkReport('xlsx')">
-                <span class="report-fmt-badge fmt-xlsx">XLSX</span>
-                <div class="report-fmt-info">
-                  <strong>Planilha Excel (.xlsx)</strong>
-                  <small>Consolidação de turmas e matrículas</small>
-                </div>
-              </button>
-              <button type="button" class="report-dropdown-item" onclick="exportNetworkReport('docx')">
-                <span class="report-fmt-badge fmt-docx">DOCX</span>
-                <div class="report-fmt-info">
-                  <strong>Documento Word (.docx)</strong>
-                  <small>Arquivo formal editável</small>
-                </div>
-              </button>
-            </div>
-          </div>
+          <button type="button" class="btn btn-secondary" id="btn-open-network-export-modal" onclick="openExportReportModal('network')" title="Exportar relatórios da rede escolar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <span>Exportar Relatório</span>
+          </button>
           <button type="button" class="btn btn-primary" id="btn-open-new-school-modal">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 21h18"></path>
@@ -814,75 +1035,34 @@
           </div>
         </div>
         <div class="report-header-actions">
-          <div class="exam-select-pill">
-            <label for="page-rep-exam-select">Simulado:</label>
+          <!-- Primary Exam Select (Simulado / Gabarito A) -->
+          <div class="exam-select-pill" id="exam-select-pill-main">
+            <label for="page-rep-exam-select" id="lbl-page-rep-exam-select">
+              <span class="exam-color-indicator exam-a-dot" id="dot-exam-a" style="display: none;"></span>
+              <span id="txt-page-rep-exam-select">Simulado:</span>
+            </label>
             <select id="page-rep-exam-select" class="form-select"></select>
           </div>
-          <!-- Executive Multi-Format Export Dropdown -->
-          <div class="export-dropdown-wrapper" style="position: relative; display: inline-block;">
-            <button type="button" class="btn btn-primary btn-sm" id="btn-toggle-export-class">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
-              <span>Exportar Relatório ▾</span>
-            </button>
-            <div class="report-dropdown-menu" id="dropdown-menu-export-class" style="display: none;">
-              <button type="button" class="report-dropdown-item" onclick="exportClassroomReport('pdf')">
-                <span class="report-fmt-badge fmt-pdf">PDF</span>
-                <div class="report-fmt-info">
-                  <strong>PDF Oficial (A4)</strong>
-                  <small>Padrão i-Diário com Brasão e cabeçalho</small>
-                </div>
-              </button>
-              <button type="button" class="report-dropdown-item" onclick="exportClassroomReport('xlsx')">
-                <span class="report-fmt-badge fmt-xlsx">XLSX</span>
-                <div class="report-fmt-info">
-                  <strong>Planilha Excel (.xlsx)</strong>
-                  <small>Células formatadas, fórmulas e cores</small>
-                </div>
-              </button>
-              <button type="button" class="report-dropdown-item" onclick="exportClassroomReport('docx')">
-                <span class="report-fmt-badge fmt-docx">DOCX</span>
-                <div class="report-fmt-info">
-                  <strong>Documento Word (.docx)</strong>
-                  <small>Arquivo formal institucional editável</small>
-                </div>
-              </button>
-              <div class="report-dropdown-divider"></div>
-              <button type="button" class="report-dropdown-item" onclick="exportClassroomDiagnostic('pdf')">
-                <span class="report-fmt-badge fmt-pdf">PDF</span>
-                <div class="report-fmt-info">
-                  <strong>Diagnóstico por Questão (A4)</strong>
-                  <small>Taxa de acertos e descritores</small>
-                </div>
-              </button>
-              <button type="button" class="report-dropdown-item" onclick="exportClassroomDiagnostic('xlsx')">
-                <span class="report-fmt-badge fmt-xlsx">XLSX</span>
-                <div class="report-fmt-info">
-                  <strong>Diagnóstico em Excel</strong>
-                  <small>Estatísticas item a item</small>
-                </div>
-              </button>
-              <div class="report-dropdown-divider"></div>
-              <button type="button" class="report-dropdown-item" id="btn-page-export-report-csv">
-                <span class="report-fmt-badge" style="background: #64748b; color: #fff;">CSV</span>
-                <div class="report-fmt-info">
-                  <strong>Dados Brutos (.csv)</strong>
-                  <small>Exportação simples sem formatação</small>
-                </div>
-              </button>
-            </div>
+
+          <!-- Comparison Mode Elements (Shown only when Comparar Gabaritos is active) -->
+          <span class="compare-vs-badge" id="header-compare-vs" style="display: none; padding: 0.25rem 0.6rem; font-size: 0.75rem;">VS</span>
+
+          <div class="exam-select-pill" id="header-compare-exam2-pill" style="display: none;">
+            <label for="compare-select-exam2">
+              <span class="exam-color-indicator exam-b-dot"></span>
+              <span>Gabarito B:</span>
+            </label>
+            <select id="compare-select-exam2" class="form-select"></select>
           </div>
 
-          <button type="button" class="btn btn-secondary btn-sm" id="btn-page-print-report">
+          <!-- Unified Export Report Modal Trigger Button -->
+          <button type="button" class="btn btn-primary btn-sm" id="btn-open-export-modal" onclick="openExportReportModal('classroom')" title="Exportar Relatório Oficial da Turma">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="6 9 6 2 18 2 18 9"/>
-              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-              <rect x="6" y="14" width="12" height="8"/>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
-            <span>Imprimir</span>
+            <span>Exportar Relatório</span>
           </button>
         </div>
       </div>
@@ -1038,74 +1218,6 @@
 
       <!-- CONTAINER: COMPARISON BETWEEN TWO EXAMS -->
       <div id="report-view-compare" style="display: none;">
-        <!-- Comparison Exam Selectors Bar -->
-        <div class="compare-selector-card">
-          <div class="compare-selector-grid">
-            <div class="compare-col">
-              <label class="compare-label" for="compare-select-exam1">
-                <span class="exam-color-indicator exam-a-dot"></span>
-                <strong>Gabarito A (Principal):</strong>
-              </label>
-              <select id="compare-select-exam1" class="form-select"></select>
-            </div>
-            
-            <div class="compare-vs-badge">VS</div>
-
-            <div class="compare-col">
-              <label class="compare-label" for="compare-select-exam2">
-                <span class="exam-color-indicator exam-b-dot"></span>
-                <strong>Gabarito B (Comparado):</strong>
-              </label>
-              <select id="compare-select-exam2" class="form-select"></select>
-            </div>
-
-            <div class="compare-btn-col">
-              <button type="button" class="btn btn-primary btn-sm" id="btn-run-comparison">
-                <span>Atualizar Comparativo</span>
-              </button>
-              
-              <!-- Multi-Format Compare Export Dropdown -->
-              <div class="export-dropdown-wrapper" style="position: relative; display: inline-block;">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-export-compare" title="Baixar relatório comparativo">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  <span>Exportar Comparativo ▾</span>
-                </button>
-                <div class="report-dropdown-menu" id="dropdown-menu-export-compare" style="display: none;">
-                  <button type="button" class="report-dropdown-item" onclick="exportCompareReport('pdf')">
-                    <span class="report-fmt-badge fmt-pdf">PDF</span>
-                    <div class="report-fmt-info">
-                      <strong>Comparativo em PDF (A4)</strong>
-                      <small>Documento oficial com gráficos comparativos</small>
-                    </div>
-                  </button>
-                  <button type="button" class="report-dropdown-item" onclick="exportCompareReport('xlsx')">
-                    <span class="report-fmt-badge fmt-xlsx">XLSX</span>
-                    <div class="report-fmt-info">
-                      <strong>Planilha Excel Comparativa</strong>
-                      <small>Cálculo de evolução por estudante</small>
-                    </div>
-                  </button>
-                  <button type="button" class="report-dropdown-item" onclick="exportCompareReport('docx')">
-                    <span class="report-fmt-badge fmt-docx">DOCX</span>
-                    <div class="report-fmt-info">
-                      <strong>Documento Word Editável</strong>
-                      <small>Registro institucional pedagógico</small>
-                    </div>
-                  </button>
-                  <div class="report-dropdown-divider"></div>
-                  <button type="button" class="report-dropdown-item" id="btn-export-compare-csv">
-                    <span class="report-fmt-badge" style="background: #64748b; color: #fff;">CSV</span>
-                    <div class="report-fmt-info">
-                      <strong>Dados Brutos (.csv)</strong>
-                      <small>Tabela simples de notas</small>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- Highlight Pedagogical Insight Banner -->
         <div class="compare-insight-banner" id="compare-insight-banner">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
@@ -1266,16 +1378,55 @@
               </div>
             </div>
 
-            <!-- School & Class Data -->
-            <div class="form-section-title">Dados da Escola (Opcional)</div>
+            <!-- Exam Color Selection -->
+            <div class="form-section-title">Cor do Gabarito</div>
             <div class="form-row">
               <div class="form-group flex-1">
-                <label for="exam-school-input">Escola:</label>
-                <input type="text" id="exam-school-input" class="form-input" placeholder="Nome da escola (ou em branco)">
-              </div>
-              <div class="form-group flex-1">
-                <label for="exam-class-input">Turma:</label>
-                <input type="text" id="exam-class-input" class="form-input" placeholder="Ex: 2º Ano A">
+                <label>Cor de Destaque da Folha (Cabeçalho e Tabela):</label>
+                <div class="color-picker-wrapper">
+                  <div class="color-preset-pills" id="color-preset-pills">
+                    <button type="button" class="color-pill active" data-color="#244061" title="Azul Institucional Canoa">
+                      <span class="color-pill-dot" style="background-color: #244061;"></span>
+                      <span class="color-pill-name">Azul Padrão</span>
+                    </button>
+                    <button type="button" class="color-pill" data-color="#1e3a8a" title="Azul Cobalto">
+                      <span class="color-pill-dot" style="background-color: #1e3a8a;"></span>
+                      <span class="color-pill-name">Azul Cobalto</span>
+                    </button>
+                    <button type="button" class="color-pill" data-color="#0f766e" title="Verde Petróleo">
+                      <span class="color-pill-dot" style="background-color: #0f766e;"></span>
+                      <span class="color-pill-name">Verde Petróleo</span>
+                    </button>
+                    <button type="button" class="color-pill" data-color="#15803d" title="Verde Esmeralda">
+                      <span class="color-pill-dot" style="background-color: #15803d;"></span>
+                      <span class="color-pill-name">Verde Esmeralda</span>
+                    </button>
+                    <button type="button" class="color-pill" data-color="#7c2d12" title="Terracota / Tijolo">
+                      <span class="color-pill-dot" style="background-color: #7c2d12;"></span>
+                      <span class="color-pill-name">Terracota</span>
+                    </button>
+                    <button type="button" class="color-pill" data-color="#831843" title="Bordô / Vinho">
+                      <span class="color-pill-dot" style="background-color: #831843;"></span>
+                      <span class="color-pill-name">Bordô</span>
+                    </button>
+                    <button type="button" class="color-pill" data-color="#334155" title="Grafite / Ardósia">
+                      <span class="color-pill-dot" style="background-color: #334155;"></span>
+                      <span class="color-pill-name">Grafite</span>
+                    </button>
+                    <button type="button" class="color-pill" data-color="#0f172a" title="Preto Carbono">
+                      <span class="color-pill-dot" style="background-color: #0f172a;"></span>
+                      <span class="color-pill-name">Preto</span>
+                    </button>
+                  </div>
+                  <div class="custom-color-control">
+                    <label class="custom-color-btn" for="exam-color-picker" title="Escolher cor personalizada">
+                      <input type="color" id="exam-color-picker" value="#244061">
+                      <span class="custom-color-preview-box" id="custom-color-preview-box" style="background-color: #244061;"></span>
+                      <span class="custom-color-label">Personalizada</span>
+                    </label>
+                    <input type="text" id="exam-color-input" class="form-input color-hex-text" value="#244061" maxlength="7" placeholder="#244061" title="Código hexadecimal da cor">
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1337,7 +1488,7 @@
             <div class="mockup-marker tr">1</div>
 
             <!-- Sheet Header -->
-            <div class="mockup-banner">
+            <div class="mockup-banner" id="mockup-banner">
               <div class="mockup-banner-title" id="preview-title">PROVA CANOA 2026 – LÍNGUA PORTUGUESA</div>
               <div class="mockup-banner-sub" id="preview-sub">2º ANO DO ENSINO FUNDAMENTAL</div>
             </div>
@@ -2336,17 +2487,13 @@
             Exportar documento oficial com cabeçalho institucional:
           </div>
           <div style="display: flex; gap: 0.5rem;">
-            <button type="button" class="btn btn-primary btn-sm" onclick="exportYearPerformance('pdf')" style="display: inline-flex; align-items: center; gap: 0.35rem;">
-              <span class="format-tag format-tag-pdf">PDF</span>
-              <span>Baixar PDF</span>
-            </button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="exportYearPerformance('xlsx')" style="display: inline-flex; align-items: center; gap: 0.35rem;">
-              <span class="format-tag format-tag-xlsx">XLSX</span>
-              <span>Planilha Excel</span>
-            </button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="exportYearPerformance('docx')" style="display: inline-flex; align-items: center; gap: 0.35rem;">
-              <span class="format-tag format-tag-docx">DOCX</span>
-              <span>Documento Word</span>
+            <button type="button" class="btn btn-primary btn-sm" onclick="openExportReportModal('year')" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              <span>Exportar Relatório...</span>
             </button>
           </div>
         </div>
@@ -2354,9 +2501,220 @@
     </div>
   </div>
 
+  <!-- UNIFIED REPORT EXPORT MODAL -->
+  <div id="modal-export-report" class="modal-overlay" style="display: none;">
+    <div class="modal-card modal-card-lg export-modal-card">
+      <div class="modal-header">
+        <div class="export-modal-header-info">
+          <div class="export-modal-icon-badge">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="modal-title">Exportar Relatório</h3>
+            <span class="export-modal-subtitle" id="export-modal-subtitle">Configuração de emissão e formato</span>
+          </div>
+        </div>
+        <button type="button" class="modal-close" onclick="closeExportReportModal()" title="Fechar modal">&times;</button>
+      </div>
+
+      <div class="modal-body export-modal-body">
+        <!-- ETAPA 1: ESCOLHER O RELATÓRIO -->
+        <div class="export-form-section">
+          <h4 class="export-step-title" style="margin-bottom: 0.55rem;">1. Selecione o Relatório</h4>
+          <div class="export-report-types-grid" id="export-report-types-list">
+            <!-- Dynamic Cards generated by JavaScript based on context -->
+          </div>
+        </div>
+
+        <!-- ETAPA 2: ESCOLHER O FORMATO -->
+        <div class="export-form-section" style="margin-top: 1rem;">
+          <h4 class="export-step-title" style="margin-bottom: 0.55rem;">2. Formato</h4>
+          <div class="export-formats-grid">
+            <!-- PDF -->
+            <div class="export-format-card active" data-format="pdf" onclick="selectExportModalFormat('pdf')">
+              <div class="export-fmt-pill fmt-pdf">PDF</div>
+              <div class="export-fmt-info">
+                <strong>PDF (A4)</strong>
+                <small>Para impressão</small>
+              </div>
+              <div class="export-radio-indicator">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- XLSX -->
+            <div class="export-format-card" data-format="xlsx" onclick="selectExportModalFormat('xlsx')">
+              <div class="export-fmt-pill fmt-xlsx">XLSX</div>
+              <div class="export-fmt-info">
+                <strong>Excel (.xlsx)</strong>
+                <small>Planilha editável</small>
+              </div>
+              <div class="export-radio-indicator">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- DOCX -->
+            <div class="export-format-card" data-format="docx" onclick="selectExportModalFormat('docx')">
+              <div class="export-fmt-pill fmt-docx">DOCX</div>
+              <div class="export-fmt-info">
+                <strong>Word (.docx)</strong>
+                <small>Documento de texto</small>
+              </div>
+              <div class="export-radio-indicator">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- CSV -->
+            <div class="export-format-card" data-format="csv" onclick="selectExportModalFormat('csv')">
+              <div class="export-fmt-pill fmt-csv">CSV</div>
+              <div class="export-fmt-info">
+                <strong>CSV</strong>
+                <small>Dados tabulares</small>
+              </div>
+              <div class="export-radio-indicator">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer export-modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeExportReportModal()">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-modal-confirm-export" onclick="executeModalReportExport()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span id="txt-modal-confirm-export">Baixar Relatório</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fixed Mobile Bottom Navigation Bar (Visible on mobile screens <= 768px) -->
+  <nav class="mobile-bottom-nav" id="mobile-bottom-nav" aria-label="Navegação Inferior Mobile">
+    <button type="button" class="bottom-nav-btn active" data-tab="dashboard-tab" onclick="switchTab('dashboard-tab')" title="Dashboard">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="7" height="9" rx="1"></rect>
+        <rect x="14" y="3" width="7" height="5" rx="1"></rect>
+        <rect x="14" y="12" width="7" height="9" rx="1"></rect>
+        <rect x="3" y="16" width="7" height="5" rx="1"></rect>
+      </svg>
+      <span>Início</span>
+    </button>
+
+    <button type="button" class="bottom-nav-btn" data-tab="exams-tab" onclick="switchTab('exams-tab')" title="Simulados e Gabaritos">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+      </svg>
+      <span>Simulados</span>
+    </button>
+
+    <!-- Central FAB: Scanner / Correção Instantânea -->
+    <button type="button" class="bottom-nav-btn bottom-nav-fab" data-tab="scanner-tab" onclick="switchTab('scanner-tab')" title="Scanner de Provas">
+      <div class="fab-scanner-circle">
+        <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+          <circle cx="12" cy="13" r="4"></circle>
+        </svg>
+      </div>
+      <span>Corrigir</span>
+    </button>
+
+    <button type="button" class="bottom-nav-btn" data-tab="schools-tab" onclick="switchTab('schools-tab')" title="Turmas e Escolas">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </svg>
+      <span>Turmas</span>
+    </button>
+
+    <button type="button" class="bottom-nav-btn" id="btn-bottom-nav-menu" onclick="toggleMobileMenu()" title="Mais opções">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <line x1="3" y1="6" x2="21" y2="6"></line>
+        <line x1="3" y1="18" x2="21" y2="18"></line>
+      </svg>
+      <span>Menu</span>
+    </button>
+  </nav>
+
   <!-- Notification Toast Container -->
   <div id="toast" class="toast"></div>
 
-  <script src="/static/app.js?v=1789650050"></script>
+  <!-- PWA INSTALL ALERT MODAL (MOBILE ONLY) -->
+  <div id="pwa-install-modal" class="modal-overlay pwa-install-overlay" style="display: none;">
+    <div class="pwa-install-sheet">
+      <div class="pwa-sheet-handle"></div>
+      <div class="pwa-sheet-body">
+        <div class="pwa-app-badge-wrap">
+          <img src="/api/settings/pwa-icon?size=192" alt="Prova Canoa" class="pwa-app-icon-img" onerror="this.src='/static/assets/logo-placeholder.svg'">
+          <div class="pwa-app-badge-verified" title="App Oficial Verificado">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+          </div>
+        </div>
+
+        <h3 class="pwa-sheet-title">Instalar o Prova Canoa</h3>
+        <p class="pwa-sheet-subtitle">SEMED • Lagoa da Canoa / AL</p>
+
+        <p class="pwa-sheet-desc">
+          Adicione o aplicativo à tela inicial do seu celular para acesso instantâneo, uso da câmera em tela cheia e correção de gabaritos com agilidade máxima!
+        </p>
+
+        <!-- Standard Android / Chrome / Edge Button -->
+        <div id="pwa-android-install-area" style="width: 100%;">
+          <button type="button" class="btn btn-primary btn-pwa-install" id="btn-pwa-install-action" onclick="triggerPWAInstallation()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <span>Instalar Aplicativo</span>
+          </button>
+        </div>
+
+        <!-- iOS Safari Instructions Guide -->
+        <div id="pwa-ios-install-area" style="display: none;" class="pwa-ios-instructions">
+          <div class="pwa-ios-step">
+            <span class="ios-step-num">1</span>
+            <span>Toque no botão <strong>Compartilhar</strong> (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align: middle; display: inline;"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>) na barra inferior do Safari.</span>
+          </div>
+          <div class="pwa-ios-step">
+            <span class="ios-step-num">2</span>
+            <span>Role para baixo e selecione <strong>"Adicionar à Tela de Início"</strong> ➕.</span>
+          </div>
+          <div class="pwa-ios-step">
+            <span class="ios-step-num">3</span>
+            <span>Confirme com o nome <strong>Prova Canoa</strong> tocando em <strong>Adicionar</strong>.</span>
+          </div>
+        </div>
+
+        <button type="button" class="btn-pwa-dismiss" onclick="dismissPWAInstallModal()">
+          Continuar no navegador
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=1789790000"></script>
 </body>
 </html>

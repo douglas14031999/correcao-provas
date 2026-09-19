@@ -153,7 +153,7 @@ def build_pdf_report(data: ReportData, orientation: str = "portrait") -> bytes:
         except Exception:
             logo_flowable = Paragraph("", style_subentity)
 
-    school_display = data.metadata.school_name.upper() if data.metadata.school_name else ""
+    school_display = data.metadata.school_name.upper() if data.metadata.school_name else "REDE MUNICIPAL DE ENSINO"
     if data.metadata.inep_code:
         school_display += f" — INEP: {data.metadata.inep_code}"
 
@@ -192,32 +192,50 @@ def build_pdf_report(data: ReportData, orientation: str = "portrait") -> bytes:
     story.append(title_table)
     story.append(Spacer(1, 2 * mm))
 
-    # 3. METADATA GRID (Compact i-Diario style)
-    meta_rows = []
+    # 3. METADATA GRID (Dynamic: only fields with real data)
     m = data.metadata
+    meta_items = []
     
-    row1 = [
-        Paragraph(f"<b>Turma:</b> {m.classroom_name or '-'}", style_meta_val),
-        Paragraph(f"<b>Turno:</b> {m.shift or '( ) MANHÃ       ( ) TARDE'}", style_meta_val),
-        Paragraph(f"<b>Ano Letivo:</b> {m.school_year or datetime.now().year}", style_meta_val),
-    ]
-    row2 = [
-        Paragraph(f"<b>Avaliação:</b> {m.exam_title or 'Geral'}", style_meta_val),
-        Paragraph(f"<b>Série/Ano:</b> {m.grade_year or '-'}", style_meta_val),
-        Paragraph(f"<b>Total Alunos:</b> {len(data.rows)}", style_meta_val),
-    ]
-    meta_table = Table([row1, row2], colWidths=[printable_width * 0.4, printable_width * 0.3, printable_width * 0.3])
-    meta_table.setStyle(TableStyle([
-        ('BOX', (0, 0), (-1, -1), 0.5, HexColor("#cbd5e1")),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, HexColor("#f1f5f9")),
-        ('BACKGROUND', (0, 0), (-1, -1), HexColor("#f8fafc")),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-    ]))
-    story.append(meta_table)
-    story.append(Spacer(1, 3 * mm))
+    if m.classroom_name and m.classroom_name.strip() not in ("", "-", "None"):
+        meta_items.append(("Turma", m.classroom_name.strip()))
+    
+    if m.grade_year and m.grade_year.strip() not in ("", "-", "None", "Todos os Anos"):
+        meta_items.append(("Série/Ano", m.grade_year.strip()))
+        
+    if m.shift and m.shift.strip() not in ("", "-", "None") and "( )" not in m.shift:
+        meta_items.append(("Turno", m.shift.strip()))
+    elif m.shift and m.shift.strip() not in ("", "-", "None") and m.classroom_name and m.classroom_name.strip() not in ("", "-", "None"):
+        meta_items.append(("Turno", m.shift.strip()))
+        
+    if m.exam_title and m.exam_title.strip() not in ("", "-", "None"):
+        meta_items.append(("Avaliação", m.exam_title.strip()))
+        
+    ano_val = m.school_year or str(datetime.now().year)
+    meta_items.append(("Ano Letivo", ano_val))
+
+    if meta_items:
+        items_per_row = 2 if len(meta_items) == 2 else min(3, len(meta_items))
+        chunks = [meta_items[i:i + items_per_row] for i in range(0, len(meta_items), items_per_row)]
+        meta_table_rows = []
+        for chunk in chunks:
+            row_paras = [Paragraph(f"<b>{lbl}:</b> {val}", style_meta_val) for lbl, val in chunk]
+            while len(row_paras) < items_per_row:
+                row_paras.append(Paragraph("", style_meta_val))
+            meta_table_rows.append(row_paras)
+            
+        col_w = printable_width / items_per_row
+        meta_table = Table(meta_table_rows, colWidths=[col_w] * items_per_row)
+        meta_table.setStyle(TableStyle([
+            ('BOX', (0, 0), (-1, -1), 0.5, HexColor("#cbd5e1")),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, HexColor("#f1f5f9")),
+            ('BACKGROUND', (0, 0), (-1, -1), HexColor("#f8fafc")),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        story.append(meta_table)
+        story.append(Spacer(1, 3 * mm))
 
     # 4. SUMMARY STATS CHIPS (If provided)
     if data.summary_cards:
@@ -242,57 +260,84 @@ def build_pdf_report(data: ReportData, orientation: str = "portrait") -> bytes:
         story.append(cards_table)
         story.append(Spacer(1, 3 * mm))
 
-    # 5. DATA TABLE
-    # Calculate column widths based on ratios
-    total_ratio = sum(col.width_ratio for col in data.columns)
-    col_widths = [(col.width_ratio / total_ratio) * printable_width for col in data.columns]
+    # 5. DATA TABLES (Supports single table or multiple sections)
+    def render_table_flowable(cols, rows):
+        total_ratio = sum(col.width_ratio for col in cols)
+        col_widths = [(col.width_ratio / total_ratio) * printable_width for col in cols]
 
-    table_data = []
-    # Header Row
-    header_row = [Paragraph(col.header, style_th) for col in data.columns]
-    table_data.append(header_row)
+        table_data = []
+        header_row = [Paragraph(col.header, style_th) for col in cols]
+        table_data.append(header_row)
 
-    # Data Rows
-    for r_idx, row_dict in enumerate(data.rows):
-        row_cells = []
-        for col in data.columns:
-            val = row_dict.get(col.key, "")
-            val_str = str(val if val is not None else "-")
-            
-            # Format text
-            if col.align == "center":
-                cell_p = Paragraph(val_str, style_td_center)
-            elif col.align == "right":
-                cell_p = Paragraph(val_str, ParagraphStyle("Right", parent=style_td, alignment=2))
-            else:
-                cell_p = Paragraph(val_str, style_td)
+        for r_idx, row_dict in enumerate(rows):
+            row_cells = []
+            for col in cols:
+                val = row_dict.get(col.key, "")
+                val_str = str(val if val is not None else "-")
+                
+                if col.align == "center":
+                    cell_p = Paragraph(val_str, style_td_center)
+                elif col.align == "right":
+                    cell_p = Paragraph(val_str, ParagraphStyle("Right", parent=style_td, alignment=2))
+                else:
+                    cell_p = Paragraph(val_str, style_td)
 
-            row_cells.append(cell_p)
-        table_data.append(row_cells)
+                row_cells.append(cell_p)
+            table_data.append(row_cells)
 
-    # Table styling
-    t_style = [
-        ('BACKGROUND', (0, 0), (-1, 0), HexColor("#334155")),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, 0), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
-        ('TOPPADDING', (0, 1), (-1, -1), 2.5),
-        ('BOTTOMPADDING', (0, 1), (-1, -1), 2.5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 4),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-        ('BOX', (0, 0), (-1, -1), 0.5, HexColor("#cbd5e1")),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, HexColor("#e2e8f0")),
-    ]
+        t_style = [
+            ('BACKGROUND', (0, 0), (-1, 0), HexColor("#334155")),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, 0), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+            ('TOPPADDING', (0, 1), (-1, -1), 2.5),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 2.5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('BOX', (0, 0), (-1, -1), 0.5, HexColor("#cbd5e1")),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, HexColor("#e2e8f0")),
+        ]
 
-    # Alternating row colors
-    for i in range(1, len(table_data)):
-        if i % 2 == 0:
-            t_style.append(('BACKGROUND', (0, i), (-1, i), HexColor("#f8fafc")))
+        for i in range(1, len(table_data)):
+            if i % 2 == 0:
+                t_style.append(('BACKGROUND', (0, i), (-1, i), HexColor("#f8fafc")))
 
-    main_table = Table(table_data, colWidths=col_widths, repeatRows=1)
-    main_table.setStyle(TableStyle(t_style))
-    story.append(main_table)
-    story.append(Spacer(1, 6 * mm))
+        tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
+        tbl.setStyle(TableStyle(t_style))
+        return tbl
+
+    if data.sections:
+        for s_idx, sec in enumerate(data.sections):
+            sec_heading = f"<b>{sec.title}</b>"
+            if sec.subtitle:
+                sec_heading += f"<br/><font size=6.5 color='#64748b'>{sec.subtitle}</font>"
+            sec_p = Paragraph(sec_heading, ParagraphStyle(
+                "SecHeader",
+                parent=styles["Normal"],
+                fontName="Helvetica-Bold",
+                fontSize=8.5,
+                leading=11,
+                textColor=HexColor("#1e293b")
+            ))
+            sec_table = Table([[sec_p]], colWidths=[printable_width])
+            sec_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), HexColor("#f1f5f9")),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                ('BOX', (0, 0), (-1, -1), 0.5, HexColor("#cbd5e1")),
+            ]))
+            story.append(sec_table)
+            story.append(Spacer(1, 1.5 * mm))
+
+            t_flow = render_table_flowable(sec.columns, sec.rows)
+            story.append(t_flow)
+            story.append(Spacer(1, 4 * mm))
+    else:
+        main_table = render_table_flowable(data.columns, data.rows)
+        story.append(main_table)
+        story.append(Spacer(1, 6 * mm))
 
     # 6. SIGNATURES BLOCK (Kept together at document end)
     if data.signatures:

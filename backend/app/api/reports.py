@@ -12,6 +12,7 @@ from app.services.reports import (
     generate_questions_diagnostic_report_data,
     generate_comparison_report_data,
     generate_schools_overview_report_data,
+    generate_school_report_data,
 )
 from app.services.database import (
     get_classroom_linked_exams,
@@ -88,8 +89,7 @@ def export_classroom_report(
         raise HTTPException(status_code=404, detail="Turma ou simulado não encontrado.")
     
     cl_name = data.metadata.classroom_name or "turma"
-    ex_name = data.metadata.exam_title or "avaliacao"
-    return export_report_response(data, format, f"Relatorio_Turma_{cl_name}_{ex_name}")
+    return export_report_response(data, format, f"Relatorio_Turma_{cl_name}")
 
 @router.get("/year-performance")
 def export_year_performance_report(
@@ -164,3 +164,17 @@ def export_schools_overview_report(
     """R5: Panorâmico de Escolas e Turmas da Rede Municipal"""
     data = generate_schools_overview_report_data()
     return export_report_response(data, format, "Panoramico_Escolas_Rede_Municipal")
+
+@router.get("/school/{school_id}")
+def export_school_report(
+    school_id: str,
+    format: str = Query("pdf", description="Formato: pdf, xlsx, docx")
+):
+    """R6: Relatório Consolidado da Escola (Turmas, Top 3 Geral e Top 3 por Série)"""
+    data = generate_school_report_data(school_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Escola não encontrada.")
+
+    sch_name = data.metadata.school_name or "escola"
+    return export_report_response(data, format, f"Relatorio_Escola_{sch_name}")
+

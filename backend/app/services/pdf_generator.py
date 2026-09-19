@@ -8,7 +8,7 @@ from PIL import Image
 from reportlab.lib import pagesizes, colors
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from reportlab.graphics.shapes import Drawing
 from reportlab.graphics.barcode.qr import QrCodeWidget
 
@@ -34,6 +34,19 @@ def generate_aruco_marker_image(marker_id: int, size: int = 140) -> Image.Image:
         marker_img = cv2.aruco.drawMarker(dictionary, marker_id, size)
     return Image.fromarray(marker_img)
 
+def _resolve_hex_color(hex_str: Optional[str], default: str = "#244061") -> colors.HexColor:
+    try:
+        if not hex_str or not isinstance(hex_str, str):
+            return colors.HexColor(default)
+        clean = hex_str.strip()
+        if not clean.startswith("#"):
+            clean = f"#{clean}"
+        if len(clean) in (4, 7):
+            return colors.HexColor(clean)
+        return colors.HexColor(default)
+    except Exception:
+        return colors.HexColor(default)
+
 def render_sheet_unit(
     c: canvas.Canvas,
     x0: float,
@@ -51,7 +64,9 @@ def render_sheet_unit(
     num_questions: int = 20,
     num_alternatives: int = 4,
     logo_path: str = None,
-    is_compact: bool = False
+    is_compact: bool = False,
+    header_color: str = "#244061",
+    filled_answers: Optional[Dict[str, str]] = None
 ) -> dict:
     """
     Renders an official answer sheet adhering to the Canoa / i-Diário visual identity:
@@ -125,8 +140,9 @@ def render_sheet_unit(
     d.add(qr_widget)
     d.drawOn(c, qr_x, qr_y)
 
-    # 4. Header Banner (#244061 Navy Blue)
-    c.setFillColor(colors.HexColor("#244061"))
+    # 4. Header Banner
+    accent_color = _resolve_hex_color(header_color, "#244061")
+    c.setFillColor(accent_color)
     c.setStrokeColor(colors.HexColor("#0f172a"))
     c.setLineWidth(0.8)
     c.rect(content_left, banner_y, header_w, banner_h, stroke=1, fill=1)
@@ -187,9 +203,12 @@ def render_sheet_unit(
     # Row 2: ESTUDANTE:
     c.setFont("Helvetica-Bold", 6.8 if is_compact else 8.0)
     c.drawString(r_left + 5, tbl_top - 2 * row_h + (4.0 if is_compact else 5.5), "ESTUDANTE:")
-    if student_name:
-        c.setFont("Helvetica", 7.0 if is_compact else 8.5)
-        c.drawString(r_left + (60 if is_compact else 70), tbl_top - 2 * row_h + (4.0 if is_compact else 5.5), student_name.upper()[:44])
+    display_student = student_name
+    if filled_answers and not display_student:
+        display_student = "GABARITO OFICIAL — RESPOSTAS CORRETAS"
+    if display_student:
+        c.setFont("Helvetica-Bold" if filled_answers else "Helvetica", 7.0 if is_compact else 8.5)
+        c.drawString(r_left + (60 if is_compact else 70), tbl_top - 2 * row_h + (4.0 if is_compact else 5.5), display_student.upper()[:44])
 
     # Row 3: TURMA: | TURNO: ( ) MANHÃ   ( ) TARDE
     turma_w = r_width * 0.42
@@ -216,8 +235,12 @@ def render_sheet_unit(
 
     c.setFillColor(colors.HexColor("#1E293B"))
     c.setFont("Helvetica-Bold", 5.2 if is_compact else 6.0)
-    c.drawString(content_left + 6, instr_y + (2.5 if is_compact else 3.5), "ORIENTAÇÕES: Preencha totalmente a bolha com caneta preta ou azul.")
-    c.drawRightString(content_left + content_width - 6, instr_y + (2.5 if is_compact else 3.5), "CORRETO: [ ⬤ ]   ERRADO: [ ✕ ] [ ✓ ]")
+    if filled_answers:
+        c.drawString(content_left + 6, instr_y + (2.5 if is_compact else 3.5), "★ GABARITO OFICIAL HOMOLOGADO — FOLHA COM AS RESPOSTAS CORRETAS")
+        c.drawRightString(content_left + content_width - 6, instr_y + (2.5 if is_compact else 3.5), "DOCUMENTO DE CONFERÊNCIA E AUDITORIA")
+    else:
+        c.drawString(content_left + 6, instr_y + (2.5 if is_compact else 3.5), "ORIENTAÇÕES: Preencha totalmente a bolha com caneta preta ou azul.")
+        c.drawRightString(content_left + content_width - 6, instr_y + (2.5 if is_compact else 3.5), "CORRETO: [ ⬤ ]   ERRADO: [ ✕ ] [ ✓ ]")
 
     # 6. Questions & Alternatives in a Structured Table Grid
     options = ["A", "B", "C", "D", "E"][:num_alternatives]
@@ -272,7 +295,7 @@ def render_sheet_unit(
         col_x = content_left + start_x_offset + c_idx * (total_col_w + gap_between_cols)
 
         # ITEM cell
-        c.setFillColor(colors.HexColor("#244061"))
+        c.setFillColor(accent_color)
         c.setStrokeColor(colors.HexColor("#0f172a"))
         c.setLineWidth(0.6)
         c.rect(col_x, grid_top - th_h, item_col_w, th_h, stroke=1, fill=1)
@@ -327,17 +350,40 @@ def render_sheet_unit(
             center_x = bx + alt_col_w / 2.0
             center_y = row_y + q_row_h / 2.0
 
-            # Bubble circle: sharp, crisp border
-            c.setStrokeColor(colors.HexColor("#1E293B"))
-            c.setFillColor(colors.white)
-            c.setLineWidth(0.7)
-            c.circle(center_x, center_y, bubble_r, stroke=1, fill=1)
+            # Check if this bubble is the correct answer
+            is_correct_ans = False
+            if filled_answers:
+                expected = filled_answers.get(str(q_num))
+                if expected is None:
+                    expected = filled_answers.get(int(q_num))
+                if expected:
+                    exp_clean = str(expected).strip().upper()
+                    if exp_clean in ["*", "TODAS", "ALL", "ANULADA"] or opt.upper() == exp_clean or opt.upper() in [x.strip() for x in exp_clean.split(",")]:
+                        is_correct_ans = True
 
-            # Option letter inside bubble: subtle slate gray (#94A3B8)
-            # Highly readable to student eye, but filtered out by OMR binarization
-            c.setFillColor(colors.HexColor("#94A3B8"))
-            c.setFont("Helvetica-Bold", bubble_r * 1.15)
-            c.drawCentredString(center_x, center_y - (bubble_r * 0.36), opt)
+            if is_correct_ans:
+                # Filled bubble: solid dark circle
+                c.setStrokeColor(colors.HexColor("#0F172A"))
+                c.setFillColor(colors.HexColor("#0F172A"))
+                c.setLineWidth(0.8)
+                c.circle(center_x, center_y, bubble_r, stroke=1, fill=1)
+
+                # Option letter inside: bright bold white for maximum contrast and legibility
+                c.setFillColor(colors.white)
+                c.setFont("Helvetica-Bold", bubble_r * 1.15)
+                c.drawCentredString(center_x, center_y - (bubble_r * 0.36), opt)
+            else:
+                # Bubble circle: sharp, crisp border
+                c.setStrokeColor(colors.HexColor("#1E293B"))
+                c.setFillColor(colors.white)
+                c.setLineWidth(0.7)
+                c.circle(center_x, center_y, bubble_r, stroke=1, fill=1)
+
+                # Option letter inside bubble: subtle slate gray (#94A3B8)
+                # Highly readable to student eye, but filtered out by OMR binarization
+                c.setFillColor(colors.HexColor("#94A3B8"))
+                c.setFont("Helvetica-Bold", bubble_r * 1.15)
+                c.drawCentredString(center_x, center_y - (bubble_r * 0.36), opt)
 
             # Calculate Canonical coordinates for OpenCV OMR engine
             cx_pt = center_x - x0
@@ -374,13 +420,31 @@ def get_exam_template_for_layout(exam: dict, is_compact: bool = False) -> dict:
     Returns or dynamically generates the accurate canonical template (single or compact)
     for the specified exam.
     """
+    if isinstance(exam, str):
+        from app.services.database import get_exam
+        exam = get_exam(exam) or {}
+    elif not isinstance(exam, dict):
+        exam = {}
+
     stored_template = exam.get("sheet_template") or {}
+    if isinstance(stored_template, str):
+        try:
+            stored_template = json.loads(stored_template)
+        except Exception:
+            stored_template = {}
     req_h = CANONICAL_HEIGHT_HALF if is_compact else CANONICAL_HEIGHT
-    if stored_template.get("canonical_height") == req_h and stored_template.get("bubbles"):
+    if isinstance(stored_template, dict) and stored_template.get("canonical_height") == req_h and stored_template.get("bubbles"):
         return stored_template
 
     if is_compact and exam.get("sheet_template_compact"):
-        return exam["sheet_template_compact"]
+        tpl_compact = exam["sheet_template_compact"]
+        if isinstance(tpl_compact, str):
+            try:
+                tpl_compact = json.loads(tpl_compact)
+            except Exception:
+                tpl_compact = {}
+        if isinstance(tpl_compact, dict) and tpl_compact.get("bubbles"):
+            return tpl_compact
 
     buffer = io.BytesIO()
     half_h = PAGE_HEIGHT / 2.0
@@ -400,7 +464,8 @@ def get_exam_template_for_layout(exam: dict, is_compact: bool = False) -> dict:
         num_questions=exam.get("num_questions", 20),
         num_alternatives=exam.get("num_alternatives", 4),
         logo_path=exam.get("logo_path"),
-        is_compact=is_compact
+        is_compact=is_compact,
+        header_color=exam.get("header_color", "#244061")
     )
     return template
 
@@ -417,12 +482,15 @@ def generate_answer_sheet_pdf(
     sheets_per_page: int = 1,
     logo_path: str = None,
     output_path: str = None,
-    student_id: str = ""
+    student_id: str = "",
+    header_color: str = "#244061",
+    filled_answers: Optional[Dict[str, str]] = None
 ) -> tuple[bytes, dict]:
     """
     Generates Answer Sheet PDF adhering to the user's requested layout:
     - sheets_per_page = 1: Single full A4 sheet
     - sheets_per_page = 2: Two autonomous A5 half-sheets with scissor cut guide (50% paper economy)
+    - filled_answers: When provided, renders bubbles filled for correct answers (Gabarito Oficial)
     """
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=pagesizes.A4)
@@ -438,7 +506,9 @@ def generate_answer_sheet_pdf(
             student_id=student_id,
             classroom=classroom, shift=shift,
             num_questions=num_questions, num_alternatives=num_alternatives,
-            logo_path=logo_path, is_compact=True
+            logo_path=logo_path, is_compact=True,
+            header_color=header_color,
+            filled_answers=filled_answers
         )
 
         # Scissor Cut Line in middle
@@ -460,7 +530,9 @@ def generate_answer_sheet_pdf(
             student_id=student_id,
             classroom=classroom, shift=shift,
             num_questions=num_questions, num_alternatives=num_alternatives,
-            logo_path=logo_path, is_compact=True
+            logo_path=logo_path, is_compact=True,
+            header_color=header_color,
+            filled_answers=filled_answers
         )
 
     else:
@@ -472,7 +544,9 @@ def generate_answer_sheet_pdf(
             student_id=student_id,
             classroom=classroom, shift=shift,
             num_questions=num_questions, num_alternatives=num_alternatives,
-            logo_path=logo_path, is_compact=False
+            logo_path=logo_path, is_compact=False,
+            header_color=header_color,
+            filled_answers=filled_answers
         )
 
     c.showPage()
@@ -775,7 +849,8 @@ def generate_batch_classroom_pdf(
                 num_questions=ex1.get("num_questions", 20),
                 num_alternatives=ex1.get("num_alternatives", 4),
                 logo_path=logo1,
-                is_compact=True
+                is_compact=True,
+                header_color=ex1.get("header_color", "#244061")
             )
 
             # Middle Cut Line
@@ -802,7 +877,8 @@ def generate_batch_classroom_pdf(
                 num_questions=ex2.get("num_questions", 20),
                 num_alternatives=ex2.get("num_alternatives", 4),
                 logo_path=logo2,
-                is_compact=True
+                is_compact=True,
+                header_color=ex2.get("header_color", "#244061")
             )
 
             c.showPage()
@@ -830,7 +906,8 @@ def generate_batch_classroom_pdf(
                     num_questions=ex.get("num_questions", 20),
                     num_alternatives=ex.get("num_alternatives", 4),
                     logo_path=logo_p,
-                    is_compact=False
+                    is_compact=False,
+                    header_color=ex.get("header_color", "#244061")
                 )
                 c.showPage()
     else:
@@ -841,6 +918,7 @@ def generate_batch_classroom_pdf(
         active_school = school_name or active_exam.get("school_name", "")
         num_questions = active_exam.get("num_questions", 20)
         num_alternatives = active_exam.get("num_alternatives", 4)
+        active_color = active_exam.get("header_color", "#244061")
         logo_p = logo_path or active_exam.get("logo_path")
         if not logo_p or not os.path.exists(logo_p):
             logo_p = DEFAULT_LOGO_PATH if os.path.exists(DEFAULT_LOGO_PATH) else None
@@ -861,7 +939,8 @@ def generate_batch_classroom_pdf(
                     school_name=active_school, student_name=st1_name, student_id=st1_id,
                     classroom=class_name, shift=shift_label,
                     num_questions=num_questions, num_alternatives=num_alternatives,
-                    logo_path=logo_p, is_compact=True
+                    logo_path=logo_p, is_compact=True,
+                    header_color=active_color
                 )
 
                 # Middle Cut Line
@@ -883,7 +962,8 @@ def generate_batch_classroom_pdf(
                     school_name=active_school, student_name=st2_name, student_id=st2_id,
                     classroom=class_name, shift=shift_label,
                     num_questions=num_questions, num_alternatives=num_alternatives,
-                    logo_path=logo_p, is_compact=True
+                    logo_path=logo_p, is_compact=True,
+                    header_color=active_color
                 )
                 c.showPage()
         else:
@@ -895,9 +975,297 @@ def generate_batch_classroom_pdf(
                     school_name=active_school, student_name=st_name, student_id=st["id"],
                     classroom=class_name, shift=shift_label,
                     num_questions=num_questions, num_alternatives=num_alternatives,
-                    logo_path=logo_p, is_compact=False
+                    logo_path=logo_p, is_compact=False,
+                    header_color=active_color
                 )
                 c.showPage()
+
+    c.save()
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+    return pdf_bytes
+
+
+def generate_envelope_labels_pdf(
+    school: Dict[str, Any],
+    classrooms: List[Dict[str, Any]],
+    logo_path: Optional[str] = DEFAULT_LOGO_PATH
+) -> bytes:
+    """
+    Gera um PDF em formato A4 contendo etiquetas de envelope para as turmas de uma escola.
+    Organizado em grade 4x1 (4 faixas horizontais por folha A4 com guias de recorte).
+    Cada etiqueta identifica:
+      - Escola e Código INEP
+      - Turma, Turno e Quantidade esperada de alunos/gabaritos
+      - Lista dos simulados/gabaritos contidos no envelope
+      - Seção de conferência e lacre para o aplicador/fiscal
+    """
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=pagesizes.A4)
+
+    total_classes = len(classrooms)
+    slot_height = PAGE_HEIGHT / 4.0  # 210.47 pt
+    margin_x = 18.0
+    label_width = PAGE_WIDTH - (2 * margin_x)  # ~559.27 pt
+    label_height = 194.0  # ~68.5 mm
+    header_height = 25.0
+
+    # Iterar sobre as turmas em blocos de 4 (uma página A4 por bloco)
+    for chunk_idx in range(0, total_classes, 4):
+        chunk = classrooms[chunk_idx:chunk_idx + 4]
+
+        # Desenhar linhas de corte horizontais da página (entre as 4 faixas)
+        for k in range(1, 4):
+            cut_y = PAGE_HEIGHT - (k * slot_height)
+            c.setStrokeColor(colors.HexColor("#94a3b8"))
+            c.setLineWidth(0.7)
+            c.setDash([3, 3])
+            c.line(10, cut_y, PAGE_WIDTH - 10, cut_y)
+            c.setDash([])
+            c.setFont("Helvetica-Bold", 6.0)
+            c.setFillColor(colors.HexColor("#64748b"))
+            c.drawCentredString(PAGE_WIDTH / 2.0, cut_y - 2.0, "✂ - - - - - - - - - - - - - - - - - - - CORTE AQUI - - - - - - - - - - - - - - - - - - - ✂")
+
+        # Desenhar cada etiqueta do bloco
+        for slot_k, classroom in enumerate(chunk):
+            slot_y0 = PAGE_HEIGHT - ((slot_k + 1) * slot_height)
+            label_y0 = slot_y0 + (slot_height - label_height) / 2.0
+            label_x0 = margin_x
+
+            # Fundo branco da etiqueta
+            c.setFillColor(colors.white)
+            c.setStrokeColor(colors.HexColor("#0f172a"))
+            c.setLineWidth(1.0)
+            c.rect(label_x0, label_y0, label_width, label_height, stroke=1, fill=1)
+
+            # Faixa de cabeçalho da etiqueta (Azul Marinho Escuro / Slate)
+            c.setFillColor(colors.HexColor("#1e293b"))
+            c.rect(label_x0, label_y0 + label_height - header_height, label_width, header_height, stroke=0, fill=1)
+
+            text_start_x = label_x0 + 10
+            if logo_path and os.path.exists(logo_path):
+                try:
+                    logo_size = 18.0
+                    c.drawImage(
+                        ImageReader(logo_path),
+                        label_x0 + 8,
+                        label_y0 + label_height - header_height + (header_height - logo_size) / 2.0,
+                        logo_size,
+                        logo_size,
+                        mask='auto',
+                        preserveAspectRatio=True
+                    )
+                    text_start_x = label_x0 + 31
+                except Exception:
+                    pass
+
+            c.setFillColor(colors.white)
+            c.setFont("Helvetica-Bold", 8.0)
+            c.drawString(text_start_x, label_y0 + label_height - 16.0, "PREFEITURA MUNICIPAL DE LAGOA DA CANOA • SEMED")
+            c.setFont("Helvetica-Bold", 8.5)
+            c.drawRightString(label_x0 + label_width - 10, label_y0 + label_height - 16.0, "ENVELOPE DE AVALIAÇÃO / SIMULADO")
+
+            # --- COLUNA 1: IDENTIFICAÇÃO DA ESCOLA E TURMA (Largura ~185 pt) ---
+            col1_x = label_x0 + 10.0
+            col1_w = 185.0
+
+            # Nome da Escola
+            y1 = label_y0 + label_height - header_height - 13.0
+            c.setFont("Helvetica-Bold", 6.2)
+            c.setFillColor(colors.HexColor("#64748b"))
+            c.drawString(col1_x, y1, "UNIDADE ESCOLAR:")
+
+            y1 -= 11.0
+            sch_name = (school.get("name") or "Escola").strip()
+            font_sz_sch = 8.5
+            while font_sz_sch > 6.0 and c.stringWidth(sch_name.upper(), "Helvetica-Bold", font_sz_sch) > col1_w:
+                font_sz_sch -= 0.3
+            c.setFont("Helvetica-Bold", font_sz_sch)
+            c.setFillColor(colors.HexColor("#0f172a"))
+            c.drawString(col1_x, y1, sch_name.upper())
+
+            inep = (school.get("inep_code") or "").strip()
+            if inep:
+                y1 -= 9.0
+                c.setFont("Helvetica", 6.8)
+                c.setFillColor(colors.HexColor("#64748b"))
+                c.drawString(col1_x, y1, f"CÓDIGO INEP: {inep}")
+
+            # Caixa destacada de Turma e Turno
+            turma_box_h = 44.0
+            turma_box_y = y1 - 8.0 - turma_box_h
+            c.setFillColor(colors.HexColor("#f8fafc"))
+            c.setStrokeColor(colors.HexColor("#cbd5e1"))
+            c.setLineWidth(0.8)
+            c.roundRect(col1_x, turma_box_y, col1_w, turma_box_h, radius=3, stroke=1, fill=1)
+
+            # Rótulos no topo da caixa
+            c.setFont("Helvetica-Bold", 6.5)
+            c.setFillColor(colors.HexColor("#475569"))
+            c.drawString(col1_x + 8, turma_box_y + 31, "TURMA:")
+
+            # Turno alinhado à direita no topo da caixa
+            shift = (classroom.get("shift") or "Geral").strip()
+            if shift:
+                c.setFont("Helvetica-Bold", 7.0)
+                c.setFillColor(colors.HexColor("#0284c7"))
+                c.drawRightString(col1_x + col1_w - 8, turma_box_y + 31, f"TURNO: {shift.upper()}")
+
+            # Nome completo da turma com ajuste dinâmico de fonte para caber 100%
+            class_name = (classroom.get("name") or "Turma").strip()
+            font_sz_cl = 11.5
+            avail_cl_w = col1_w - 16.0
+            while font_sz_cl > 6.5 and c.stringWidth(class_name.upper(), "Helvetica-Bold", font_sz_cl) > avail_cl_w:
+                font_sz_cl -= 0.3
+            c.setFont("Helvetica-Bold", font_sz_cl)
+            c.setFillColor(colors.HexColor("#0f172a"))
+            c.drawString(col1_x + 8, turma_box_y + 12, class_name.upper())
+
+            # Total de Alunos / Gabaritos Esperados (Alunos x Quantidade de Simulados)
+            st_count = classroom.get("student_count") or classroom.get("students_count") or len(classroom.get("students", []))
+            linked_exams = classroom.get("linked_exams") or []
+            num_exams = len(linked_exams) if linked_exams else 1
+            expected_sheets = st_count * num_exams
+
+            y_cnt = turma_box_y - 12.0
+            c.setFont("Helvetica-Bold", 6.8)
+            c.setFillColor(colors.HexColor("#475569"))
+            c.drawString(col1_x, y_cnt, "GABARITOS ESPERADOS NO ENVELOPE:")
+            y_cnt -= 11.0
+            c.setFont("Helvetica-Bold", 9.0)
+            c.setFillColor(colors.HexColor("#047857"))  # Verde floresta
+            c.drawString(col1_x, y_cnt, f"➜  {expected_sheets} FOLHAS DE RESPOSTAS")
+            if num_exams > 1:
+                c.setFont("Helvetica", 6.3)
+                c.setFillColor(colors.HexColor("#64748b"))
+                c.drawString(col1_x + 14, y_cnt - 8.5, f"({st_count} alunos × {num_exams} cadernos)")
+
+            # Linha Divisória 1
+            div1_x = col1_x + col1_w + 7.0
+            c.setStrokeColor(colors.HexColor("#e2e8f0"))
+            c.setLineWidth(0.8)
+            c.line(div1_x, label_y0 + 6, div1_x, label_y0 + label_height - header_height - 6)
+
+            # --- COLUNA 2: CONTEÚDO DO ENVELOPE / GABARITOS (Largura ~195 pt) ---
+            col2_x = div1_x + 7.0
+            col2_w = 195.0
+            y2 = label_y0 + label_height - header_height - 14.0
+
+            c.setFont("Helvetica-Bold", 7.5)
+            c.setFillColor(colors.HexColor("#0f172a"))
+            c.drawString(col2_x, y2, "GABARITOS NO ENVELOPE")
+
+            y2 -= 9.5
+            c.setFont("Helvetica", 6.5)
+            c.setFillColor(colors.HexColor("#64748b"))
+            c.drawString(col2_x, y2, "Cadernos de respostas inseridos:")
+
+            y2 -= 13.0
+
+            if linked_exams:
+                avail_ew = col2_w - 20.0
+                for idx, ex in enumerate(linked_exams[:4]):
+                    ex_title = (ex.get("title") or f"Simulado {idx+1}").strip()
+                    num_q = ex.get("num_questions")
+                    q_info = f" ({num_q} questões)" if num_q else ""
+
+                    # Ajuste de fonte e/ou quebra em 2 linhas para nome completo
+                    ex_font_sz = 7.5
+                    while ex_font_sz > 6.4 and c.stringWidth(ex_title, "Helvetica-Bold", ex_font_sz) > avail_ew:
+                        ex_font_sz -= 0.3
+
+                    if c.stringWidth(ex_title, "Helvetica-Bold", ex_font_sz) <= avail_ew:
+                        c.setFont("Helvetica-Bold", ex_font_sz)
+                        c.setFillColor(colors.HexColor("#1e293b"))
+                        c.drawString(col2_x, y2, f"[ ✓ ] {ex_title}")
+                        y2 -= 8.5
+                    else:
+                        # Quebra em 2 linhas para títulos longos
+                        words = ex_title.split(" ")
+                        line1, line2 = [], []
+                        for w in words:
+                            if c.stringWidth(" ".join(line1 + [w]), "Helvetica-Bold", 6.8) <= avail_ew:
+                                line1.append(w)
+                            else:
+                                line2.append(w)
+                        c.setFont("Helvetica-Bold", 6.8)
+                        c.setFillColor(colors.HexColor("#1e293b"))
+                        c.drawString(col2_x, y2, f"[ ✓ ] {' '.join(line1)}")
+                        y2 -= 8.0
+                        if line2:
+                            c.drawString(col2_x + 16, y2, " ".join(line2))
+                            y2 -= 8.0
+
+                    if q_info:
+                        c.setFont("Helvetica", 6.3)
+                        c.setFillColor(colors.HexColor("#64748b"))
+                        c.drawString(col2_x + 16, y2, q_info)
+                        y2 -= 10.0
+                    else:
+                        y2 -= 6.0
+            else:
+                c.setFont("Helvetica", 7.2)
+                c.setFillColor(colors.HexColor("#334155"))
+                c.drawString(col2_x, y2, "[  ] 1º Simulado: __________________")
+                y2 -= 14.0
+                c.drawString(col2_x, y2, "[  ] 2º Simulado: __________________")
+                y2 -= 14.0
+                c.drawString(col2_x, y2, "[  ] Folhas Extras / Reserva")
+
+            # Aviso de manuseio no rodapé da Coluna 2
+            c.setFont("Helvetica-Oblique", 6.2)
+            c.setFillColor(colors.HexColor("#94a3b8"))
+            c.drawString(col2_x, label_y0 + 10.0, "⚠️ Manter as folhas sem rasuras ou dobraduras.")
+
+            # Linha Divisória 2
+            div2_x = col2_x + col2_w + 7.0
+            c.setStrokeColor(colors.HexColor("#e2e8f0"))
+            c.setLineWidth(0.8)
+            c.line(div2_x, label_y0 + 6, div2_x, label_y0 + label_height - header_height - 6)
+
+            # --- COLUNA 3: CONTROLE DO APLICADOR & LACRE (Largura ~135 pt) ---
+            col3_x = div2_x + 8.0
+            y3 = label_y0 + label_height - header_height - 14.0
+
+            c.setFont("Helvetica-Bold", 7.5)
+            c.setFillColor(colors.HexColor("#0f172a"))
+            c.drawString(col3_x, y3, "CONTROLE DO APLICADOR")
+
+            y3 -= 13.0
+            c.setFont("Helvetica-Bold", 6.8)
+            c.setFillColor(colors.HexColor("#475569"))
+            c.drawString(col3_x, y3, "Data de Aplicação:")
+            y3 -= 9.5
+            c.setFont("Helvetica", 7.8)
+            c.setFillColor(colors.HexColor("#0f172a"))
+            c.drawString(col3_x, y3, "_____ / _____ / _________")
+
+            y3 -= 14.0
+            c.setFont("Helvetica-Bold", 6.8)
+            c.setFillColor(colors.HexColor("#475569"))
+            c.drawString(col3_x, y3, "Professor / Fiscal:")
+            y3 -= 9.5
+            c.setFont("Helvetica", 7.8)
+            c.drawString(col3_x, y3, "___________________________")
+
+            y3 -= 14.0
+            c.setFont("Helvetica-Bold", 6.8)
+            c.setFillColor(colors.HexColor("#475569"))
+            c.drawString(col3_x, y3, "Gabaritos Devolvidos:")
+            y3 -= 9.5
+            c.setFont("Helvetica", 7.2)
+            c.drawString(col3_x, y3, "[  ] Presentes: ___")
+            c.drawString(col3_x + 68, y3, "[  ] Ausentes: ___")
+
+            y3 -= 17.0
+            c.setFont("Helvetica", 7.5)
+            c.drawString(col3_x, y3, "___________________________")
+            y3 -= 7.5
+            c.setFont("Helvetica", 6.2)
+            c.setFillColor(colors.HexColor("#64748b"))
+            c.drawString(col3_x + 18, y3, "Visto / Assinatura do Aplicador")
+
+        c.showPage()
 
     c.save()
     pdf_bytes = buffer.getvalue()

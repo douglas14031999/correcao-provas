@@ -205,39 +205,32 @@ def build_docx_report(data: ReportData) -> bytes:
             r_v.font.color.rgb = RGBColor(15, 23, 42)
         doc.add_paragraph().paragraph_format.space_after = Pt(4)
 
-    # 5. DATA TABLE
-    table = doc.add_table(rows=1 + len(data.rows), cols=len(data.columns))
-    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    # 5. DATA TABLES (Supports single table or multiple sections)
+    def render_docx_table(cols, rows, sec_title=None, sec_subtitle=None):
+        if sec_title:
+            p_sec = doc.add_paragraph()
+            p_sec.paragraph_format.space_before = Pt(6)
+            p_sec.paragraph_format.space_after = Pt(2)
+            r_title = p_sec.add_run(sec_title.upper())
+            r_title.font.name = "Segoe UI"
+            r_title.font.size = Pt(9.5)
+            r_title.font.bold = True
+            r_title.font.color.rgb = RGBColor(30, 41, 59)
+            if sec_subtitle:
+                r_sub = p_sec.add_run(f" — {sec_subtitle}")
+                r_sub.font.name = "Segoe UI"
+                r_sub.font.size = Pt(7.5)
+                r_sub.font.italic = True
+                r_sub.font.color.rgb = RGBColor(100, 116, 139)
 
-    # Header Row
-    for c_idx, col in enumerate(data.columns):
-        c = table.cell(0, c_idx)
-        set_cell_background(c, "334155")
-        set_cell_margins(c, top=100, bottom=100, left=100, right=100)
-        p = c.paragraphs[0]
-        p.paragraph_format.space_after = Pt(0)
-        if col.align == "center":
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        elif col.align == "right":
-            p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        else:
-            p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        table = doc.add_table(rows=1 + len(rows), cols=len(cols))
+        table.alignment = WD_TABLE_ALIGNMENT.CENTER
 
-        r = p.add_run(col.header)
-        r.font.name = "Segoe UI"
-        r.font.size = Pt(8.5)
-        r.font.bold = True
-        r.font.color.rgb = RGBColor(255, 255, 255)
-
-    # Data Rows
-    for r_idx, row_dict in enumerate(data.rows, start=1):
-        is_even = (r_idx % 2 == 0)
-        row_bg = "F8FAFC" if is_even else "FFFFFF"
-
-        for c_idx, col in enumerate(data.columns):
-            c = table.cell(r_idx, c_idx)
-            set_cell_background(c, row_bg)
-            set_cell_margins(c, top=80, bottom=80, left=80, right=80)
+        # Header Row
+        for c_idx, col in enumerate(cols):
+            c = table.cell(0, c_idx)
+            set_cell_background(c, "334155")
+            set_cell_margins(c, top=100, bottom=100, left=100, right=100)
             p = c.paragraphs[0]
             p.paragraph_format.space_after = Pt(0)
             if col.align == "center":
@@ -247,11 +240,43 @@ def build_docx_report(data: ReportData) -> bytes:
             else:
                 p.alignment = WD_ALIGN_PARAGRAPH.LEFT
 
-            val = row_dict.get(col.key)
-            r = p.add_run(str(val if val is not None else "-"))
+            r = p.add_run(col.header)
             r.font.name = "Segoe UI"
-            r.font.size = Pt(8)
-            r.font.color.rgb = RGBColor(15, 23, 42)
+            r.font.size = Pt(8.5)
+            r.font.bold = True
+            r.font.color.rgb = RGBColor(255, 255, 255)
+
+        # Data Rows
+        for r_idx, row_dict in enumerate(rows, start=1):
+            is_even = (r_idx % 2 == 0)
+            row_bg = "F8FAFC" if is_even else "FFFFFF"
+
+            for c_idx, col in enumerate(cols):
+                c = table.cell(r_idx, c_idx)
+                set_cell_background(c, row_bg)
+                set_cell_margins(c, top=80, bottom=80, left=80, right=80)
+                p = c.paragraphs[0]
+                p.paragraph_format.space_after = Pt(0)
+                if col.align == "center":
+                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                elif col.align == "right":
+                    p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                else:
+                    p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+
+                val = row_dict.get(col.key)
+                r = p.add_run(str(val if val is not None else "-"))
+                r.font.name = "Segoe UI"
+                r.font.size = Pt(8)
+                r.font.color.rgb = RGBColor(15, 23, 42)
+
+        doc.add_paragraph().paragraph_format.space_after = Pt(4)
+
+    if data.sections:
+        for sec in data.sections:
+            render_docx_table(sec.columns, sec.rows, sec_title=sec.title, sec_subtitle=sec.subtitle)
+    else:
+        render_docx_table(data.columns, data.rows)
 
     # 6. SIGNATURES BLOCK
     doc.add_paragraph().paragraph_format.space_after = Pt(18)

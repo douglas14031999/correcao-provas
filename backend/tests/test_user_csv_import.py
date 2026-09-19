@@ -44,7 +44,13 @@ class TestUserCsvImport(unittest.TestCase):
         )
 
         # 2. Import into the manually created school
-        res = asyncio.run(import_students_csv(upload_file, school_id=school["id"]))
+        from datetime import datetime, timedelta
+        from app.services.database import update_system_settings
+        update_system_settings({
+            "admin_session_token": "test-token-user-csv",
+            "admin_session_expires": (datetime.utcnow() + timedelta(hours=2)).isoformat()
+        })
+        res = asyncio.run(import_students_csv(upload_file, school_id=school["id"], authorization="Bearer test-token-user-csv"))
         self.assertTrue(res["success"])
         self.assertEqual(res["imported_students"], 7)
         self.assertEqual(res["school_name"], "Escola Municipal Manoel Pereira Filho")

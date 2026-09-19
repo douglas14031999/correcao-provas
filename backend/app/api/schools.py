@@ -23,7 +23,7 @@ from app.services.database import (
     get_classroom_exams,
     update_classroom
 )
-from app.services.pdf_generator import generate_batch_classroom_pdf, DEFAULT_LOGO_PATH
+from app.services.pdf_generator import generate_batch_classroom_pdf, generate_envelope_labels_pdf, DEFAULT_LOGO_PATH
 from app.api.auth import require_roles
 
 router = APIRouter(tags=["Escolas e Turmas"])
@@ -69,6 +69,53 @@ def normalize_key(s: str) -> str:
 def list_all_schools():
     """Lists all schools with their classrooms and student counts."""
     return list_schools_tree()
+
+@router.get("/schools/{school_id}/envelope-labels-pdf")
+def download_school_envelope_labels_pdf(school_id: str, classroom_id: Optional[str] = Query(None)):
+    """
+    Gera e faz download do PDF de etiquetas de envelope (grade 4x1) para as turmas de uma escola.
+    Pode gerar para uma turma específica (se classroom_id informado) ou para todas as turmas da escola.
+    """
+    school = get_school(school_id)
+    if not school:
+        raise HTTPException(status_code=404, detail="Escola não encontrada.")
+
+    schools_tree = list_schools_tree()
+    target_sch = next((s for s in schools_tree if str(s["id"]) == str(school_id)), None)
+
+    classrooms = target_sch.get("classrooms", []) if target_sch else []
+    if not classrooms:
+        raise HTTPException(status_code=400, detail="Esta escola não possui turmas cadastradas para geração de etiquetas.")
+
+    school_name = (school.get("name") or "Escola").strip()
+
+    if classroom_id:
+        target_cl = next((c for c in classrooms if str(c.get("id")) == str(classroom_id)), None)
+        if not target_cl:
+            raise HTTPException(status_code=404, detail="Turma não encontrada nesta escola.")
+        classrooms = [target_cl]
+        raw_filename = f"{target_cl.get('name', 'Turma')} - Etiquetas - {school_name}.pdf"
+    elif len(classrooms) == 1:
+        raw_filename = f"{classrooms[0].get('name', 'Turma')} - Etiquetas - {school_name}.pdf"
+    else:
+        raw_filename = f"Turmas - Etiquetas - {school_name}.pdf"
+
+    pdf_bytes = generate_envelope_labels_pdf(
+        school=target_sch or school,
+        classrooms=classrooms
+    )
+
+    safe_name = sanitize_header_filename(raw_filename[:-4]) + ".pdf"
+    import urllib.parse
+    encoded_filename = urllib.parse.quote(raw_filename)
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{safe_name}"; filename*=UTF-8\'\'{encoded_filename}'
+        }
+    )
 
 @router.post("/schools")
 def create_school_manual(req: CreateSchoolRequest, authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)):
@@ -337,7 +384,22 @@ def download_classroom_batch_pdf(
     sheets_per_page = 2 if (layout == "double" or layout == "2") else 1
     linked_exams = classroom.get("linked_exams", [])
 
-    safe_class_name = sanitize_header_filename(classroom.get('name', 'turma'))
+    school_name = (classroom.get("school_name") or "").strip()
+    if not school_name and classroom.get("school_id"):
+        sch = get_school(classroom["school_id"])
+        if sch:
+            school_name = (sch.get("name") or "").strip()
+
+    class_name = (classroom.get("name") or "Turma").strip()
+    if school_name and class_name:
+        filename = f"{class_name} - GABARITOS - {school_name}.pdf"
+    elif class_name:
+        filename = f"{class_name} - GABARITOS.pdf"
+    elif school_name:
+        filename = f"GABARITOS - {school_name}.pdf"
+    else:
+        filename = "GABARITOS.pdf"
+
     exams_to_render = []
 
     if exam_id in ["both", "all", "linked"] or (len(linked_exams) == 2 and exam_id == "both"):
@@ -347,7 +409,6 @@ def download_classroom_batch_pdf(
             full_ex = get_exam(le["id"])
             if full_ex:
                 exams_to_render.append(full_ex)
-        filename = f"gabaritos_{safe_class_name}_duplo.pdf"
     else:
         exam = get_exam(exam_id)
         if not exam:
@@ -359,11 +420,8 @@ def download_classroom_batch_pdf(
                         exams_to_render.append(full_ex)
             if not exams_to_render:
                 raise HTTPException(status_code=404, detail="Simulado não encontrado")
-            filename = f"gabaritos_{safe_class_name}.pdf"
         else:
             exams_to_render = [exam]
-            safe_exam_title = sanitize_header_filename(exam.get('title', 'simulado'))
-            filename = f"gabaritos_{safe_class_name}_{safe_exam_title}.pdf"
 
     pdf_bytes = generate_batch_classroom_pdf(
         exam=exams_to_render[0] if exams_to_render else None,
@@ -373,10 +431,17 @@ def download_classroom_batch_pdf(
         exams=exams_to_render if len(exams_to_render) > 1 else None
     )
     
+    import urllib.parse
+    ascii_clean = sanitize_header_filename(filename.replace(".pdf", ""))
+    safe_ascii = f"{ascii_clean}.pdf"
+    encoded_filename = urllib.parse.quote(filename)
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="{filename}"'}
+        headers={
+            "Content-Disposition": f'attachment; filename="{safe_ascii}"; filename*=UTF-8\'\'{encoded_filename}'
+        }
     )
 
 @router.get("/classrooms/{classroom_id}/exams/{exam_id}/report")
@@ -447,7 +512,7 @@ def export_classroom_exam_report_csv(classroom_id: str, exam_id: str):
     return Response(
         content=csv_data.encode("utf-8"),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="relatorio_{safe_class}.csv"'}
+        headers={"Content-Disposition": f'attachment; filename="Relatorio_Turma_{safe_class}.csv"'}
     )
 
 
@@ -502,6 +567,6 @@ def export_classroom_exams_comparison_csv(classroom_id: str, exam1: str = Query(
     return Response(
         content=csv_data.encode("utf-8"),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="comparativo_{safe_class}.csv"'}
+        headers={"Content-Disposition": f'attachment; filename="Comparativo_Gabaritos_{safe_class}.csv"'}
     )
 

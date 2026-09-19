@@ -1,10 +1,11 @@
 from typing import Optional, Dict, Any, List
-from .base_report import ReportData, ReportMetadata, ReportTableColumn
+from .base_report import ReportData, ReportMetadata, ReportTableColumn, ReportTableSection
 from ..database import (
     get_classroom_report,
     compare_classroom_exams,
     get_students_report_by_year,
     get_schools_overview_report,
+    get_school_report_details,
     get_system_settings,
     get_school
 )
@@ -37,12 +38,15 @@ def get_base_metadata(school_name: str = "", inep: str = "", classroom_name: str
 
     # Format shift
     shift_str = shift.strip() if shift else ""
-    if not shift_str:
+    if shift_str:
+        if shift_str.upper() == "MANHÃ":
+            shift_str = "( X ) MANHÃ     (   ) TARDE"
+        elif shift_str.upper() == "TARDE":
+            shift_str = "(   ) MANHÃ     ( X ) TARDE"
+    elif classroom_name and classroom_name.strip() not in ("", "-"):
         shift_str = "( ) MANHÃ       ( ) TARDE"
-    elif shift_str.upper() == "MANHÃ":
-        shift_str = "( X ) MANHÃ     (   ) TARDE"
-    elif shift_str.upper() == "TARDE":
-        shift_str = "(   ) MANHÃ     ( X ) TARDE"
+    else:
+        shift_str = ""
 
     return ReportMetadata(
         prefeitura=settings.get("prefeitura_name", "PREFEITURA MUNICIPAL DE LAGOA DA CANOA"),
@@ -347,3 +351,119 @@ def generate_schools_overview_report_data() -> ReportData:
         summary_cards=summary_cards,
         signatures=["Secretário(a) Municipal de Educação", "Supervisão Pedagógica"]
     )
+
+
+# REL-06: Relatório Consolidado da Escola (Turmas, Top 3 Geral e Top 3 por Série)
+def generate_school_report_data(school_id: str) -> Optional[ReportData]:
+    rep = get_school_report_details(school_id)
+    if not rep:
+        return None
+
+    sch = rep["school"]
+    meta = get_base_metadata(
+        school_name=sch["name"],
+        inep=sch.get("inep_code", "")
+    )
+
+    # Section 1: Desempenho das Turmas por Prova / Simulado
+    sec1_columns = [
+        ReportTableColumn(key="classroom_name", header="Turma", width_ratio=2.2, align="left"),
+        ReportTableColumn(key="grade_year", header="Ano/Série", width_ratio=1.6, align="center"),
+        ReportTableColumn(key="shift", header="Turno", width_ratio=1.4, align="center"),
+        ReportTableColumn(key="exam_title", header="Prova / Simulado", width_ratio=3.2, align="left"),
+        ReportTableColumn(key="enrolled_count", header="Matrículas", width_ratio=1.4, align="center", is_numeric=True),
+        ReportTableColumn(key="evaluated_count", header="Presentes", width_ratio=1.4, align="center", is_numeric=True),
+        ReportTableColumn(key="attendance_rate", header="Freq. (%)", width_ratio=1.4, align="center"),
+        ReportTableColumn(key="average_score", header="Média", width_ratio=1.3, align="center", is_numeric=True),
+        ReportTableColumn(key="average_percentage", header="% Acerto", width_ratio=1.4, align="center")
+    ]
+    sec1_rows = rep["classrooms"] if rep["classrooms"] else [{
+        "classroom_name": "Nenhuma turma cadastrada",
+        "grade_year": "-",
+        "shift": "-",
+        "exam_title": "-",
+        "enrolled_count": 0,
+        "evaluated_count": 0,
+        "attendance_rate": "-",
+        "average_score": "-",
+        "average_percentage": "-"
+    }]
+    sec1 = ReportTableSection(
+        title="1. DESEMPENHO DAS TURMAS POR PROVA / SIMULADO",
+        columns=sec1_columns,
+        rows=sec1_rows,
+        subtitle="Métricas de participação, frequência e aproveitamento médio por turma e avaliação"
+    )
+
+    # Section 2: Quadro de Honra — 3 Melhores Alunos da Escola
+    sec2_columns = [
+        ReportTableColumn(key="rank", header="Pos.", width_ratio=1.0, align="center"),
+        ReportTableColumn(key="student_name", header="Nome do Estudante", width_ratio=4.0, align="left"),
+        ReportTableColumn(key="classroom_name", header="Turma", width_ratio=2.0, align="center"),
+        ReportTableColumn(key="grade_year", header="Ano/Série", width_ratio=1.8, align="center"),
+        ReportTableColumn(key="exam_title", header="Avaliação de Destaque", width_ratio=3.2, align="left"),
+        ReportTableColumn(key="score", header="Nota", width_ratio=1.3, align="center", is_numeric=True),
+        ReportTableColumn(key="correct_count", header="Acertos", width_ratio=1.2, align="center", is_numeric=True),
+        ReportTableColumn(key="percentage", header="% Acerto", width_ratio=1.4, align="center")
+    ]
+    sec2_rows = rep["top_overall"] if rep["top_overall"] else [{
+        "rank": "-",
+        "student_name": "Nenhum estudante avaliado até o momento",
+        "classroom_name": "-",
+        "grade_year": "-",
+        "exam_title": "-",
+        "score": "-",
+        "correct_count": "-",
+        "percentage": "-"
+    }]
+    sec2 = ReportTableSection(
+        title="2. QUADRO DE HONRA — 3 MELHORES ALUNOS DA ESCOLA GERAL",
+        columns=sec2_columns,
+        rows=sec2_rows,
+        subtitle="Estudantes com maiores notas consolidadas em avaliações aplicadas na escola"
+    )
+
+    # Section 3: 3 Melhores Alunos por Ano/Série Escolar
+    sec3_columns = [
+        ReportTableColumn(key="rank", header="Colocação", width_ratio=1.2, align="center"),
+        ReportTableColumn(key="grade_year", header="Ano / Série Escolar", width_ratio=2.4, align="center"),
+        ReportTableColumn(key="student_name", header="Nome do Estudante", width_ratio=4.0, align="left"),
+        ReportTableColumn(key="classroom_name", header="Turma", width_ratio=2.0, align="center"),
+        ReportTableColumn(key="exam_title", header="Avaliação", width_ratio=3.0, align="left"),
+        ReportTableColumn(key="score", header="Nota", width_ratio=1.3, align="center", is_numeric=True),
+        ReportTableColumn(key="percentage", header="% Acerto", width_ratio=1.4, align="center")
+    ]
+    sec3_rows = rep["top_by_grade"] if rep["top_by_grade"] else [{
+        "rank": "-",
+        "grade_year": "-",
+        "student_name": "Nenhum estudante avaliado por série até o momento",
+        "classroom_name": "-",
+        "exam_title": "-",
+        "score": "-",
+        "percentage": "-"
+    }]
+    sec3 = ReportTableSection(
+        title="3. 3 MELHORES ALUNOS POR ANO / SÉRIE ESCOLAR",
+        columns=sec3_columns,
+        rows=sec3_rows,
+        subtitle="Destaques acadêmicos individuais agrupados por série/ano de ensino"
+    )
+
+    # Summary KPI cards
+    summary_cards = [
+        {"label": "Total de Turmas", "value": rep["total_classrooms"]},
+        {"label": "Alunos Matriculados", "value": rep["total_enrolled"]},
+        {"label": "Provas Corrigidas", "value": rep["total_evaluated"]},
+        {"label": "Média Geral Escola", "value": f"{rep['average_score']:.1f}" if rep['total_evaluated'] > 0 else "-"}
+    ]
+
+    return ReportData(
+        title=f"Relatório de Desempenho Escolar — {sch['name']}",
+        metadata=meta,
+        columns=sec1_columns,
+        rows=sec1_rows,
+        summary_cards=summary_cards,
+        sections=[sec1, sec2, sec3],
+        signatures=["Direção Escolar", "Coordenação Pedagógica"]
+    )
+

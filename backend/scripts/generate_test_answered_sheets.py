@@ -1,0 +1,370 @@
+import os
+import sys
+import json
+import sqlite3
+import shutil
+import pymupdf as fitz
+from reportlab.lib import pagesizes, colors
+from reportlab.pdfgen import canvas
+
+# Configure paths
+BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT_DIR = os.path.dirname(BACKEND_DIR)
+sys.path.insert(0, BACKEND_DIR)
+
+from app.services.pdf_generator import render_sheet_unit, DEFAULT_LOGO_PATH
+from app.services.omr_engine import grade_submission
+
+OUTPUT_DIR = os.path.join(BACKEND_DIR, "storage", "gabaritos_teste")
+STATIC_OUTPUT_DIR = os.path.join(ROOT_DIR, "frontend", "assets", "gabaritos_teste")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+os.makedirs(STATIC_OUTPUT_DIR, exist_ok=True)
+
+DB_PATH = os.path.join(BACKEND_DIR, "storage", "exams.db")
+
+def main():
+    print("Iniciando geração de gabaritos teste respondidos...")
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+
+    # Define test configurations
+    # We will pick 6 real students across 3 classes with 2 subjects
+    test_configs = [
+        {
+            "class_filter": "8%A MATUTINO",
+            "subject_filter": "PORTUGUESA",
+            "profile": "alto_desempenho",
+            "wrong_indices": [14], # 21 acertos / 1 erro (Nota 9.5)
+            "blank_indices": [],
+            "double_indices": [],
+            "desc": "Nota 9.5 (21 Acertos, 1 Erro)"
+        },
+        {
+            "class_filter": "8%A MATUTINO",
+            "subject_filter": "MATEMATICA",
+            "profile": "bom_desempenho",
+            "wrong_indices": [3, 11, 18], # 19 acertos / 3 erros (Nota 8.6)
+            "blank_indices": [],
+            "double_indices": [],
+            "desc": "Nota 8.6 (19 Acertos, 3 Erros)"
+        },
+        {
+            "class_filter": "8%B MATUTINO",
+            "subject_filter": "PORTUGUESA",
+            "profile": "medio_desempenho",
+            "wrong_indices": [2, 7, 13, 17, 21], # 15 acertos / 5 erros / 2 em branco
+            "blank_indices": [5, 10],
+            "double_indices": [],
+            "desc": "Nota 6.8 (15 Acertos, 5 Erros, 2 Em Branco)"
+        },
+        {
+            "class_filter": "8%B MATUTINO",
+            "subject_filter": "MATEMATICA",
+            "profile": "atencao_dupla",
+            "wrong_indices": [1, 4, 6, 8, 12, 15, 16, 19, 20], # 11 acertos / 10 erros / 1 dupla
+            "blank_indices": [],
+            "double_indices": [9], # Questão 9 com duas bolhas preenchidas
+            "desc": "Nota 5.0 (11 Acertos, 10 Erros, 1 Dupla Marcação)"
+        },
+        {
+            "class_filter": "9%A MATUTINO",
+            "subject_filter": "PORTUGUESA",
+            "profile": "gabaritou_10",
+            "wrong_indices": [], # 22 acertos / 0 erros (Nota 10.0!)
+            "blank_indices": [],
+            "double_indices": [],
+            "desc": "Nota 10.0 - Gabaritou (22 Acertos, 0 Erros)"
+        },
+        {
+            "class_filter": "9%A MATUTINO",
+            "subject_filter": "MATEMATICA",
+            "profile": "bom_desempenho_2",
+            "wrong_indices": [5, 8, 14, 17, 22], # 17 acertos / 5 erros (Nota 7.7)
+            "blank_indices": [],
+            "double_indices": [],
+            "desc": "Nota 7.7 (17 Acertos, 5 Erros)"
+        }
+    ]
+
+    selected_data = []
+
+    for idx, cfg in enumerate(test_configs):
+        # 1. Get class and exam
+        c.execute("""
+            SELECT ce.classroom_id, c.name as class_name, c.shift, s.name as school_name,
+                   e.id as exam_id, e.title as exam_title, e.num_questions, e.num_alternatives,
+                   e.answer_key, e.points_per_question, e.header_color, e.subtitle
+            FROM classroom_exams ce
+            JOIN classrooms c ON ce.classroom_id = c.id
+            JOIN schools s ON c.school_id = s.id
+            JOIN exams e ON ce.exam_id = e.id
+            WHERE c.name LIKE ?
+            ORDER BY c.name
+        """, (cfg["class_filter"],))
+        rows = c.fetchall()
+        
+        target_row = None
+        for r in rows:
+            clean_title = r["exam_title"].upper().replace("Á", "A").replace("É", "E").replace("Í", "I").replace("Ó", "O")
+            if cfg["subject_filter"] in clean_title:
+                target_row = r
+                break
+        if not target_row and rows:
+            target_row = rows[0]
+
+        # 2. Get a student from this class (pick student index to avoid reusing same student)
+        student_offset = idx % 3
+        c.execute("""
+            SELECT s.id, s.name, s.registration
+            FROM students s
+            WHERE s.classroom_id = ?
+            ORDER BY s.name
+            LIMIT 1 OFFSET ?
+        """, (target_row["classroom_id"], student_offset))
+        student = c.fetchone()
+
+        ans_key = json.loads(target_row["answer_key"]) if isinstance(target_row["answer_key"], str) else target_row["answer_key"]
+        
+        # Build student answered bubbles
+        student_answers = {}
+        for q_num in range(1, target_row["num_questions"] + 1):
+            q_str = str(q_num)
+            correct_opt = ans_key.get(q_str, "A")
+            
+            if q_num in cfg["blank_indices"]:
+                # Left blank
+                continue
+            elif q_num in cfg["double_indices"]:
+                # Marked two bubbles
+                student_answers[q_str] = f"{correct_opt},B" if correct_opt != "B" else "A,B"
+            elif q_num in cfg["wrong_indices"]:
+                # Marked a wrong alternative
+                opts = ["A", "B", "C", "D"]
+                wrong_opt = [o for o in opts if o != correct_opt][0]
+                student_answers[q_str] = wrong_opt
+            else:
+                # Marked correct alternative
+                student_answers[q_str] = correct_opt
+
+        selected_data.append({
+            "config": cfg,
+            "exam": target_row,
+            "student": student,
+            "answers": student_answers
+        })
+
+    # Generate Unified Multi-Page PDF (2 sheets per page) in memory
+    import io
+    pdf_buffer = io.BytesIO()
+    pdf_canvas = canvas.Canvas(pdf_buffer, pagesize=pagesizes.A4)
+    page_w, page_h = pagesizes.A4
+    half_h = page_h / 2.0
+
+    page_images_info = []
+
+    # Render 2 sheets per page
+    num_pairs = (len(selected_data) + 1) // 2
+    for page_idx in range(num_pairs):
+        top_idx = page_idx * 2
+        bot_idx = top_idx + 1
+
+        top_item = selected_data[top_idx]
+        bot_item = selected_data[bot_idx] if bot_idx < len(selected_data) else None
+
+        # Render Top Sheet
+        ex_top = top_item["exam"]
+        st_top = top_item["student"]
+        cfg_top = top_item["config"]
+        ans_top = top_item["answers"]
+
+        print(f"Renderizando Página {page_idx + 1} - Superior: {st_top['name']} ({ex_top['class_name']}) - {cfg_top['desc']}...")
+        render_sheet_unit(
+            c=pdf_canvas,
+            x0=0,
+            y0=half_h,
+            width=page_w,
+            height=half_h,
+            exam_id=ex_top["exam_id"],
+            title=ex_top["exam_title"],
+            subtitle=ex_top["subtitle"] or "ENSINO FUNDAMENTAL",
+            school_name=ex_top["school_name"],
+            student_name=st_top["name"],
+            student_id=st_top["id"],
+            classroom=ex_top["class_name"],
+            shift=ex_top["shift"] or "MANHÃ",
+            num_questions=ex_top["num_questions"],
+            num_alternatives=ex_top["num_alternatives"] or 4,
+            logo_path=DEFAULT_LOGO_PATH,
+            is_compact=True,
+            header_color=ex_top["header_color"] or "#244061",
+            filled_answers=ans_top
+        )
+
+        # Scissor Cut Line in middle
+        pdf_canvas.setStrokeColor(colors.HexColor("#94a3b8"))
+        pdf_canvas.setLineWidth(0.8)
+        pdf_canvas.setDash([4, 4])
+        pdf_canvas.line(16, half_h, page_w - 16, half_h)
+        pdf_canvas.setDash([])
+
+        pdf_canvas.setFont("Helvetica-Bold", 6.5)
+        pdf_canvas.setFillColor(colors.HexColor("#64748b"))
+        pdf_canvas.drawCentredString(page_w / 2.0, half_h - 2.5, "✂ - - - - - - - - CORTE AQUI PARA DESTACAR AS DUAS FOLHAS - - - - - - - - ✂")
+
+        # Render Bottom Sheet
+        if bot_item:
+            ex_bot = bot_item["exam"]
+            st_bot = bot_item["student"]
+            cfg_bot = bot_item["config"]
+            ans_bot = bot_item["answers"]
+
+            print(f"Renderizando Página {page_idx + 1} - Inferior: {st_bot['name']} ({ex_bot['class_name']}) - {cfg_bot['desc']}...")
+            render_sheet_unit(
+                c=pdf_canvas,
+                x0=0,
+                y0=0,
+                width=page_w,
+                height=half_h,
+                exam_id=ex_bot["exam_id"],
+                title=ex_bot["exam_title"],
+                subtitle=ex_bot["subtitle"] or "ENSINO FUNDAMENTAL",
+                school_name=ex_bot["school_name"],
+                student_name=st_bot["name"],
+                student_id=st_bot["id"],
+                classroom=ex_bot["class_name"],
+                shift=ex_bot["shift"] or "MANHÃ",
+                num_questions=ex_bot["num_questions"],
+                num_alternatives=ex_bot["num_alternatives"] or 4,
+                logo_path=DEFAULT_LOGO_PATH,
+                is_compact=True,
+                header_color=ex_bot["header_color"] or "#244061",
+                filled_answers=ans_bot
+            )
+
+        pdf_canvas.showPage()
+
+    pdf_canvas.save()
+    pdf_bytes = pdf_buffer.getvalue()
+    pdf_buffer.close()
+
+    # Save to storage and root
+    def safe_write(path: str, data: bytes):
+        try:
+            with open(path, "wb") as f:
+                f.write(data)
+            print(f"[OK] Arquivo salvo em: {path}")
+            return True
+        except PermissionError:
+            print(f"[AVISO] Arquivo bloqueado por outro aplicativo: {path}")
+            return False
+
+    pdf_path_2per = os.path.join(OUTPUT_DIR, "GABARITOS_TESTE_2_POR_PAGINA.pdf")
+    safe_write(pdf_path_2per, pdf_bytes)
+    root_pdf_path_2per = os.path.join(ROOT_DIR, "GABARITOS_TESTE_2_POR_PAGINA.pdf")
+    safe_write(root_pdf_path_2per, pdf_bytes)
+
+    # Also attempt to overwrite main GABARITOS_TESTE_RESPONDIDOS.pdf
+    pdf_path = os.path.join(OUTPUT_DIR, "GABARITOS_TESTE_RESPONDIDOS.pdf")
+    safe_write(pdf_path, pdf_bytes)
+    root_pdf_path = os.path.join(ROOT_DIR, "GABARITOS_TESTE_RESPONDIDOS.pdf")
+    safe_write(root_pdf_path, pdf_bytes)
+
+    # Render each page and each half-sheet into high-resolution JPG images (250 DPI)
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    sheet_counter = 1
+
+    for page_idx, page in enumerate(doc):
+        pw = page.rect.width
+        ph = page.rect.height
+        mid_y = ph / 2.0
+
+        # Also save full page showing both sheets with cut line
+        full_page_pix = page.get_pixmap(dpi=200)
+        full_page_name = f"Pagina_{page_idx + 1:02d}_Completa_2_por_folha.jpg"
+        full_page_pix.save(os.path.join(OUTPUT_DIR, full_page_name))
+        full_page_pix.save(os.path.join(STATIC_OUTPUT_DIR, full_page_name))
+
+        # Top clip (fitz coords: (0, 0) is top-left, so y: 0 to mid_y)
+        rect_top = fitz.Rect(0, 0, pw, mid_y)
+        # Bottom clip (y: mid_y to ph)
+        rect_bot = fitz.Rect(0, mid_y, pw, ph)
+
+        halves = [
+            (rect_top, selected_data[page_idx * 2]),
+        ]
+        if page_idx * 2 + 1 < len(selected_data):
+            halves.append((rect_bot, selected_data[page_idx * 2 + 1]))
+
+        for rect_clip, item in halves:
+            st = item["student"]
+            ex = item["exam"]
+            cfg = item["config"]
+
+            pix = page.get_pixmap(clip=rect_clip, dpi=250)
+            
+            clean_student = "".join([c for c in st["name"].split()[0] if c.isalnum()]).upper()
+            clean_class = ex["class_name"].replace("º", "").replace(" ", "_").replace("-", "").replace("__", "_")
+            clean_subject = "PORTUGUES" if "PORTUGUESA" in ex["exam_title"].upper() else "MATEMATICA"
+            
+            file_name = f"Folha_{sheet_counter:02d}_{clean_class}_{clean_subject}_{clean_student}.jpg"
+            img_path = os.path.join(OUTPUT_DIR, file_name)
+            pix.save(img_path)
+
+            # Copy to static frontend directory
+            static_img_path = os.path.join(STATIC_OUTPUT_DIR, file_name)
+            shutil.copyfile(img_path, static_img_path)
+
+            # Test OMR Engine with this cut half-sheet image
+            with open(img_path, "rb") as img_f:
+                img_bytes = img_f.read()
+            
+            omr_result = grade_submission(img_bytes, ex["exam_id"], st["name"])
+            score = omr_result.get("score", 0.0)
+            max_score = omr_result.get("max_score", 10.0)
+            correct_cnt = omr_result.get("correct_count", 0)
+            wrong_cnt = omr_result.get("wrong_count", 0)
+            blank_cnt = omr_result.get("blank_count", 0)
+            detected_student = omr_result.get("student_name", "N/A")
+
+            page_images_info.append({
+                "sheet_num": sheet_counter,
+                "page": page_idx + 1,
+                "position": "Superior (Topo)" if rect_clip == rect_top else "Inferior (Base)",
+                "filename": file_name,
+                "student_name": st["name"],
+                "classroom": ex["class_name"],
+                "school": ex["school_name"],
+                "subject": ex["exam_title"],
+                "expected_profile": cfg["desc"],
+                "omr_score": f"{score:.1f} / {max_score:.1f}",
+                "omr_correct": correct_cnt,
+                "omr_wrong": wrong_cnt,
+                "omr_blank": blank_cnt,
+                "detected_student": detected_student,
+                "local_path": img_path,
+                "web_url": f"/static/assets/gabaritos_teste/{file_name}"
+            })
+            sheet_counter += 1
+
+    # Save manifest JSON
+    manifest_path = os.path.join(OUTPUT_DIR, "manifest.json")
+    with open(manifest_path, "w", encoding="utf-8") as mf:
+        json.dump(page_images_info, mf, ensure_ascii=False, indent=2)
+
+    print("\n" + "="*70)
+    print("RESUMO DOS GABARITOS TESTE GERADOS E TESTADOS COM SUCESSO:")
+    print("="*70)
+    for info in page_images_info:
+        print(f"Folha #{info['page']}: {info['student_name']} ({info['classroom']})")
+        print(f"  Disciplina: {info['subject']}")
+        print(f"  Perfil:     {info['expected_profile']}")
+        print(f"  Resultado:  Nota {info['omr_score']} ({info['omr_correct']} Acertos, {info['omr_wrong']} Erros, {info['omr_blank']} Em Branco)")
+        print(f"  Arquivo:    {info['filename']}")
+        print("-"*70)
+
+    print(f"\nPDF Completo: {root_pdf_path}")
+    print(f"Pasta de Imagens: {OUTPUT_DIR}")
+
+if __name__ == "__main__":
+    main()

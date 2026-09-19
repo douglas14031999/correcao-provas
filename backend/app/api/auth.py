@@ -47,9 +47,9 @@ class ChangePasswordRequest(BaseModel):
 
 def get_authenticated_user(authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)) -> dict:
     token = None
-    if authorization and authorization.startswith("Bearer "):
+    if isinstance(authorization, str) and authorization.startswith("Bearer "):
         token = authorization.split("Bearer ")[1].strip()
-    elif x_auth_token:
+    elif isinstance(x_auth_token, str) and x_auth_token.strip():
         token = x_auth_token.strip()
 
     if not token:

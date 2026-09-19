@@ -68,6 +68,8 @@ document.addEventListener("DOMContentLoaded", () => {
   initAnswerKeyMatrix();
   initEventListeners();
   checkAuthStatus();
+  initLandscapeCameraListeners();
+  checkOrientationAndAdjustCamera();
 });
 
 // Sound feedback using Web Audio API
@@ -92,6 +94,19 @@ function playSuccessSound() {
 
 // --- Tabs Management ---
 function initTabs() {
+  // Pré-restauração visual rápida da aba antes de requisições de rede
+  try {
+    const savedTab = localStorage.getItem("omr_active_tab");
+    if (savedTab && document.getElementById(savedTab)) {
+      tabButtons.forEach(b => b.classList.toggle("active", b.dataset.tab === savedTab));
+      const mobileBottomBtns = document.querySelectorAll(".bottom-nav-btn[data-tab]");
+      mobileBottomBtns.forEach(b => b.classList.toggle("active", b.dataset.tab === savedTab));
+      tabContents.forEach(c => {
+        c.classList.toggle("active", c.id === savedTab);
+      });
+    }
+  } catch (e) {}
+
   const brandLink = document.getElementById("nav-brand-link");
   if (brandLink) {
     brandLink.addEventListener("click", (e) => {
@@ -149,7 +164,26 @@ function switchTab(tabId) {
     reportView.classList.remove("active");
   }
 
+  try {
+    localStorage.removeItem("omr_active_subpage");
+    localStorage.setItem("omr_active_tab", tabId);
+  } catch (e) {}
+
   tabButtons.forEach(b => b.classList.toggle("active", b.dataset.tab === tabId));
+
+  // Sincronizar botões da barra inferior mobile
+  const mobileBottomBtns = document.querySelectorAll(".bottom-nav-btn[data-tab]");
+  mobileBottomBtns.forEach(b => b.classList.toggle("active", b.dataset.tab === tabId));
+
+  // Sincronizar itens do menu drawer lateral mobile
+  const mobileDrawerItems = document.querySelectorAll(".mobile-drawer-item[data-tab]");
+  mobileDrawerItems.forEach(b => b.classList.toggle("active", b.dataset.tab === tabId));
+
+  // Fechar drawer lateral se estiver aberto
+  if (typeof closeMobileMenu === "function") {
+    closeMobileMenu();
+  }
+
   tabContents.forEach(c => {
     c.style.display = ""; // Reset any inline display override
     c.classList.toggle("active", c.id === tabId);
@@ -157,23 +191,21 @@ function switchTab(tabId) {
 
   if (tabId === "scanner-tab") {
     startCamera();
-  } else if (tabId === "exams-tab") {
-    stopCamera();
-    loadExams(false);
-  } else if (tabId === "schools-tab") {
-    stopCamera();
-    loadSchools();
-  } else if (tabId === "dashboard-tab") {
-    stopCamera();
-    loadDashboardData();
-  } else if (tabId === "users-tab") {
-    stopCamera();
-    loadUsers();
-  } else if (tabId === "backup-tab") {
-    stopCamera();
-    loadBackupStats();
+    setTimeout(checkOrientationAndAdjustCamera, 200);
   } else {
+    deactivateLandscapeCamera();
     stopCamera();
+    if (tabId === "exams-tab") {
+      loadExams(false);
+    } else if (tabId === "schools-tab") {
+      loadSchools();
+    } else if (tabId === "dashboard-tab") {
+      loadDashboardData();
+    } else if (tabId === "users-tab") {
+      loadUsers();
+    } else if (tabId === "backup-tab") {
+      loadBackupStats();
+    }
   }
 
   // Update Gestão dropdown active indicator
@@ -296,6 +328,236 @@ if (switchCameraBtn) {
 
 if (btnTriggerGallery && fileInput) {
   btnTriggerGallery.addEventListener("click", () => fileInput.click());
+}
+
+// --- Mobile Landscape Fullscreen Camera System ---
+let isLandscapeCameraActive = false;
+let userDismissedLandscapeSession = false;
+let cameraTorchEnabled = false;
+
+function isMobileDevice() {
+  const ua = navigator.userAgent || "";
+  const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  const isTouchDevice = (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.matchMedia("(pointer: coarse)").matches);
+  const isSmallScreen = Math.min(window.innerWidth, window.innerHeight) <= 900;
+  return (isMobileUA || isTouchDevice) && isSmallScreen;
+}
+
+function isLandscapeOrientation() {
+  if (window.screen && window.screen.orientation && window.screen.orientation.type) {
+    if (window.screen.orientation.type.includes("landscape")) return true;
+    if (window.screen.orientation.type.includes("portrait")) return false;
+  }
+  if (typeof window.orientation !== "undefined" && window.orientation !== null) {
+    if (Math.abs(window.orientation) === 90) return true;
+    if (window.orientation === 0 || window.orientation === 180) return false;
+  }
+  if (window.matchMedia && window.matchMedia("(orientation: landscape)").matches) {
+    return true;
+  }
+  return window.innerWidth > window.innerHeight;
+}
+
+function getCurrentActiveTabId() {
+  const activeContent = document.querySelector(".tab-content.active");
+  return activeContent ? activeContent.id : (localStorage.getItem("omr_active_tab") || "dashboard-tab");
+}
+
+function updateLandscapeExamTitle() {
+  const titleEl = document.getElementById("landscape-hud-exam-title");
+  if (!titleEl) return;
+  if (!activeExamId || activeExamId === "AUTO") {
+    titleEl.textContent = "Identificação Automática (QR Code)";
+  } else {
+    const exam = examsList.find(e => String(e.id) === String(activeExamId));
+    titleEl.textContent = exam ? (exam.title || "Simulado") : "Simulado Selecionado";
+  }
+}
+
+async function activateLandscapeCamera() {
+  if (isLandscapeCameraActive) return;
+  const currentTab = getCurrentActiveTabId();
+  if (currentTab !== "scanner-tab") return;
+
+  isLandscapeCameraActive = true;
+  document.body.classList.add("mobile-landscape-camera-active");
+  updateLandscapeExamTitle();
+
+  // Garante que o stream da câmera está ativo
+  if (!cameraStream || !videoEl.srcObject) {
+    startCamera();
+  }
+
+  // Tenta tela cheia nativa do navegador para esconder barras do sistema
+  try {
+    const el = document.documentElement;
+    if (el.requestFullscreen && !document.fullscreenElement) {
+      el.requestFullscreen().catch(() => {});
+    } else if (el.webkitRequestFullscreen && !document.webkitFullscreenElement) {
+      el.webkitRequestFullscreen().catch(() => {});
+    }
+  } catch (e) {}
+
+  if (navigator.vibrate) {
+    navigator.vibrate([30]);
+  }
+}
+
+function deactivateLandscapeCamera() {
+  if (!isLandscapeCameraActive && !document.body.classList.contains("mobile-landscape-camera-active")) {
+    return;
+  }
+  isLandscapeCameraActive = false;
+  document.body.classList.remove("mobile-landscape-camera-active");
+
+  // Desliga lanterna caso tenha ficado acesa
+  if (cameraTorchEnabled) {
+    toggleCameraTorch(false);
+  }
+
+  // Sai de tela cheia nativa se estiver ativa
+  try {
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    } else if (document.webkitFullscreenElement && document.webkitExitFullscreen) {
+      document.webkitExitFullscreen().catch(() => {});
+    }
+  } catch (e) {}
+}
+
+async function toggleCameraTorch(forceState = null) {
+  const torchBtn = document.getElementById("landscape-torch-btn");
+  if (!cameraStream) {
+    showToast("Câmera não iniciada.", "warning");
+    return;
+  }
+  const track = cameraStream.getVideoTracks()[0];
+  if (!track) return;
+
+  const targetState = (forceState !== null) ? forceState : !cameraTorchEnabled;
+
+  try {
+    const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+    if (!capabilities.torch) {
+      if (forceState === null) {
+        showToast("Lanterna não disponível neste dispositivo.", "info");
+      }
+      return;
+    }
+
+    await track.applyConstraints({
+      advanced: [{ torch: targetState }]
+    });
+    cameraTorchEnabled = targetState;
+    if (torchBtn) {
+      torchBtn.classList.toggle("active", cameraTorchEnabled);
+    }
+  } catch (err) {
+    console.warn("Erro ao controlar lanterna:", err);
+  }
+}
+
+function checkOrientationAndAdjustCamera() {
+  const onMobile = isMobileDevice();
+  const currentTab = getCurrentActiveTabId();
+  const onScanner = (currentTab === "scanner-tab");
+  const inLandscape = isLandscapeOrientation();
+
+  if (onMobile && onScanner && inLandscape) {
+    if (!userDismissedLandscapeSession) {
+      activateLandscapeCamera();
+    }
+  } else {
+    // Ao voltar para orientação vertical, permite reativação automática na próxima rotação
+    if (!inLandscape) {
+      userDismissedLandscapeSession = false;
+    }
+    if (isLandscapeCameraActive) {
+      deactivateLandscapeCamera();
+    }
+  }
+}
+
+function initLandscapeCameraListeners() {
+  if (window.screen && window.screen.orientation) {
+    window.screen.orientation.addEventListener("change", checkOrientationAndAdjustCamera);
+  }
+  window.addEventListener("orientationchange", () => {
+    setTimeout(checkOrientationAndAdjustCamera, 150);
+  });
+  window.addEventListener("resize", () => {
+    setTimeout(checkOrientationAndAdjustCamera, 100);
+  });
+
+  // Gatilho de Disparo / Correção em Paisagem
+  const landscapeShutterBtn = document.getElementById("landscape-shutter-btn");
+  if (landscapeShutterBtn) {
+    landscapeShutterBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (navigator.vibrate) {
+        navigator.vibrate([45]);
+      }
+
+      landscapeShutterBtn.classList.add("processing");
+      try {
+        if (captureBtn) {
+          captureBtn.click();
+        }
+      } finally {
+        setTimeout(() => {
+          landscapeShutterBtn.classList.remove("processing");
+        }, 1200);
+      }
+    });
+  }
+
+  // Botão de Lanterna
+  const torchBtn = document.getElementById("landscape-torch-btn");
+  if (torchBtn) {
+    torchBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleCameraTorch();
+    });
+  }
+
+  // Botão de Alternar Câmera em Paisagem
+  const landscapeSwitchCamBtn = document.getElementById("landscape-switch-cam-btn");
+  if (landscapeSwitchCamBtn) {
+    landscapeSwitchCamBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (switchCameraBtn) {
+        switchCameraBtn.click();
+      }
+    });
+  }
+
+  // Botão de Galeria / Arquivo em Paisagem
+  const landscapeGalleryBtn = document.getElementById("landscape-gallery-btn");
+  if (landscapeGalleryBtn) {
+    landscapeGalleryBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (fileInput) {
+        fileInput.click();
+      }
+    });
+  }
+
+  // Botão de Sair do Modo Paisagem (✕)
+  const landscapeExitBtn = document.getElementById("landscape-exit-btn");
+  if (landscapeExitBtn) {
+    landscapeExitBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      userDismissedLandscapeSession = true;
+      deactivateLandscapeCamera();
+      showToast("Modo horizontal pausado. Gire o celular ou selecione Corrigir para reabrir.", "info");
+    });
+  }
 }
 
 // --- Grading & Capture ---
@@ -492,11 +754,8 @@ async function processGradingUpload(fileOrBlob) {
     }
 
     playSuccessSound();
-    showToast(`Prova corrigida com sucesso! Nota: ${data.score} / ${data.max_score}`, "success");
+    showToast("Leitura concluída! Revise as respostas e confirme abaixo para registrar a prova.", "info");
     displayGradingResult(data);
-
-    // Refresh exams list to update submission count
-    loadExams(false);
   } catch (err) {
     console.error(err);
     showToast(err.message, "error");
@@ -508,6 +767,17 @@ async function processGradingUpload(fileOrBlob) {
 
 // Display results in UI
 function displayGradingResult(result) {
+  // Requisito 2: Sai do modo paisagem em tela cheia para mostrar o raio-x completo e nota a cada folha
+  deactivateLandscapeCamera();
+
+  // Garante que a aba do Raio-X visual esteja selecionada e exibida por padrão
+  if (viewXrayBtn && xrayContainer) {
+    viewXrayBtn.classList.add("active");
+    if (viewListBtn) viewListBtn.classList.remove("active");
+    xrayContainer.style.display = "block";
+    if (tableContainer) tableContainer.style.display = "none";
+  }
+
   currentGradingResult = result;
   resultPlaceholder.style.display = "none";
   resultDisplay.style.display = "block";
@@ -661,32 +931,74 @@ const btnConfirmGrade = document.getElementById("btn-confirm-grade");
 const btnRejectGrade = document.getElementById("btn-reject-grade");
 
 if (btnConfirmGrade) {
-  btnConfirmGrade.addEventListener("click", () => {
+  btnConfirmGrade.addEventListener("click", async () => {
     if (!currentGradingResult) return;
     const stName = currentGradingResult.student_name || "Aluno";
     const scoreVal = currentGradingResult.score;
-    playSuccessSound();
-    showToast(`Nota de ${stName} (${scoreVal} pts) confirmada e registrada com sucesso!`, "success");
-    
-    // Smooth reset for next sheet
-    const confirmBanner = document.getElementById("confirmation-banner");
-    if (confirmBanner) confirmBanner.style.display = "none";
-    currentGradingResult = null;
-    resultDisplay.style.display = "none";
-    resultPlaceholder.style.display = "flex";
-    
-    // Scroll back to camera view
-    if (videoEl) videoEl.scrollIntoView({ behavior: "smooth", block: "center" });
-    loadExams(false);
+
+    const originalBtnHtml = btnConfirmGrade.innerHTML;
+    btnConfirmGrade.disabled = true;
+    btnConfirmGrade.innerHTML = '<div class="spinner"></div><span>Gravando...</span>';
+
+    try {
+      const res = await fetch("/api/grade/confirm", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify(currentGradingResult)
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || "Erro ao registrar confirmação da prova.");
+      }
+
+      playSuccessSound();
+      showToast(`✓ Prova de ${stName} (${scoreVal} pts) confirmada e registrada com sucesso!`, "success");
+      
+      // Smooth reset for next sheet
+      const confirmBanner = document.getElementById("confirmation-banner");
+      if (confirmBanner) confirmBanner.style.display = "none";
+      currentGradingResult = null;
+      resultDisplay.style.display = "none";
+      resultPlaceholder.style.display = "flex";
+      
+      // Scroll back to camera view
+      if (videoEl) videoEl.scrollIntoView({ behavior: "smooth", block: "center" });
+
+      // Se o usuário mantiver o celular na horizontal para a próxima folha, reabre modo tela cheia
+      setTimeout(checkOrientationAndAdjustCamera, 350);
+
+      // Sincronizar listas e dashboard agora que a prova foi formalmente confirmada
+      loadExams(false);
+      if (typeof loadDashboardData === "function") {
+        loadDashboardData();
+      }
+    } catch (err) {
+      console.error(err);
+      showToast(err.message, "error");
+    } finally {
+      btnConfirmGrade.disabled = false;
+      btnConfirmGrade.innerHTML = originalBtnHtml;
+    }
   });
 }
 
 if (btnRejectGrade) {
   btnRejectGrade.addEventListener("click", async () => {
-    if (!currentGradingResult || !currentGradingResult.id) return;
+    if (!currentGradingResult) return;
     try {
-      await fetch(`/api/submissions/${currentGradingResult.id}`, { method: "DELETE" });
-      showToast("Leitura descartada. A nota não foi salva.", "info");
+      await fetch("/api/grade/discard", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify(currentGradingResult)
+      });
+      showToast("Leitura descartada. A prova não foi registrada.", "info");
     } catch (err) {
       console.error(err);
     }
@@ -696,7 +1008,7 @@ if (btnRejectGrade) {
     resultDisplay.style.display = "none";
     resultPlaceholder.style.display = "flex";
     if (videoEl) videoEl.scrollIntoView({ behavior: "smooth", block: "center" });
-    loadExams(false);
+    setTimeout(checkOrientationAndAdjustCamera, 350);
   });
 }
 
@@ -880,6 +1192,11 @@ function renderExamsGrid(filterTerm = "") {
 
       <div class="cl-col-exams">
         <span class="cl-exam-chip">${ex.num_questions} Questões • Opções A-${String.fromCharCode(64 + ex.num_alternatives)}</span>
+        ${ex.is_linked_to_school ? `
+          <span class="cl-exam-chip" style="background-color: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; font-weight: 600;" title="Vinculado à(s) escola(s): ${(ex.linked_schools || []).map(s => s.name).join(', ')}">
+            🏫 Vinculado (${(ex.linked_schools || []).length} escola${(ex.linked_schools || []).length > 1 ? 's' : ''})
+          </span>
+        ` : ''}
       </div>
 
       <div class="cl-col-students" style="justify-content: center;">
@@ -887,11 +1204,11 @@ function renderExamsGrid(filterTerm = "") {
       </div>
 
       <div class="cl-col-actions">
-        <a href="/api/exams/${ex.id}/sheet.pdf?layout=single" target="_blank" class="cl-action-btn cl-action-btn-primary" title="Baixar folha individual padrão (1 por folha)">
+        <a href="/api/exams/${ex.id}/sheet.pdf?layout=single&filled=true" target="_blank" class="cl-action-btn cl-action-btn-primary" title="Baixar Gabarito Oficial preenchido com as respostas corretas (1 por folha)">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
           <span>PDF 1x</span>
         </a>
-        <a href="/api/exams/${ex.id}/sheet.pdf?layout=double" target="_blank" class="cl-action-btn cl-action-btn-secondary" style="color: #0284c7; border-color: #bae6fd; font-weight: 700;" title="Baixar folha dupla econômica (2 por folha)">
+        <a href="/api/exams/${ex.id}/sheet.pdf?layout=double&filled=true" target="_blank" class="cl-action-btn cl-action-btn-secondary" style="color: #0284c7; border-color: #bae6fd; font-weight: 700;" title="Baixar Gabarito Oficial preenchido com as respostas corretas (2 por folha)">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><line x1="20" y1="4" x2="8.12" y2="15.88"></line><line x1="14.47" y1="14.48" x2="20" y2="20"></line><line x1="8.12" y1="8.12" x2="12" y2="12"></line></svg>
           <span>Folha 2x</span>
         </a>
@@ -900,7 +1217,9 @@ function renderExamsGrid(filterTerm = "") {
           <span>Editar</span>
         </button>
         ${currentUserProfile && currentUserProfile.role === "admin" ? `
-        <button type="button" class="cl-action-btn cl-action-btn-danger delete-exam-btn" data-id="${ex.id}" title="Excluir simulado">
+        <button type="button" class="cl-action-btn cl-action-btn-danger delete-exam-btn" data-id="${ex.id}" 
+          title="${ex.is_linked_to_school ? 'Bloqueado: gabarito vinculado a escola(s)' : 'Excluir simulado'}"
+          ${ex.is_linked_to_school ? 'style="opacity: 0.55; cursor: not-allowed;"' : ''}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
           <span>Excluir</span>
         </button>` : ''}
@@ -918,9 +1237,17 @@ function renderExamsGrid(filterTerm = "") {
           showToast("Apenas o Administrador SEMED tem permissão para excluir simulados.", "warning");
           return;
         }
+
+        // Validação: Só permitir excluir se NÃO estiver vinculado a nenhuma escola
+        if (ex.is_linked_to_school && ex.linked_schools && ex.linked_schools.length > 0) {
+          const nomes = ex.linked_schools.map(s => s.name).join(", ");
+          showToast(`Não é permitido excluir: o gabarito "${ex.title}" está vinculado à(s) escola(s): ${nomes}. Desvincule-o das turmas na aba "Turmas" primeiro.`, "warning");
+          return;
+        }
+
         const confirmDelete = confirm(
           `Tem certeza que deseja excluir o gabarito "${ex.title}"?\n\n` +
-          `ATENÇÃO: Todas as correções realizadas (${ex.submissions_count || 0}) e folhas geradas deste simulado serão apagadas permanentemente.`
+          `ATENÇÃO: Esta ação é definitiva e removerá a folha de respostas gerada.`
         );
         if (!confirmDelete) return;
 
@@ -975,6 +1302,81 @@ const previewClassEl = document.getElementById("preview-class");
 const previewShiftEl = document.getElementById("preview-shift");
 const previewQuestionsGrid = document.getElementById("preview-questions-grid");
 
+// Cor do Gabarito (Header & Question Table)
+let currentSheetColor = "#244061";
+
+function setSheetColor(color) {
+  if (!color) color = "#244061";
+  color = color.trim();
+  if (!color.startsWith("#")) color = "#" + color;
+  if (/^#[0-9A-Fa-f]{3}$/.test(color)) {
+    color = `#${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}`;
+  } else if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
+    color = "#244061";
+  }
+  currentSheetColor = color.toLowerCase();
+
+  const picker = document.getElementById("exam-color-picker");
+  const hexInput = document.getElementById("exam-color-input");
+  const previewBox = document.getElementById("custom-color-preview-box");
+
+  if (picker) picker.value = currentSheetColor;
+  if (hexInput) hexInput.value = currentSheetColor.toUpperCase();
+  if (previewBox) previewBox.style.backgroundColor = currentSheetColor;
+
+  document.querySelectorAll(".color-pill").forEach(pill => {
+    if (pill.getAttribute("data-color").toLowerCase() === currentSheetColor) {
+      pill.classList.add("active");
+    } else {
+      pill.classList.remove("active");
+    }
+  });
+
+  const mockupBanner = document.getElementById("mockup-banner") || document.querySelector(".mockup-banner");
+  if (mockupBanner) {
+    mockupBanner.style.backgroundColor = currentSheetColor;
+  }
+  document.querySelectorAll("#preview-questions-grid .th-item").forEach(th => {
+    th.style.backgroundColor = currentSheetColor;
+  });
+}
+
+function initColorPickerEventListeners() {
+  document.querySelectorAll(".color-pill").forEach(pill => {
+    pill.addEventListener("click", () => {
+      const col = pill.getAttribute("data-color");
+      if (col) setSheetColor(col);
+    });
+  });
+
+  const picker = document.getElementById("exam-color-picker");
+  if (picker) {
+    picker.addEventListener("input", (e) => {
+      if (e.target.value) setSheetColor(e.target.value);
+    });
+  }
+
+  const hexInput = document.getElementById("exam-color-input");
+  if (hexInput) {
+    hexInput.addEventListener("input", (e) => {
+      let val = e.target.value.trim();
+      if (!val.startsWith("#") && val.length > 0) val = "#" + val;
+      if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+        setSheetColor(val);
+      }
+    });
+    hexInput.addEventListener("blur", (e) => {
+      let val = e.target.value.trim();
+      if (!val.startsWith("#") && val.length > 0) val = "#" + val;
+      if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+        setSheetColor(val);
+      } else {
+        hexInput.value = currentSheetColor.toUpperCase();
+      }
+    });
+  }
+}
+
 // Logo Handlers
 if (btnUploadLogo && examLogoFile) {
   btnUploadLogo.addEventListener("click", () => examLogoFile.click());
@@ -1023,17 +1425,22 @@ function updateLiveSheetMockup() {
   if (previewSubEl && examSubtitleInput) {
     previewSubEl.textContent = (examSubtitleInput.value.trim() || "2º ANO DO ENSINO FUNDAMENTAL").toUpperCase();
   }
-  if (previewSchoolEl && examSchoolInput) {
-    const sc = examSchoolInput.value.trim();
+  if (previewSchoolEl) {
+    const sc = examSchoolInput ? examSchoolInput.value.trim() : "";
     previewSchoolEl.textContent = sc ? sc.toUpperCase() : "_________________________________________";
   }
-  if (previewClassEl && examClassInput) {
-    const cl = examClassInput.value.trim();
+  if (previewClassEl) {
+    const cl = examClassInput ? examClassInput.value.trim() : "";
     previewClassEl.textContent = cl ? cl.toUpperCase() : "___________";
   }
   if (previewShiftEl) {
     const sh = examShiftInput ? examShiftInput.value.trim() : "";
     previewShiftEl.textContent = sh || "(  ) MANHÃ       (  ) TARDE";
+  }
+
+  const mockupBanner = document.getElementById("mockup-banner") || document.querySelector(".mockup-banner");
+  if (mockupBanner) {
+    mockupBanner.style.backgroundColor = currentSheetColor || "#244061";
   }
 
   // Update Questions Table Mockup
@@ -1063,6 +1470,7 @@ function renderPreviewQuestionsTable() {
 
     const thItem = document.createElement("th");
     thItem.className = "th-item";
+    thItem.style.backgroundColor = currentSheetColor || "#244061";
     thItem.textContent = "ITEM";
     headerTr.appendChild(thItem);
 
@@ -1139,12 +1547,15 @@ function resetCreateForm() {
   }
 
   initAnswerKeyMatrix();
+  setSheetColor("#244061");
   updateLiveSheetMockup();
 }
 
 async function startEditingExam(examId) {
   try {
-    const res = await fetch(`/api/exams/${examId}`);
+    const res = await fetch(`/api/exams/${examId}`, {
+      headers: { ...getAuthHeaders() }
+    });
     if (!res.ok) throw new Error("Não foi possível carregar os dados.");
     const exam = await res.json();
 
@@ -1162,8 +1573,9 @@ async function startEditingExam(examId) {
     const ptsInput = document.getElementById("exam-points-input");
     if (ptsInput) ptsInput.value = exam.points_per_question || 1.0;
 
-    // Set answer key
+    // Set answer key & color
     currentAnswerKeyDraft = exam.answer_key || {};
+    setSheetColor(exam.header_color || "#244061");
 
     // Update UI for Edit Mode
     if (createCardTitle) createCardTitle.textContent = "Editar Prova";
@@ -1336,6 +1748,7 @@ createExamForm.addEventListener("submit", async (e) => {
       classroom: classroom,
       shift: shift || "(  ) MANHÃ       (  ) TARDE",
       logo_base64: currentLogoBase64,
+      header_color: currentSheetColor || "#244061",
       num_questions: numQuestions,
       num_alternatives: numAlternatives,
       points_per_question: points,
@@ -1347,20 +1760,32 @@ createExamForm.addEventListener("submit", async (e) => {
       // UPDATE EXISTING
       res = await fetch(`/api/exams/${editingExamId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders()
+        },
         body: JSON.stringify(payload)
       });
     } else {
       // CREATE NEW
       res = await fetch("/api/exams", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders()
+        },
         body: JSON.stringify(payload)
       });
     }
 
     if (!res.ok) {
-      const err = await res.json();
+      if (res.status === 401) {
+        showToast("Sua sessão expirou. Por favor, faça login novamente.", "warning");
+        clearAuthToken();
+        checkAuthStatus();
+        return;
+      }
+      const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || "Erro ao salvar prova");
     }
 
@@ -1393,9 +1818,11 @@ createExamForm.addEventListener("submit", async (e) => {
 });
 
 function initEventListeners() {
+  initColorPickerEventListeners();
   updateLiveSheetMockup();
   initSchoolBatchEventListeners();
 }
+initColorPickerEventListeners();
 
 // ==========================================================================
 // Gestão Escolar, Turmas, Importação CSV e Gabaritos em Lote
@@ -1403,6 +1830,8 @@ function initEventListeners() {
 
 let schoolsList = [];
 let activeBatchClassId = null;
+let activeBatchSchoolName = "";
+let activeBatchClassName = "";
 let activeReportClassId = null;
 let selectedCsvFile = null;
 
@@ -1515,7 +1944,10 @@ function renderSchoolsGrid(filterTerm = "") {
         classListHtml = school.classrooms.map(cl => {
           const linkedBadges = (cl.linked_exams && cl.linked_exams.length > 0)
             ? cl.linked_exams.map(e => `<span class="cl-exam-chip" title="${e.title}">${e.title}</span>`).join("")
-            : '<span class="cl-no-exams">Nenhum simulado</span>';
+            : `<button type="button" class="cl-no-exams-btn" onclick="openLinkExamsModal('${cl.id}', '${cl.name.replace(/'/g, "\\'")}', '${school.name.replace(/'/g, "\\'")}')" title="Clique para vincular simulados a esta turma">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                <span>Vincular simulado</span>
+              </button>`;
 
           // Clean display for grade year
           let displayGrade = "";
@@ -1550,8 +1982,8 @@ function renderSchoolsGrid(filterTerm = "") {
           return `
           <div class="classroom-row">
             <div class="cl-col-main">
-              <div class="cl-title-wrap">
-                <strong class="cl-name">${cl.name}</strong>
+              <strong class="cl-name" title="${cl.name}">${cl.name}</strong>
+              <div class="cl-tags-wrap">
                 ${displayGrade}
                 ${displayShift}
               </div>
@@ -1572,23 +2004,36 @@ function renderSchoolsGrid(filterTerm = "") {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                 <span>Gabaritos</span>
               </button>
+              <button type="button" class="cl-action-btn cl-action-btn-secondary" onclick="downloadSchoolEnvelopeLabels('${school.id}', '${school.name.replace(/'/g, "\\'")}', '${cl.id}', '${cl.name.replace(/'/g, "\\'")}')" title="Gerar Etiqueta de Envelope desta turma">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+                <span>Etiqueta</span>
+              </button>
               <button type="button" class="cl-action-btn cl-action-btn-secondary" onclick="openClassroomReportPage('${cl.id}', '${cl.name.replace(/'/g, "\\'")}', '${school.name.replace(/'/g, "\\'")}')" title="Ver relatório de avaliação e ranking da turma">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
                 <span>Relatório</span>
               </button>
-              <button type="button" class="cl-action-btn cl-action-btn-secondary" onclick="openLinkExamsModal('${cl.id}', '${cl.name.replace(/'/g, "\\'")}', '${school.name.replace(/'/g, "\\'")}')" title="Vincular simulados e avaliações a esta turma">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                <span>Vincular</span>
-              </button>
-              <button type="button" class="cl-action-btn cl-action-btn-secondary" onclick="openEditClassroomModal('${cl.id}', '${cl.name.replace(/'/g, "\\'")}', '${(cl.shift || '').replace(/'/g, "\\'")}', '${(cl.grade_year || '').replace(/'/g, "\\'")}', '${school.name.replace(/'/g, "\\'")}')" title="Editar dados da turma (nome, turno, ano escolar)">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                <span>Editar</span>
-              </button>
-              ${currentUserProfile && currentUserProfile.role === "admin" ? `
-              <button type="button" class="cl-action-btn cl-action-btn-danger delete-classroom-btn" onclick="deleteClassroomConfirm('${cl.id}', '${cl.name.replace(/'/g, "\\'")}')" title="Excluir turma e seus registros">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                <span>Excluir</span>
-              </button>` : ''}
+
+              <div class="cl-more-wrapper">
+                <button type="button" class="cl-action-btn cl-action-btn-more" onclick="toggleClassroomMoreMenu(event, '${cl.id}')" title="Mais opções da turma" aria-label="Mais opções">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                </button>
+                <div id="cl-more-menu-${cl.id}" class="cl-dropdown-menu" style="display: none;">
+                  <button type="button" class="cl-dropdown-item" onclick="openLinkExamsModal('${cl.id}', '${cl.name.replace(/'/g, "\\'")}', '${school.name.replace(/'/g, "\\'")}'); closeAllClassroomMenus();">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                    <span>Vincular simulados</span>
+                  </button>
+                  <button type="button" class="cl-dropdown-item" onclick="openEditClassroomModal('${cl.id}', '${cl.name.replace(/'/g, "\\'")}', '${(cl.shift || '').replace(/'/g, "\\'")}', '${(cl.grade_year || '').replace(/'/g, "\\'")}', '${school.name.replace(/'/g, "\\'")}'); closeAllClassroomMenus();">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    <span>Editar turma</span>
+                  </button>
+                  ${currentUserProfile && currentUserProfile.role === "admin" ? `
+                  <div class="cl-dropdown-divider"></div>
+                  <button type="button" class="cl-dropdown-item cl-dropdown-item-danger" onclick="deleteClassroomConfirm('${cl.id}', '${cl.name.replace(/'/g, "\\'")}'); closeAllClassroomMenus();">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    <span>Excluir turma</span>
+                  </button>` : ''}
+                </div>
+              </div>
             </div>
 
             <div id="students-collapse-${cl.id}" class="students-collapse-pane" style="display: none;">
@@ -1608,6 +2053,17 @@ function renderSchoolsGrid(filterTerm = "") {
             <span class="school-meta-pill">${school.classroom_count || 0} turmas • ${school.student_count || 0} alunos</span>
           </div>
           <div class="school-header-actions">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="downloadSchoolEnvelopeLabels('${school.id}', '${school.name.replace(/'/g, "\\'")}', ${school.classrooms && school.classrooms.length === 1 ? `'${school.classrooms[0].id}', '${school.classrooms[0].name.replace(/'/g, "\\'")}'` : 'null, null'})" title="Gerar Etiquetas de Envelope das Turmas (4 por folha A4)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                <line x1="7" y1="7" x2="7.01" y2="7"></line>
+              </svg>
+              <span>Etiquetas</span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openExportReportModal('school', 'school_performance', 'pdf', '${school.id}')" title="Exportar Relatório Consolidado da Escola">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>Relatório</span>
+            </button>
             <button type="button" class="btn btn-secondary btn-sm" onclick="openCsvModal('${school.id}')">
               Importar CSV
             </button>
@@ -1728,7 +2184,7 @@ async function deleteSchoolConfirm(schoolId, schoolName) {
     showToast("Apenas o Administrador SEMED tem permissão para excluir escolas.", "warning");
     return;
   }
-  if (!confirm(`Tem certeza que deseja excluir a escola "${schoolName}" e todas as suas turmas e alunos cadastrados?`)) {
+  if (!confirm(`Tem certeza que deseja excluir a escola "${schoolName}"?\n\nEsta ação excluirá permanentemente em cascata todas as turmas, alunos e notas desta escola.`)) {
     return;
   }
   try {
@@ -1744,6 +2200,71 @@ async function deleteSchoolConfirm(schoolId, schoolName) {
     await loadSchools();
   } catch (err) {
     showToast(err.message, "error");
+  }
+}
+
+async function downloadSchoolEnvelopeLabels(schoolId, schoolName, classroomId = null, classroomName = null) {
+  showToast("Gerando etiquetas de envelopes... O download iniciará em instantes.", "info");
+  try {
+    let url = `/api/schools/${schoolId}/envelope-labels-pdf`;
+    if (classroomId) {
+      url += `?classroom_id=${encodeURIComponent(classroomId)}`;
+    }
+    const res = await fetch(url, {
+      headers: { ...getAuthHeaders() }
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const msg = err.detail || "Erro ao gerar etiquetas de envelopes da escola.";
+      showToast(msg, res.status === 400 ? "warning" : "error");
+      return;
+    }
+
+    const blob = await res.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+
+    const safeSchoolName = (schoolName || "Escola").replace(/[/\\?%*:|"<>]/g, "_").trim();
+    let downloadFileName = `Turmas - Etiquetas - ${safeSchoolName}.pdf`;
+
+    if (classroomName) {
+      const safeClassName = classroomName.replace(/[/\\?%*:|"<>]/g, "_").trim();
+      downloadFileName = `${safeClassName} - Etiquetas - ${safeSchoolName}.pdf`;
+    }
+
+    const disposition = res.headers.get("Content-Disposition");
+    if (disposition && disposition.includes("filename*=UTF-8''")) {
+      try {
+        const parts = disposition.split("filename*=UTF-8''");
+        if (parts[1]) {
+          downloadFileName = decodeURIComponent(parts[1].split(";")[0].replace(/"/g, "").trim());
+        }
+      } catch (e) {
+        // fallback
+      }
+    } else if (disposition && disposition.includes('filename="')) {
+      try {
+        const parts = disposition.split('filename="');
+        if (parts[1]) {
+          downloadFileName = parts[1].split('"')[0].trim();
+        }
+      } catch (e) {
+        // fallback
+      }
+    }
+
+    link.download = downloadFileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 2000);
+
+    showToast("Etiquetas de envelopes geradas com sucesso!", "success");
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || "Erro ao baixar etiquetas.", "error");
   }
 }
 
@@ -1863,7 +2384,10 @@ async function saveLinkedExams() {
   try {
     const res = await fetch(`/api/classrooms/${currentLinkingClassId}/exams`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders()
+      },
       body: JSON.stringify({ exam_ids: selectedIds })
     });
 
@@ -1942,6 +2466,8 @@ function closeEditClassroomModal() {
 // Batch PDF Modal Functions
 function openBatchModal(classId, className, schoolName, studentCount) {
   activeBatchClassId = classId;
+  activeBatchClassName = className || "";
+  activeBatchSchoolName = schoolName || "";
   const modal = document.getElementById("batch-pdf-modal");
   const classNameEl = document.getElementById("batch-modal-class-name");
   const schoolNameEl = document.getElementById("batch-modal-school-name");
@@ -1954,57 +2480,54 @@ function openBatchModal(classId, className, schoolName, studentCount) {
 
   if (examSelect) {
     examSelect.innerHTML = "";
-    if (examsList.length === 0) {
-      examSelect.innerHTML = '<option value="">Nenhum simulado cadastrado</option>';
-    } else {
-      let linkedExams = [];
-      schoolsList.forEach(s => {
-        (s.classrooms || []).forEach(c => {
-          if (c.id === classId && c.linked_exams) {
-            linkedExams = c.linked_exams;
-          }
-        });
+    
+    let linkedExams = [];
+    schoolsList.forEach(s => {
+      (s.classrooms || []).forEach(c => {
+        if (c.id === classId && c.linked_exams) {
+          linkedExams = c.linked_exams;
+        }
       });
+    });
 
-      // If exactly 2 exams are linked to this classroom, add a unified 2-in-1 option
-      if (linkedExams.length === 2) {
-        const bothOpt = document.createElement("option");
-        bothOpt.value = "both";
-        bothOpt.textContent = `Ambos os Simulados (${linkedExams[0].title} + ${linkedExams[1].title})`;
-        bothOpt.selected = true;
-        examSelect.appendChild(bothOpt);
+    if (linkedExams.length === 0) {
+      examSelect.innerHTML = '<option value="" disabled selected>Nenhum simulado vinculado a esta turma</option>';
+    } else if (linkedExams.length === 2) {
+      // Se tiver exatamente 2 simulados vinculados, opção combinada 2 em 1
+      const bothOpt = document.createElement("option");
+      bothOpt.value = "both";
+      bothOpt.textContent = `Ambos os Simulados (${linkedExams[0].title} + ${linkedExams[1].title})`;
+      bothOpt.selected = true;
+      examSelect.appendChild(bothOpt);
 
-        linkedExams.forEach(ex => {
-          const opt = document.createElement("option");
-          opt.value = ex.id;
-          opt.textContent = `Apenas: ${ex.title} (${ex.num_questions}Q)`;
-          examSelect.appendChild(opt);
-        });
+      linkedExams.forEach(ex => {
+        const opt = document.createElement("option");
+        opt.value = ex.id;
+        opt.textContent = `Apenas: ${ex.title} (${ex.num_questions}Q)`;
+        examSelect.appendChild(opt);
+      });
+    } else if (linkedExams.length > 2) {
+      const bothOpt = document.createElement("option");
+      bothOpt.value = "both";
+      bothOpt.textContent = `Todos os Simulados Vinculados (${linkedExams.length} Provas)`;
+      bothOpt.selected = true;
+      examSelect.appendChild(bothOpt);
 
-        // Other non-linked exams
-        examsList.filter(e => !linkedExams.some(le => le.id === e.id)).forEach(ex => {
-          const opt = document.createElement("option");
-          opt.value = ex.id;
-          opt.textContent = `${ex.title} (${ex.num_questions}Q)`;
-          examSelect.appendChild(opt);
-        });
-      } else {
-        const linkedIds = linkedExams.map(e => e.id);
-        const sortedExams = [...examsList].sort((a, b) => {
-          const aL = linkedIds.includes(a.id) ? 0 : 1;
-          const bL = linkedIds.includes(b.id) ? 0 : 1;
-          return aL - bL;
-        });
-
-        sortedExams.forEach((ex, idx) => {
-          const opt = document.createElement("option");
-          opt.value = ex.id;
-          const isLinked = linkedIds.includes(ex.id);
-          opt.textContent = `${isLinked ? "[Vinculado] " : ""}${ex.title} (${ex.num_questions} Questões)`;
-          if (idx === 0) opt.selected = true;
-          examSelect.appendChild(opt);
-        });
-      }
+      linkedExams.forEach(ex => {
+        const opt = document.createElement("option");
+        opt.value = ex.id;
+        opt.textContent = `${ex.title} (${ex.num_questions}Q)`;
+        examSelect.appendChild(opt);
+      });
+    } else {
+      // Exatamente 1 simulado vinculado
+      linkedExams.forEach((ex, idx) => {
+        const opt = document.createElement("option");
+        opt.value = ex.id;
+        opt.textContent = `${ex.title} (${ex.num_questions} Questões)`;
+        if (idx === 0) opt.selected = true;
+        examSelect.appendChild(opt);
+      });
     }
   }
 
@@ -2053,6 +2576,16 @@ async function openClassroomReportPage(classId, className, schoolName) {
   activeReportClassName = className || "Turma";
   activeReportSchoolName = schoolName || "Escola";
 
+  try {
+    localStorage.setItem("omr_active_tab", "schools-tab");
+    localStorage.setItem("omr_active_subpage", JSON.stringify({
+      type: "classroom-report",
+      classId,
+      className: activeReportClassName,
+      schoolName: activeReportSchoolName
+    }));
+  } catch (e) {}
+
   // Hide all tab content and deactivate tab buttons
   document.querySelectorAll(".tab-content").forEach(el => {
     el.style.display = "none";
@@ -2074,33 +2607,30 @@ async function openClassroomReportPage(classId, className, schoolName) {
   if (classTitleEl) classTitleEl.textContent = `Relatório da Turma: ${activeReportClassName}`;
   if (schoolSubEl) schoolSubEl.textContent = activeReportSchoolName;
 
-  // Populate exam select
+  // Reset to single report sub tab view
+  switchReportSubTab("single");
+
+  // Populate exam select (only exams linked to this classroom)
   const examSelect = document.getElementById("page-rep-exam-select");
   if (examSelect) {
     examSelect.innerHTML = "";
-    if (examsList.length === 0) {
-      examSelect.innerHTML = '<option value="">Nenhum simulado cadastrado</option>';
+    
+    let linkedExams = [];
+    schoolsList.forEach(s => {
+      (s.classrooms || []).forEach(c => {
+        if (c.id === classId && c.linked_exams) {
+          linkedExams = c.linked_exams;
+        }
+      });
+    });
+
+    if (linkedExams.length === 0) {
+      examSelect.innerHTML = '<option value="">Nenhum simulado vinculado a esta turma</option>';
     } else {
-      let linkedIds = [];
-      schoolsList.forEach(s => {
-        (s.classrooms || []).forEach(c => {
-          if (c.id === classId && c.linked_exams) {
-            linkedIds = c.linked_exams.map(e => e.id);
-          }
-        });
-      });
-
-      const sortedExams = [...examsList].sort((a, b) => {
-        const aL = linkedIds.includes(a.id) ? 0 : 1;
-        const bL = linkedIds.includes(b.id) ? 0 : 1;
-        return aL - bL;
-      });
-
-      sortedExams.forEach((ex, idx) => {
+      linkedExams.forEach((ex, idx) => {
         const opt = document.createElement("option");
         opt.value = ex.id;
-        const isLinked = linkedIds.includes(ex.id);
-        opt.textContent = `${isLinked ? "[Vinculado] " : ""}${ex.title} (${ex.num_questions}Q)`;
+        opt.textContent = `${ex.title} (${ex.num_questions}Q)`;
         if (idx === 0) opt.selected = true;
         examSelect.appendChild(opt);
       });
@@ -2111,10 +2641,18 @@ async function openClassroomReportPage(classId, className, schoolName) {
   activeReportExamId = selectedExamId;
   if (selectedExamId) {
     await loadClassroomReportPage(classId, selectedExamId);
+  } else {
+    const tbody = document.getElementById("page-rep-students-tbody");
+    if (tbody) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-secondary);">Nenhum simulado vinculado a esta turma. Vincule um simulado na tela de turmas para visualizar relatórios.</td></tr>';
+    }
   }
 }
 
 function closeClassroomReportPage() {
+  try {
+    localStorage.removeItem("omr_active_subpage");
+  } catch (e) {}
   switchTab("schools-tab");
 }
 
@@ -2530,70 +3068,98 @@ function switchReportSubTab(tab) {
   const viewSingle = document.getElementById("report-view-single");
   const viewCompare = document.getElementById("report-view-compare");
 
+  // Top header comparison elements
+  const dotExamA = document.getElementById("dot-exam-a");
+  const txtExamSelect = document.getElementById("txt-page-rep-exam-select");
+  const headerCompareVs = document.getElementById("header-compare-vs");
+  const headerCompareExam2Pill = document.getElementById("header-compare-exam2-pill");
+  const exportSingleItems = document.getElementById("export-menu-single-items");
+  const exportCompareItems = document.getElementById("export-menu-compare-items");
+
   if (tab === "compare") {
     if (btnSingle) btnSingle.classList.remove("active");
     if (btnCompare) btnCompare.classList.add("active");
     if (viewSingle) viewSingle.style.display = "none";
     if (viewCompare) viewCompare.style.display = "block";
 
-    // Setup comparison selectors
+    // Show comparison elements in top header
+    if (dotExamA) dotExamA.style.display = "inline-block";
+    if (txtExamSelect) txtExamSelect.textContent = "Gabarito A:";
+    if (headerCompareVs) headerCompareVs.style.display = "inline-flex";
+    if (headerCompareExam2Pill) headerCompareExam2Pill.style.display = "inline-flex";
+
+    // Adapt unified export dropdown menu
+    if (exportSingleItems) exportSingleItems.style.display = "none";
+    if (exportCompareItems) exportCompareItems.style.display = "block";
+
+    // Populate and trigger comparison
     setupComparisonSelectors();
   } else {
     if (btnSingle) btnSingle.classList.add("active");
     if (btnCompare) btnCompare.classList.remove("active");
     if (viewSingle) viewSingle.style.display = "block";
     if (viewCompare) viewCompare.style.display = "none";
+
+    // Hide comparison elements in top header
+    if (dotExamA) dotExamA.style.display = "none";
+    if (txtExamSelect) txtExamSelect.textContent = "Simulado:";
+    if (headerCompareVs) headerCompareVs.style.display = "none";
+    if (headerCompareExam2Pill) headerCompareExam2Pill.style.display = "none";
+
+    // Adapt unified export dropdown menu
+    if (exportSingleItems) exportSingleItems.style.display = "block";
+    if (exportCompareItems) exportCompareItems.style.display = "none";
+
+    const sel1 = document.getElementById("page-rep-exam-select");
+    if (activeReportClassId && sel1 && sel1.value) {
+      loadClassroomReportPage(activeReportClassId, sel1.value);
+    }
   }
 }
 
 function setupComparisonSelectors() {
-  const sel1 = document.getElementById("compare-select-exam1");
+  const sel1 = document.getElementById("page-rep-exam-select");
   const sel2 = document.getElementById("compare-select-exam2");
   if (!sel1 || !sel2) return;
 
   // Find linked exams for the active classroom
-  let linkedIds = [];
+  let linkedExams = [];
   schoolsList.forEach(s => {
     (s.classrooms || []).forEach(c => {
       if (c.id === activeReportClassId && c.linked_exams) {
-        linkedIds = c.linked_exams.map(e => e.id);
+        linkedExams = c.linked_exams;
       }
     });
   });
 
-  const sortedExams = [...examsList].sort((a, b) => {
-    const aL = linkedIds.includes(a.id) ? 0 : 1;
-    const bL = linkedIds.includes(b.id) ? 0 : 1;
-    return aL - bL;
-  });
-
-  sel1.innerHTML = "";
   sel2.innerHTML = "";
 
-  sortedExams.forEach((ex, idx) => {
-    const opt1 = document.createElement("option");
-    opt1.value = ex.id;
-    opt1.textContent = `${linkedIds.includes(ex.id) ? "[Vinculado] " : ""}${ex.title} (${ex.num_questions}Q)`;
-    sel1.appendChild(opt1);
+  if (linkedExams.length === 0) {
+    sel2.innerHTML = '<option value="">Nenhum simulado vinculado</option>';
+    return;
+  }
 
+  linkedExams.forEach((ex) => {
     const opt2 = document.createElement("option");
     opt2.value = ex.id;
-    opt2.textContent = `${linkedIds.includes(ex.id) ? "[Vinculado] " : ""}${ex.title} (${ex.num_questions}Q)`;
+    opt2.textContent = `${ex.title} (${ex.num_questions}Q)`;
     sel2.appendChild(opt2);
   });
 
-  // Default selection: linked exams (1st and 2nd if available)
-  if (sortedExams.length > 0) {
-    sel1.selectedIndex = 0;
-    if (sortedExams.length > 1) {
+  // Default selection: if sel1 is index 0 and there is a 2nd exam, pick index 1 for sel2
+  if (linkedExams.length > 1) {
+    if (sel1.selectedIndex === 0) {
       sel2.selectedIndex = 1;
     } else {
       sel2.selectedIndex = 0;
     }
-    // Auto-trigger comparison
-    if (sel1.value && sel2.value) {
-      loadClassroomComparison(activeReportClassId, sel1.value, sel2.value);
-    }
+  } else {
+    sel2.selectedIndex = 0;
+  }
+
+  // Auto-trigger comparison
+  if (sel1.value && sel2.value) {
+    loadClassroomComparison(activeReportClassId, sel1.value, sel2.value);
   }
 }
 
@@ -2969,7 +3535,10 @@ function initSchoolBatchEventListeners() {
       try {
         const res = await fetch("/api/schools", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders()
+          },
           body: JSON.stringify({ name: name, inep_code: inep })
         });
         if (!res.ok) {
@@ -3054,6 +3623,9 @@ function initSchoolBatchEventListeners() {
       try {
         const res = await fetch("/api/students/import-csv", {
           method: "POST",
+          headers: {
+            ...getAuthHeaders()
+          },
           body: formData
         });
         const data = await res.json();
@@ -3089,10 +3661,10 @@ function initSchoolBatchEventListeners() {
   });
 
   if (btnConfirmBatch) {
-    btnConfirmBatch.addEventListener("click", () => {
+    btnConfirmBatch.addEventListener("click", async () => {
       const examSelect = document.getElementById("batch-exam-select");
       if (!examSelect || !examSelect.value) {
-        showToast("Selecione um simulado para gerar os gabaritos.", "error");
+        showToast("Esta turma não possui simulados vinculados. Vincule os simulados à turma antes de gerar os gabaritos.", "error");
         return;
       }
 
@@ -3100,17 +3672,60 @@ function initSchoolBatchEventListeners() {
       const layout = layoutRadio ? layoutRadio.value : "double";
       const examId = examSelect.value;
 
+      const originalBtnHtml = btnConfirmBatch.innerHTML;
+      btnConfirmBatch.disabled = true;
+      btnConfirmBatch.innerHTML = '<div class="spinner"></div><span>Gerando Gabaritos...</span>';
+
       showToast("Gerando gabaritos nominais em lote... O download iniciará em instantes.", "info");
-      window.open(`/api/classrooms/${activeBatchClassId}/exams/${examId}/batch-pdf?layout=${layout}`, "_blank");
-      closeBatchModal();
+
+      const downloadUrl = `/api/classrooms/${activeBatchClassId}/exams/${examId}/batch-pdf?layout=${layout}`;
+
+      let defaultFileName = "GABARITOS.pdf";
+      if (activeBatchClassName && activeBatchSchoolName) {
+        defaultFileName = `${activeBatchClassName} - GABARITOS - ${activeBatchSchoolName}.pdf`;
+      } else if (activeBatchClassName) {
+        defaultFileName = `${activeBatchClassName} - GABARITOS.pdf`;
+      } else if (activeBatchSchoolName) {
+        defaultFileName = `GABARITOS - ${activeBatchSchoolName}.pdf`;
+      }
+
+      try {
+        const res = await fetch(downloadUrl, {
+          headers: { ...getAuthHeaders() }
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || "Erro ao gerar gabaritos da turma.");
+        }
+
+        const blob = await res.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = defaultFileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => window.URL.revokeObjectURL(blobUrl), 2000);
+
+        showToast("Download dos gabaritos iniciado com sucesso!", "success");
+        closeBatchModal();
+      } catch (err) {
+        console.error(err);
+        showToast(err.message, "error");
+      } finally {
+        btnConfirmBatch.disabled = false;
+        btnConfirmBatch.innerHTML = originalBtnHtml;
+      }
     });
   }
 
   // Classroom Report Page triggers
   const btnBackToSchools = document.getElementById("btn-back-to-schools");
   const pageRepExamSelect = document.getElementById("page-rep-exam-select");
+  const compareSelectExam2 = document.getElementById("compare-select-exam2");
   const btnPageExportCsv = document.getElementById("btn-page-export-report-csv");
-  const btnPagePrint = document.getElementById("btn-page-print-report");
   const searchRankingInput = document.getElementById("report-ranking-search");
 
   if (btnBackToSchools) btnBackToSchools.addEventListener("click", closeClassroomReportPage);
@@ -3118,7 +3733,24 @@ function initSchoolBatchEventListeners() {
   if (pageRepExamSelect) {
     pageRepExamSelect.addEventListener("change", () => {
       if (activeReportClassId && pageRepExamSelect.value) {
-        loadClassroomReportPage(activeReportClassId, pageRepExamSelect.value);
+        const btnCompare = document.getElementById("btn-subnav-compare");
+        const isCompareMode = btnCompare && btnCompare.classList.contains("active");
+        if (isCompareMode) {
+          const sel2 = document.getElementById("compare-select-exam2");
+          if (sel2 && sel2.value) {
+            loadClassroomComparison(activeReportClassId, pageRepExamSelect.value, sel2.value);
+          }
+        } else {
+          loadClassroomReportPage(activeReportClassId, pageRepExamSelect.value);
+        }
+      }
+    });
+  }
+
+  if (compareSelectExam2) {
+    compareSelectExam2.addEventListener("change", () => {
+      if (activeReportClassId && pageRepExamSelect && pageRepExamSelect.value && compareSelectExam2.value) {
+        loadClassroomComparison(activeReportClassId, pageRepExamSelect.value, compareSelectExam2.value);
       }
     });
   }
@@ -3130,8 +3762,14 @@ function initSchoolBatchEventListeners() {
     });
   }
 
-  if (btnPagePrint) {
-    btnPagePrint.addEventListener("click", () => window.print());
+  const btnExportCompareCsv = document.getElementById("btn-export-compare-csv");
+  if (btnExportCompareCsv) {
+    btnExportCompareCsv.addEventListener("click", () => {
+      const sel1 = document.getElementById("page-rep-exam-select");
+      const sel2 = document.getElementById("compare-select-exam2");
+      if (!activeReportClassId || !sel1 || !sel2 || !sel1.value || !sel2.value) return;
+      window.open(`/api/classrooms/${activeReportClassId}/compare/csv?exam1=${sel1.value}&exam2=${sel2.value}`, "_blank");
+    });
   }
 
   if (searchRankingInput) {
@@ -3143,29 +3781,7 @@ function initSchoolBatchEventListeners() {
     });
   }
 
-  // Comparison triggers
-  const btnRunComparison = document.getElementById("btn-run-comparison");
-  const btnExportCompareCsv = document.getElementById("btn-export-compare-csv");
   const searchCompareInput = document.getElementById("compare-students-search");
-
-  if (btnRunComparison) {
-    btnRunComparison.addEventListener("click", () => {
-      const sel1 = document.getElementById("compare-select-exam1");
-      const sel2 = document.getElementById("compare-select-exam2");
-      if (activeReportClassId && sel1 && sel2 && sel1.value && sel2.value) {
-        loadClassroomComparison(activeReportClassId, sel1.value, sel2.value);
-      }
-    });
-  }
-
-  if (btnExportCompareCsv) {
-    btnExportCompareCsv.addEventListener("click", () => {
-      const sel1 = document.getElementById("compare-select-exam1");
-      const sel2 = document.getElementById("compare-select-exam2");
-      if (!activeReportClassId || !sel1 || !sel2 || !sel1.value || !sel2.value) return;
-      window.open(`/api/classrooms/${activeReportClassId}/compare/csv?exam1=${sel1.value}&exam2=${sel2.value}`, "_blank");
-    });
-  }
 
   if (searchCompareInput) {
     searchCompareInput.addEventListener("input", (e) => {
@@ -3230,7 +3846,10 @@ function initSchoolBatchEventListeners() {
       try {
         const res = await fetch(`/api/classrooms/${classId}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders()
+          },
           body: JSON.stringify({ name, shift, grade_year: gradeYear })
         });
         if (!res.ok) {
@@ -3308,6 +3927,13 @@ function initSchoolBatchEventListeners() {
     });
   }
 
+  const exportReportModalEl = document.getElementById("modal-export-report");
+  if (exportReportModalEl) {
+    exportReportModalEl.addEventListener("click", (e) => {
+      if (e.target === exportReportModalEl) closeExportReportModal();
+    });
+  }
+
   // Export Dropdown toggles
   const btnToggleExportClass = document.getElementById("btn-toggle-export-class");
   if (btnToggleExportClass) {
@@ -3366,12 +3992,22 @@ async function downloadReport(endpointUrl, defaultFilename) {
       const errJson = await resp.json().catch(() => ({}));
       throw new Error(errJson.detail || `Erro do servidor: ${resp.status}`);
     }
+
+    let filename = defaultFilename;
+    const disposition = resp.headers.get("content-disposition");
+    if (disposition && disposition.indexOf("filename=") !== -1) {
+      const filenameMatch = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1].replace(/['"]/g, "").trim();
+      }
+    }
+
     const blob = await resp.blob();
     const blobUrl = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.style.display = "none";
     link.href = blobUrl;
-    link.download = defaultFilename;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     window.URL.revokeObjectURL(blobUrl);
@@ -3380,6 +4016,34 @@ async function downloadReport(endpointUrl, defaultFilename) {
   } catch (err) {
     showToast("Falha na emissão do relatório: " + err.message, "error");
   }
+}
+
+function getActiveClassNameClean() {
+  const titleEl = document.getElementById("page-rep-class-title");
+  let name = "";
+  if (titleEl && titleEl.textContent) {
+    name = titleEl.textContent.replace(/^Relat[óo]rio da Turma:?\s*/i, "").trim();
+  }
+  if (!name && currentReportData && currentReportData.classroom) {
+    name = currentReportData.classroom.name || "";
+  }
+  if (!name && currentComparisonData && currentComparisonData.classroom) {
+    name = currentComparisonData.classroom.name || "";
+  }
+  if (!name && activeReportClassId && typeof schoolsList !== "undefined" && Array.isArray(schoolsList)) {
+    schoolsList.forEach(s => {
+      (s.classrooms || []).forEach(c => {
+        if (c.id === activeReportClassId) name = c.name;
+      });
+    });
+  }
+  if (!name) name = "Turma";
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9_-]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 // --- Classroom Report Exports ---
@@ -3392,7 +4056,8 @@ function exportClassroomReport(format) {
   const examSelect = document.getElementById("page-rep-exam-select");
   const examId = examSelect ? examSelect.value : "";
   const param = examId ? `?exam_id=${examId}&format=${format}` : `?format=${format}`;
-  downloadReport(`/api/reports/classroom/${activeReportClassId}${param}`, `relatorio_turma_${activeReportClassId}.${format}`);
+  const clName = getActiveClassNameClean();
+  downloadReport(`/api/reports/classroom/${activeReportClassId}${param}`, `Relatorio_Turma_${clName}.${format}`);
 }
 
 function exportClassroomDiagnostic(format) {
@@ -3404,29 +4069,328 @@ function exportClassroomDiagnostic(format) {
   const examSelect = document.getElementById("page-rep-exam-select");
   const examId = examSelect ? examSelect.value : "";
   const param = examId ? `?exam_id=${examId}&format=${format}` : `?format=${format}`;
-  downloadReport(`/api/reports/diagnostic/${activeReportClassId}${param}`, `diagnostico_questoes_${activeReportClassId}.${format}`);
+  const clName = getActiveClassNameClean();
+  downloadReport(`/api/reports/diagnostic/${activeReportClassId}${param}`, `Diagnostico_Questoes_${clName}.${format}`);
 }
 
 // --- Comparison Report Exports ---
+function getCompareSelectedExams() {
+  const sel1 = document.getElementById("page-rep-exam-select") || document.getElementById("compare-select-exam1");
+  const sel2 = document.getElementById("compare-select-exam2");
+
+  let exam1Id = (sel1 && sel1.value) || (currentComparisonData && currentComparisonData.exam1 && currentComparisonData.exam1.id) || activeReportExamId || "";
+  let exam2Id = (sel2 && sel2.value) || (currentComparisonData && currentComparisonData.exam2 && currentComparisonData.exam2.id) || "";
+
+  // If sel2 is empty, pick the first option with a different ID
+  if (!exam2Id && sel2 && sel2.options && sel2.options.length > 0) {
+    for (let i = 0; i < sel2.options.length; i++) {
+      if (sel2.options[i].value && sel2.options[i].value !== exam1Id) {
+        exam2Id = sel2.options[i].value;
+        sel2.selectedIndex = i;
+        break;
+      }
+    }
+  }
+
+  return { exam1Id, exam2Id };
+}
+
 function exportCompareReport(format) {
   closeAllExportDropdowns();
   if (!activeReportClassId) {
     showToast("Nenhuma turma ativa selecionada.", "error");
     return;
   }
-  const sel1 = document.getElementById("compare-select-exam1");
-  const sel2 = document.getElementById("compare-select-exam2");
-  if (!sel1 || !sel2 || !sel1.value || !sel2.value) {
+  const { exam1Id, exam2Id } = getCompareSelectedExams();
+  if (!exam1Id || !exam2Id) {
     showToast("Selecione dois gabaritos para comparar.", "error");
     return;
   }
-  downloadReport(`/api/reports/compare/${activeReportClassId}?exam1=${sel1.value}&exam2=${sel2.value}&format=${format}`, `comparativo_gabaritos_${activeReportClassId}.${format}`);
+  if (exam1Id === exam2Id) {
+    showToast("Selecione dois gabaritos diferentes para gerar o comparativo.", "warning");
+    return;
+  }
+  const clName = getActiveClassNameClean();
+  downloadReport(`/api/reports/compare/${activeReportClassId}?exam1=${exam1Id}&exam2=${exam2Id}&format=${format}`, `Comparativo_Gabaritos_${clName}.${format}`);
+}
+
+function exportCompareCsv() {
+  closeAllExportDropdowns();
+  if (!activeReportClassId) {
+    showToast("Nenhuma turma ativa selecionada.", "error");
+    return;
+  }
+  const { exam1Id, exam2Id } = getCompareSelectedExams();
+  if (!exam1Id || !exam2Id) {
+    showToast("Selecione dois gabaritos para comparar.", "error");
+    return;
+  }
+  const clName = getActiveClassNameClean();
+  downloadReport(`/api/classrooms/${activeReportClassId}/compare/csv?exam1=${exam1Id}&exam2=${exam2Id}`, `Comparativo_Gabaritos_${clName}.csv`);
+}
+
+function exportClassroomCsv() {
+  closeAllExportDropdowns();
+  if (!activeReportClassId) {
+    showToast("Nenhuma turma ativa selecionada.", "error");
+    return;
+  }
+  const examSelect = document.getElementById("page-rep-exam-select");
+  const examId = (examSelect && examSelect.value) || activeReportExamId;
+  if (!examId) {
+    showToast("Selecione um simulado vinculado para exportar CSV.", "error");
+    return;
+  }
+  const clName = getActiveClassNameClean();
+  downloadReport(`/api/classrooms/${activeReportClassId}/exams/${examId}/report/csv`, `Relatorio_Turma_${clName}.csv`);
 }
 
 // --- Network Overview Exports ---
 function exportNetworkReport(format) {
   closeAllExportDropdowns();
   downloadReport(`/api/reports/schools-overview?format=${format}`, `panoramico_rede_escolar.${format}`);
+}
+
+// --- Unified Report Export Modal Logic ---
+let currentExportModalContext = "classroom";
+let selectedExportModalReport = "class_summary";
+let selectedExportModalFormat = "pdf";
+let activeExportSchoolId = null;
+
+function getActiveSchoolNameClean(schoolId) {
+  let name = "Escola";
+  if (schoolId && Array.isArray(schoolsList)) {
+    const found = schoolsList.find(s => s.id === schoolId);
+    if (found && found.name) name = found.name;
+  }
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9_-]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function exportSchoolReport(format = "pdf") {
+  closeAllExportDropdowns();
+  if (!activeExportSchoolId) {
+    showToast("Nenhuma escola selecionada para exportação.", "error");
+    return;
+  }
+  const schName = getActiveSchoolNameClean(activeExportSchoolId);
+  downloadReport(`/api/reports/school/${activeExportSchoolId}?format=${format}`, `Relatorio_Escola_${schName}.${format}`);
+}
+
+const EXPORT_REPORT_DEFINITIONS = {
+  classroom: [
+    {
+      id: "class_summary",
+      title: "Relatório da Turma",
+      desc: "Médias, notas e lista de presença",
+      icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>'
+    },
+    {
+      id: "class_diagnostic",
+      title: "Diagnóstico por Questão",
+      desc: "Acertos item a item e habilidades",
+      icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>'
+    },
+    {
+      id: "class_compare",
+      title: "Comparativo de Gabaritos",
+      desc: "Evolução entre Gabarito A e B",
+      icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>'
+    }
+  ],
+  school: [
+    {
+      id: "school_performance",
+      title: "Relatório da Escola",
+      desc: "Turmas por prova, Quadro de Honra e Melhores por Série",
+      icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>'
+    }
+  ],
+  network: [
+    {
+      id: "network_overview",
+      title: "Panorâmico da Rede",
+      desc: "Escolas, turmas e matrículas",
+      icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>'
+    },
+    {
+      id: "year_performance",
+      title: "Rendimento por Ano",
+      desc: "Desempenho da rede do 1º ao 9º ano",
+      icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>'
+    }
+  ],
+  year: [
+    {
+      id: "year_performance",
+      title: "Rendimento por Ano",
+      desc: "Desempenho da rede do 1º ao 9º ano",
+      icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>'
+    }
+  ]
+};
+
+function openExportReportModal(context, preferredReport, preferredFormat, targetId) {
+  closeAllExportDropdowns();
+
+  if (targetId) {
+    activeExportSchoolId = targetId;
+  }
+
+  if (!context) {
+    const pageClassroom = document.getElementById("page-classroom-report");
+    if (pageClassroom && pageClassroom.style.display !== "none" && activeReportClassId) {
+      context = "classroom";
+    } else {
+      context = "network";
+    }
+  }
+
+  currentExportModalContext = context;
+
+  // Set context subtitle
+  const subEl = document.getElementById("export-modal-subtitle");
+  if (subEl) {
+    if (context === "classroom") {
+      const titleEl = document.getElementById("page-rep-class-title");
+      const schoolEl = document.getElementById("page-rep-school-subtitle");
+      const rawTitle = titleEl ? titleEl.textContent.replace(/^Relat[óo]rio da Turma:?\s*/i, "").trim() : "Turma";
+      const schTxt = schoolEl ? schoolEl.textContent : "";
+      subEl.textContent = `${rawTitle} ${schTxt ? '• ' + schTxt : ''}`.trim();
+    } else if (context === "school") {
+      let schName = "Escola";
+      if (activeExportSchoolId && Array.isArray(schoolsList)) {
+        const found = schoolsList.find(s => s.id === activeExportSchoolId);
+        if (found && found.name) schName = found.name;
+      }
+      subEl.textContent = `${schName} • Relatório de Desempenho`;
+    } else if (context === "network") {
+      subEl.textContent = "Rede Municipal • Lagoa da Canoa";
+    } else if (context === "year") {
+      subEl.textContent = "Rendimento por Ano Escolar";
+    }
+  }
+
+  // Pre-select report
+  if (preferredReport) {
+    selectedExportModalReport = preferredReport;
+  } else if (context === "classroom") {
+    const btnCompare = document.getElementById("btn-subnav-compare");
+    const isCompareActive = btnCompare && btnCompare.classList.contains("active");
+    selectedExportModalReport = isCompareActive ? "class_compare" : "class_summary";
+  } else if (context === "school") {
+    selectedExportModalReport = "school_performance";
+  } else if (context === "network") {
+    selectedExportModalReport = "network_overview";
+  } else if (context === "year") {
+    selectedExportModalReport = "year_performance";
+  }
+
+  selectedExportModalFormat = preferredFormat || "pdf";
+
+  renderExportReportTypes(context);
+  selectExportModalFormat(selectedExportModalFormat);
+
+  const modal = document.getElementById("modal-export-report");
+  if (modal) {
+    modal.style.display = "flex";
+  }
+}
+
+function closeExportReportModal() {
+  const modal = document.getElementById("modal-export-report");
+  if (modal) {
+    modal.style.display = "none";
+  }
+}
+
+function renderExportReportTypes(context) {
+  const container = document.getElementById("export-report-types-list");
+  if (!container) return;
+
+  const defs = EXPORT_REPORT_DEFINITIONS[context] || EXPORT_REPORT_DEFINITIONS.classroom;
+  if (!defs.some(d => d.id === selectedExportModalReport)) {
+    selectedExportModalReport = defs[0].id;
+  }
+
+  container.innerHTML = defs.map(d => {
+    const isActive = d.id === selectedExportModalReport;
+    return `
+      <div class="export-report-card ${isActive ? 'active' : ''}" data-report="${d.id}" onclick="selectExportModalReport('${d.id}')">
+        <div class="export-card-icon">${d.icon}</div>
+        <div class="export-card-body">
+          <div class="export-card-title">${escapeHtml(d.title)}</div>
+          <div class="export-card-desc">${escapeHtml(d.desc)}</div>
+        </div>
+        <div class="export-radio-indicator">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function selectExportModalReport(reportId) {
+  selectedExportModalReport = reportId;
+  const cards = document.querySelectorAll("#export-report-types-list .export-report-card");
+  cards.forEach(card => {
+    if (card.getAttribute("data-report") === reportId) {
+      card.classList.add("active");
+    } else {
+      card.classList.remove("active");
+    }
+  });
+}
+
+function selectExportModalFormat(format) {
+  selectedExportModalFormat = format;
+  const cards = document.querySelectorAll(".export-formats-grid .export-format-card");
+  cards.forEach(card => {
+    if (card.getAttribute("data-format") === format) {
+      card.classList.add("active");
+    } else {
+      card.classList.remove("active");
+    }
+  });
+}
+
+function executeModalReportExport() {
+  const r = selectedExportModalReport;
+  const fmt = selectedExportModalFormat;
+
+  closeExportReportModal();
+
+  if (r === "class_summary") {
+    if (fmt === "csv") {
+      exportClassroomCsv();
+    } else {
+      exportClassroomReport(fmt);
+    }
+  } else if (r === "class_diagnostic") {
+    if (fmt === "csv") {
+      exportClassroomCsv();
+    } else {
+      exportClassroomDiagnostic(fmt);
+    }
+  } else if (r === "class_compare") {
+    if (fmt === "csv") {
+      exportCompareCsv();
+    } else {
+      exportCompareReport(fmt);
+    }
+  } else if (r === "school_performance") {
+    exportSchoolReport(fmt);
+  } else if (r === "network_overview") {
+    exportNetworkReport(fmt);
+  } else if (r === "year_performance") {
+    exportYearPerformance(fmt);
+  }
 }
 
 function escapeHtml(str) {
@@ -3874,9 +4838,17 @@ window.openEditClassroomModal = openEditClassroomModal;
 window.closeEditClassroomModal = closeEditClassroomModal;
 window.exportClassroomReport = exportClassroomReport;
 window.exportClassroomDiagnostic = exportClassroomDiagnostic;
+window.exportClassroomCsv = exportClassroomCsv;
 window.exportCompareReport = exportCompareReport;
+window.exportCompareCsv = exportCompareCsv;
 window.exportNetworkReport = exportNetworkReport;
 window.exportYearPerformance = exportYearPerformance;
+window.exportSchoolReport = exportSchoolReport;
+window.openExportReportModal = openExportReportModal;
+window.closeExportReportModal = closeExportReportModal;
+window.selectExportModalReport = selectExportModalReport;
+window.selectExportModalFormat = selectExportModalFormat;
+window.executeModalReportExport = executeModalReportExport;
 window.updateYearReportExamsDropdown = updateYearReportExamsDropdown;
 window.toggleExportDropdown = toggleExportDropdown;
 window.clearSchoolsSearch = clearSchoolsSearch;
@@ -3977,7 +4949,10 @@ function clearAuthToken() {
 
 function getAuthHeaders() {
   const token = getAuthToken();
-  return token ? { "Authorization": `Bearer ${token}` } : {};
+  return token ? {
+    "Authorization": `Bearer ${token}`,
+    "X-Auth-Token": token
+  } : {};
 }
 
 let currentUserProfile = null;
@@ -3996,27 +4971,34 @@ function updateNavUserBadge(rawUser) {
   if (nameEl) nameEl.textContent = displayName;
   if (legacyBadge) legacyBadge.textContent = displayName;
 
-  if (avatarEl) {
-    const parts = displayName.trim().split(/\s+/);
-    let initials = "";
-    if (parts.length >= 2) {
-      initials = (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    } else if (parts.length === 1 && parts[0].length > 0) {
-      initials = parts[0].substring(0, Math.min(2, parts[0].length)).toUpperCase();
-    } else {
-      initials = "AD";
-    }
-    avatarEl.textContent = initials;
+  const parts = displayName.trim().split(/\s+/);
+  let initials = "AD";
+  if (parts.length >= 2 && parts[0] && parts[parts.length - 1]) {
+    initials = (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  } else if (parts.length === 1 && parts[0].length > 0) {
+    initials = parts[0].substring(0, Math.min(2, parts[0].length)).toUpperCase();
   }
 
+  if (avatarEl) avatarEl.textContent = initials;
+
   const role = user.role || "admin";
-  if (roleEl) {
-    let roleText = "Operador";
-    if (role === "admin") roleText = "SEMED (Admin)";
-    else if (role === "coordenador") roleText = "Coordenação";
-    else if (role === "professor") roleText = "Professor";
-    roleEl.textContent = user.role_display || roleText;
-  }
+  let roleText = "Operador";
+  if (role === "admin") roleText = "SEMED (Admin)";
+  else if (role === "coordenador") roleText = "Coordenação";
+  else if (role === "professor") roleText = "Professor";
+  const roleTextDisplay = user.role_display || roleText;
+  if (roleEl) roleEl.textContent = roleTextDisplay;
+
+  // Atualizar badges da navegação mobile (Header e Drawer)
+  const mobHeaderAvatar = document.getElementById("mobile-header-avatar");
+  const mobDrawerAvatar = document.getElementById("mobile-drawer-avatar");
+  const mobDrawerName = document.getElementById("mobile-drawer-name");
+  const mobDrawerRole = document.getElementById("mobile-drawer-role");
+
+  if (mobHeaderAvatar) mobHeaderAvatar.textContent = initials;
+  if (mobDrawerAvatar) mobDrawerAvatar.textContent = initials;
+  if (mobDrawerName) mobDrawerName.textContent = displayName;
+  if (mobDrawerRole) mobDrawerRole.textContent = roleTextDisplay;
 
   // Apply role-based access permissions to the entire UI
   applyRolePermissions(role);
@@ -4065,11 +5047,82 @@ function applyRolePermissions(role) {
     if (newSchoolBtn) newSchoolBtn.style.display = "none";
     if (importCsvBtn) importCsvBtn.style.display = "none";
 
+    // Aplicar restrição para itens exclusivos de admin em todo o sistema
+    document.querySelectorAll(".admin-only-item").forEach(el => {
+      el.style.display = (role === "admin") ? "" : "none";
+    });
+
+    // Se professor, oculta abas restritas na barra inferior e menu mobile
+    if (role === "professor") {
+      document.querySelectorAll('.bottom-nav-btn[data-tab]').forEach(btn => {
+        btn.style.display = (btn.dataset.tab === "scanner-tab") ? "" : "none";
+      });
+      document.querySelectorAll('.mobile-drawer-item[data-tab]').forEach(btn => {
+        btn.style.display = (btn.dataset.tab === "scanner-tab") ? "" : "none";
+      });
+      const quickAction = document.querySelector('.mobile-drawer-quick-action');
+      if (quickAction) quickAction.style.display = "none";
+    } else {
+      document.querySelectorAll('.bottom-nav-btn, .mobile-drawer-item').forEach(btn => {
+        if (!btn.classList.contains("admin-only-item") || role === "admin") {
+          btn.style.display = "";
+        }
+      });
+      const quickAction = document.querySelector('.mobile-drawer-quick-action');
+      if (quickAction) quickAction.style.display = "";
+    }
+
     // Se estiver em outra aba, força redirecionamento imediato para a tela de Correção
     const activeBtn = document.querySelector('.tab-btn.active');
     if (!activeBtn || activeBtn.dataset.tab !== "scanner-tab") {
       switchTab("scanner-tab");
     }
+  }
+}
+
+function restoreActiveTab(user) {
+  if (user && user.role === "professor") {
+    switchTab("scanner-tab");
+    return;
+  }
+
+  // Verificar se o usuário estava na subpágina de relatório de turma
+  let subpage = null;
+  try {
+    const raw = localStorage.getItem("omr_active_subpage");
+    if (raw) subpage = JSON.parse(raw);
+  } catch (e) {}
+
+  if (subpage && subpage.type === "classroom-report" && subpage.classId) {
+    switchTab("schools-tab");
+    setTimeout(async () => {
+      if (!schoolsList || schoolsList.length === 0) {
+        try {
+          const res = await fetch("/api/schools");
+          if (res.ok) schoolsList = await res.json();
+        } catch (e) {}
+      }
+      openClassroomReportPage(subpage.classId, subpage.className, subpage.schoolName);
+    }, 120);
+    return;
+  }
+
+  let savedTab = null;
+  try {
+    savedTab = localStorage.getItem("omr_active_tab");
+  } catch (e) {}
+
+  const validTabs = ["dashboard-tab", "scanner-tab", "exams-tab", "schools-tab", "create-tab"];
+  if (user && user.role === "admin") {
+    validTabs.push("users-tab", "backup-tab");
+  } else if (user && user.role === "coordenador") {
+    validTabs.push("users-tab");
+  }
+
+  if (savedTab && validTabs.includes(savedTab)) {
+    switchTab(savedTab);
+  } else {
+    switchTab("dashboard-tab");
   }
 }
 
@@ -4098,12 +5151,9 @@ async function checkAuthStatus() {
       }
       updateNavUserBadge(user);
 
-      // Pouso inicial conforme o perfil do usuário
-      if (user.role === "professor") {
-        switchTab("scanner-tab");
-      } else {
-        switchTab("dashboard-tab");
-      }
+      // Pouso inteligente: restaura exatamente a aba ou subpágina em que o usuário estava antes do refresh
+      restoreActiveTab(user);
+      checkPWAInstallPromptAfterLogin();
       return true;
     } else {
       clearAuthToken();
@@ -4179,8 +5229,9 @@ async function handleLoginSubmit(e) {
     if (user.role === "professor") {
       switchTab("scanner-tab");
     } else {
-      switchTab("dashboard-tab");
+      restoreActiveTab(user);
     }
+    checkPWAInstallPromptAfterLogin();
   } catch (err) {
     if (errorBox) {
       if (errorMsg) errorMsg.textContent = err.message;
@@ -4212,6 +5263,10 @@ async function handleLogout() {
     // Continue local cleanup even on network disconnect
   }
   clearAuthToken();
+  try {
+    localStorage.removeItem("omr_active_tab");
+    localStorage.removeItem("omr_active_subpage");
+  } catch (e) {}
   const loginScreen = document.getElementById("login-screen");
   if (loginScreen) {
     loginScreen.style.display = "flex";
@@ -4372,7 +5427,7 @@ function renderDashboardUI(data) {
 }
 
 function renderSchoolsChart(schools) {
-  const canvas = document.getElementById("dash-chart-schools");
+  const canvas = document.getElementById("dash-schools-chart") || document.getElementById("dash-chart-schools");
   if (!canvas || typeof Chart === "undefined") return;
 
   if (dashSchoolsChartInstance) {
@@ -4393,11 +5448,11 @@ function renderSchoolsChart(schools) {
 
   const bgColors = values.map(v => {
     if (allZero) return "rgba(226, 232, 240, 0.85)";
-    return v >= 70 ? "rgba(16, 185, 129, 0.85)" : v >= 50 ? "rgba(245, 158, 11, 0.85)" : "rgba(239, 68, 68, 0.85)";
+    return v >= 70 ? "rgba(37, 99, 235, 0.85)" : v >= 50 ? "rgba(245, 158, 11, 0.85)" : "rgba(239, 68, 68, 0.85)";
   });
   const borderColors = values.map(v => {
     if (allZero) return "#cbd5e1";
-    return v >= 70 ? "#10b981" : v >= 50 ? "#f59e0b" : "#ef4444";
+    return v >= 70 ? "#2563eb" : v >= 50 ? "#f59e0b" : "#ef4444";
   });
 
   dashSchoolsChartInstance = new Chart(canvas, {
@@ -4411,7 +5466,7 @@ function renderSchoolsChart(schools) {
         borderColor: borderColors,
         borderWidth: 1.5,
         borderRadius: 6,
-        maxBarThickness: 36
+        maxBarThickness: 42
       }]
     },
     options: {
@@ -4447,7 +5502,7 @@ function renderSchoolsChart(schools) {
 }
 
 function renderYearsChart(gradeYears) {
-  const canvas = document.getElementById("dash-chart-years");
+  const canvas = document.getElementById("dash-years-chart") || document.getElementById("dash-chart-years");
   if (!canvas || typeof Chart === "undefined") return;
 
   if (dashYearsChartInstance) {
@@ -4473,12 +5528,12 @@ function renderYearsChart(gradeYears) {
       datasets: [{
         label: "Média de Acertos (%)",
         data: values,
-        borderColor: allZeroYears ? "#94a3b8" : "#2563eb",
-        backgroundColor: allZeroYears ? "rgba(148, 163, 184, 0.08)" : "rgba(37, 99, 235, 0.12)",
+        borderColor: allZeroYears ? "#94a3b8" : "#10b981",
+        backgroundColor: allZeroYears ? "rgba(148, 163, 184, 0.08)" : "rgba(16, 185, 129, 0.15)",
         fill: true,
         tension: 0.35,
         borderWidth: allZeroYears ? 2 : 3,
-        pointBackgroundColor: allZeroYears ? "#cbd5e1" : "#2563eb",
+        pointBackgroundColor: allZeroYears ? "#cbd5e1" : "#10b981",
         pointBorderColor: "#ffffff",
         pointBorderWidth: 2,
         pointRadius: 4,
@@ -5376,10 +6431,264 @@ document.addEventListener("click", (e) => {
   if (wrap && !wrap.contains(e.target)) {
     closeAdminDropdown();
   }
+  if (!e.target.closest(".cl-more-wrapper")) {
+    closeAllClassroomMenus();
+  }
 });
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    closeAllClassroomMenus();
+    closeAdminDropdown();
+  }
+});
+
+function toggleClassroomMoreMenu(event, classId) {
+  if (event) {
+    event.stopPropagation();
+  }
+  const menu = document.getElementById(`cl-more-menu-${classId}`);
+  if (!menu) return;
+  const isShown = menu.style.display !== "none";
+  closeAllClassroomMenus();
+  if (!isShown) {
+    menu.style.display = "flex";
+  }
+}
+
+function closeAllClassroomMenus() {
+  document.querySelectorAll(".cl-dropdown-menu").forEach(m => {
+    m.style.display = "none";
+  });
+}
 
 window.toggleAdminDropdown = toggleAdminDropdown;
 window.closeAdminDropdown = closeAdminDropdown;
+window.toggleClassroomMoreMenu = toggleClassroomMoreMenu;
+window.closeAllClassroomMenus = closeAllClassroomMenus;
+
+/* ========================================================================= */
+/* 📱 CONTROLE DO MENU RESPONSIVO MOBILE (DRAWER & BACKDROP)                 */
+/* ========================================================================= */
+function toggleMobileMenu() {
+  const drawer = document.getElementById("mobile-nav-drawer");
+  const isOpen = drawer && drawer.classList.contains("open");
+  if (isOpen) {
+    closeMobileMenu();
+  } else {
+    openMobileMenu();
+  }
+}
+
+function openMobileMenu() {
+  const drawer = document.getElementById("mobile-nav-drawer");
+  const backdrop = document.getElementById("mobile-nav-backdrop");
+  const toggleBtn = document.getElementById("btn-mobile-menu-toggle");
+  if (drawer) drawer.classList.add("open");
+  if (backdrop) backdrop.classList.add("open");
+  if (toggleBtn) toggleBtn.classList.add("active");
+  document.body.classList.add("mobile-menu-open");
+}
+
+function closeMobileMenu() {
+  const drawer = document.getElementById("mobile-nav-drawer");
+  const backdrop = document.getElementById("mobile-nav-backdrop");
+  const toggleBtn = document.getElementById("btn-mobile-menu-toggle");
+  if (drawer) drawer.classList.remove("open");
+  if (backdrop) backdrop.classList.remove("open");
+  if (toggleBtn) toggleBtn.classList.remove("active");
+  document.body.classList.remove("mobile-menu-open");
+}
+
+// Fechar com tecla Escape
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    closeMobileMenu();
+    closeAdminDropdown();
+    dismissPWAInstallModal();
+  }
+});
+
+window.toggleMobileMenu = toggleMobileMenu;
+window.openMobileMenu = openMobileMenu;
+window.closeMobileMenu = closeMobileMenu;
+
+// ==========================================
+// PWA (PROGRESSIVE WEB APP) - PROVA CANOA
+// ==========================================
+
+let deferredPWAInstallPrompt = null;
+
+// Captura o evento nativo de instalação do PWA (Android / Chrome / Edge)
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredPWAInstallPrompt = e;
+  console.log("[PWA] Evento beforeinstallprompt capturado com sucesso.");
+});
+
+// Evento disparado quando o app é instalado com sucesso
+window.addEventListener("appinstalled", () => {
+  deferredPWAInstallPrompt = null;
+  localStorage.setItem("pwa_installed", "true");
+  dismissPWAInstallModal();
+  if (typeof showToast === "function") {
+    showToast("Aplicativo Prova Canoa instalado com sucesso!", "success");
+  }
+  console.log("[PWA] Prova Canoa instalado na tela inicial com sucesso.");
+});
+
+// Registro do Service Worker
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((reg) => {
+        console.log("[PWA] Service Worker registrado em:", reg.scope);
+      })
+      .catch((err) => {
+        console.warn("[PWA] Falha ao registrar Service Worker:", err);
+      });
+  });
+}
+
+// Verifica se o app já está instalado como PWA
+function isPWAInstalled() {
+  // 1. Já salvo no localStorage após instalação ou confirmação
+  if (localStorage.getItem("pwa_installed") === "true") {
+    return true;
+  }
+  // 2. Modo standalone nativo (Android/Chrome/Desktop)
+  if (window.matchMedia("(display-mode: standalone)").matches) {
+    localStorage.setItem("pwa_installed", "true");
+    return true;
+  }
+  // 3. Modo standalone nativo no iOS Safari
+  if (window.navigator.standalone === true) {
+    localStorage.setItem("pwa_installed", "true");
+    return true;
+  }
+  // 4. Acesso iniciado a partir de TWA ou atalho nativo
+  if (document.referrer && document.referrer.includes("android-app://")) {
+    localStorage.setItem("pwa_installed", "true");
+    return true;
+  }
+  return false;
+}
+
+// Verifica se o dispositivo atual é celular (mobile)
+function isMobileDevice() {
+  const ua = navigator.userAgent || navigator.vendor || window.opera || "";
+  const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  const isSmallTouch = window.innerWidth <= 768 && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+  return isMobileUA || isSmallTouch;
+}
+
+// Verifica se é iOS (iPhone/iPad) para exibir instruções do Safari
+function isIOSDevice() {
+  const ua = navigator.userAgent || "";
+  return /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+}
+
+// Verifica e aciona o alerta de instalação após o login, SOMENTE em celulares
+function checkPWAInstallPromptAfterLogin() {
+  try {
+    // 1. Apenas se for celular
+    if (!isMobileDevice()) {
+      return;
+    }
+
+    // 2. Apenas se NÃO foi instalado ainda
+    if (isPWAInstalled()) {
+      return;
+    }
+
+    // 3. Se o usuário já dispensou nesta sessão recente (últimas 24h), evita ser invasivo
+    const dismissedUntil = localStorage.getItem("pwa_prompt_dismissed_until");
+    if (dismissedUntil && Date.now() < parseInt(dismissedUntil, 10)) {
+      return;
+    }
+
+    // Aguarda a interface assentar após o login
+    setTimeout(() => {
+      showPWAInstallModal();
+    }, 1200);
+  } catch (err) {
+    console.warn("[PWA] Erro ao verificar prompt de instalação:", err);
+  }
+}
+
+// Exibe o modal de instalação
+function showPWAInstallModal() {
+  const modal = document.getElementById("pwa-install-modal");
+  if (!modal) return;
+
+  const androidArea = document.getElementById("pwa-android-install-area");
+  const iosArea = document.getElementById("pwa-ios-install-area");
+
+  if (isIOSDevice()) {
+    // No iOS o Safari não permite prompt programático, exibe guia passo-a-passo
+    if (androidArea) androidArea.style.display = "none";
+    if (iosArea) iosArea.style.display = "block";
+  } else {
+    // No Android / Chrome / outros navegadores
+    if (androidArea) androidArea.style.display = "block";
+    if (iosArea) iosArea.style.display = "none";
+  }
+
+  modal.style.display = "flex";
+  // Pequeno delay para acionar a transição de slide-up da sheet
+  requestAnimationFrame(() => {
+    modal.classList.add("active");
+  });
+}
+
+// Fecha o modal de instalação
+function dismissPWAInstallModal() {
+  const modal = document.getElementById("pwa-install-modal");
+  if (!modal) return;
+
+  modal.classList.remove("active");
+  setTimeout(() => {
+    modal.style.display = "none";
+  }, 250);
+
+  // Lembra que foi dispensado por 24 horas para não incomodar no mesmo dia se recusado
+  localStorage.setItem("pwa_prompt_dismissed_until", (Date.now() + 24 * 60 * 60 * 1000).toString());
+}
+
+// Aciona a instalação do PWA
+async function triggerPWAInstallation() {
+  if (deferredPWAInstallPrompt) {
+    try {
+      deferredPWAInstallPrompt.prompt();
+      const choiceResult = await deferredPWAInstallPrompt.userChoice;
+      if (choiceResult.outcome === "accepted") {
+        localStorage.setItem("pwa_installed", "true");
+        dismissPWAInstallModal();
+        if (typeof showToast === "function") {
+          showToast("Instalação do Prova Canoa iniciada!", "success");
+        }
+      }
+      deferredPWAInstallPrompt = null;
+    } catch (err) {
+      console.warn("[PWA] Erro ao acionar prompt nativo:", err);
+    }
+  } else {
+    // Se o evento nativo ainda não disparou ou o navegador não suporta prompt()
+    if (typeof showToast === "function") {
+      showToast("Toque no menu (⋮) do seu navegador e selecione 'Adicionar à tela inicial' ou 'Instalar aplicativo'.", "info", 5000);
+    }
+  }
+}
+
+// Exportações globais para os handlers inline
+window.isPWAInstalled = isPWAInstalled;
+window.isMobileDevice = isMobileDevice;
+window.checkPWAInstallPromptAfterLogin = checkPWAInstallPromptAfterLogin;
+window.showPWAInstallModal = showPWAInstallModal;
+window.dismissPWAInstallModal = dismissPWAInstallModal;
+window.triggerPWAInstallation = triggerPWAInstallation;
+
 
 
 
