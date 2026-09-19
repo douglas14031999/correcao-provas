@@ -6502,6 +6502,77 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
+function openSystemUpdateConfirmModal() {
+  const modal = document.getElementById("system-update-confirm-modal");
+  if (modal) modal.style.display = "flex";
+}
+
+function closeSystemUpdateConfirmModal() {
+  const modal = document.getElementById("system-update-confirm-modal");
+  if (modal) modal.style.display = "none";
+}
+
+async function executeSystemUpdateAction() {
+  closeSystemUpdateConfirmModal();
+
+  const triggerBtn = document.getElementById("btn-trigger-update");
+  const spinner = document.getElementById("update-spinner");
+  const textEl = document.getElementById("btn-update-text");
+  const statusEl = document.getElementById("update-status-msg");
+
+  if (triggerBtn) triggerBtn.disabled = true;
+  if (spinner) spinner.style.display = "inline-block";
+  if (textEl) textEl.textContent = "Sincronizando com o GitHub...";
+  if (statusEl) statusEl.textContent = "Baixando atualizações e reiniciando a VPS. Por favor, aguarde...";
+
+  showToast("Iniciando sincronização com o GitHub...", "info");
+
+  try {
+    const res = await fetch("/api/backup/system-update", {
+      method: "POST",
+      headers: {
+        ...getAuthHeaders()
+      }
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.detail || "Erro ao executar atualização do sistema.");
+    }
+
+    if (textEl) textEl.textContent = "Atualizado! Reiniciando...";
+    showToast("Código atualizado com sucesso! Reiniciando a aplicação...", "success");
+
+    let countdown = 5;
+    if (statusEl) {
+      statusEl.innerHTML = `<strong style="color: #16a34a;">Sucesso!</strong> Reiniciando aplicação em <strong>${countdown}</strong> segundos...`;
+    }
+
+    const interval = setInterval(() => {
+      countdown--;
+      if (countdown > 0) {
+        if (statusEl) {
+          statusEl.innerHTML = `<strong style="color: #16a34a;">Sucesso!</strong> Reiniciando aplicação em <strong>${countdown}</strong> segundos...`;
+        }
+      } else {
+        clearInterval(interval);
+        if (statusEl) {
+          statusEl.innerHTML = `<strong>Recarregando sistema...</strong>`;
+        }
+        window.location.reload();
+      }
+    }, 1000);
+
+  } catch (err) {
+    console.error("System update error:", err);
+    showToast(err.message, "danger");
+    if (triggerBtn) triggerBtn.disabled = false;
+    if (spinner) spinner.style.display = "none";
+    if (textEl) textEl.textContent = "Atualizar Sistema Agora";
+    if (statusEl) statusEl.textContent = "Falha ao atualizar: " + err.message;
+  }
+}
+
 // Backup Window Exports
 window.loadBackupStats = loadBackupStats;
 window.handleExportBackup = handleExportBackup;
@@ -6511,6 +6582,9 @@ window.openBackupConfirmModal = openBackupConfirmModal;
 window.closeBackupConfirmModal = closeBackupConfirmModal;
 window.toggleRestoreExecuteBtn = toggleRestoreExecuteBtn;
 window.executeBackupRestore = executeBackupRestore;
+window.openSystemUpdateConfirmModal = openSystemUpdateConfirmModal;
+window.closeSystemUpdateConfirmModal = closeSystemUpdateConfirmModal;
+window.executeSystemUpdateAction = executeSystemUpdateAction;
 
 /* ==========================================================================
    MENU SUSPENSO: GESTÃO ADMINISTRATIVA

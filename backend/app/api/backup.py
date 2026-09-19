@@ -341,3 +341,94 @@ async def import_backup(
         "stats": restored_stats,
         "manifest": manifest_data
     }
+
+@router.post("/system-update")
+def execute_system_update(
+    authorization: Optional[str] = Header(None),
+    x_auth_token: Optional[str] = Header(None)
+):
+    """
+    Executa a atualização remota do código a partir do GitHub e reinicia o serviço Systemd:
+    1. git fetch origin
+    2. git reset --hard origin/main
+    3. sudo systemctl restart correcao-provas (em background)
+    """
+    require_roles(["admin"], authorization, x_auth_token)
+
+    import subprocess
+    import threading
+    import time
+
+    root_dir = os.path.dirname(BACKEND_DIR)
+    git_output = []
+
+    try:
+        # Executar git fetch origin
+        fetch_res = subprocess.run(
+            ["git", "-c", "safe.directory=*", "fetch", "origin"],
+            cwd=root_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if fetch_res.stdout:
+            git_output.append(fetch_res.stdout.strip())
+        if fetch_res.stderr:
+            git_output.append(fetch_res.stderr.strip())
+
+        # Executar git reset --hard origin/main
+        reset_res = subprocess.run(
+            ["git", "-c", "safe.directory=*", "reset", "--hard", "origin/main"],
+            cwd=root_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if reset_res.stdout:
+            git_output.append(reset_res.stdout.strip())
+        if reset_res.stderr:
+            git_output.append(reset_res.stderr.strip())
+
+        if reset_res.returncode != 0:
+            err_msg = reset_res.stderr or reset_res.stdout or "Código de retorno diferente de zero"
+            raise Exception(f"Erro ao executar git reset: {err_msg}")
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Falha ao sincronizar com o repositório GitHub: {str(e)}"
+        )
+
+    # Agenda reinicialização assíncrona após responder HTTP 200
+    def delayed_restart():
+        time.sleep(1.5)
+        # 1. Tenta reiniciar o serviço Systemd via sudo
+        try:
+            res = subprocess.run(["sudo", "systemctl", "restart", "correcao-provas"], timeout=15)
+            if res.returncode == 0:
+                return
+        except Exception:
+            pass
+
+        # 2. Tenta systemctl direto
+        try:
+            res = subprocess.run(["systemctl", "restart", "correcao-provas"], timeout=15)
+            if res.returncode == 0:
+                return
+        except Exception:
+            pass
+
+        # 3. Fallback: envia SIGTERM para o próprio processo para que o Systemd (Restart=always) recrie
+        try:
+            os.kill(os.getpid(), 15)
+        except Exception:
+            pass
+
+    threading.Thread(target=delayed_restart, daemon=True).start()
+
+    return {
+        "success": True,
+        "message": "Sistema sincronizado com sucesso! Reiniciando serviço correcao-provas em instantes...",
+        "output": "\n".join([line for line in git_output if line.strip()])
+    }
+

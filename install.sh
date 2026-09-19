@@ -264,6 +264,11 @@ StandardError=journal
 WantedBy=multi-user.target
 EOF
 
+# Permitir que www-data reinicie o serviço sem senha via sudo (para o botão de atualização 1-clique na interface)
+echo "www-data ALL=(ALL) NOPASSWD: /bin/systemctl restart correcao-provas, /usr/bin/systemctl restart correcao-provas" > /etc/sudoers.d/correcao-provas
+chmod 0440 /etc/sudoers.d/correcao-provas
+git config --global --add safe.directory "${INSTALL_DIR}" 2>/dev/null || true
+
 systemctl daemon-reload
 systemctl enable correcao-provas
 systemctl restart correcao-provas
