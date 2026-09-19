@@ -2050,16 +2050,29 @@ function renderSchoolsGrid(filterTerm = "") {
                 <span>Vincular simulado</span>
               </button>`;
 
-          // Clean display for grade year
+          // Clean display for grade year (Série / Ano Escolar padronizado)
           let displayGrade = "";
-          if (cl.grade_year) {
-            const gyUpper = cl.grade_year.trim().toUpperCase();
-            if (!["MANHÃ", "TARDE", "NOITE", "INTEGRAL"].includes(gyUpper)) {
-              const m = cl.grade_year.match(/\b([1-9]º?\s*ANO)\b/i);
-              const shortGrade = m ? m[1].toUpperCase() : cl.grade_year;
-              if (!cl.name.toUpperCase().includes(shortGrade)) {
-                displayGrade = `<span class="cl-grade" title="${cl.grade_year}">${shortGrade}</span>`;
-              }
+          let rawGrade = (cl.grade_year || "").trim();
+          const shiftsList = ["MANHÃ", "TARDE", "NOITE", "INTEGRAL", "MATUTINO", "VESPERTINO"];
+          if (shiftsList.includes(rawGrade.toUpperCase())) {
+            rawGrade = "";
+          }
+
+          // 1. Extrai o ano escolar do grade_year ou do nome da turma (ex: 1º ao 9º ANO)
+          let gradeMatch = rawGrade.match(/\b([1-9])\s*[º°ªo\.]?\s*ANO\b/i);
+          if (!gradeMatch && cl.name) {
+            gradeMatch = cl.name.match(/\b([1-9])\s*[º°ªo\.]?\s*ANO\b/i);
+          }
+
+          if (gradeMatch) {
+            const normalizedGrade = `${gradeMatch[1]}º ANO`;
+            displayGrade = `<span class="cl-grade" title="${cl.grade_year || normalizedGrade}">${normalizedGrade}</span>`;
+          } else if (rawGrade) {
+            displayGrade = `<span class="cl-grade" title="${cl.grade_year}">${rawGrade}</span>`;
+          } else if (cl.name) {
+            const specialMatch = cl.name.match(/\b(EJA|INFANTIL|PRÉ|BERÇÁRIO|CRECHE)\b/i);
+            if (specialMatch) {
+              displayGrade = `<span class="cl-grade" title="${specialMatch[1].toUpperCase()}">${specialMatch[1].toUpperCase()}</span>`;
             }
           }
 
