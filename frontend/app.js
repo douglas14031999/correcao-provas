@@ -1106,6 +1106,63 @@ function highlightSearchTokens(rawText, query) {
   }
 }
 
+let currentExamGradeFilter = "all";
+let currentExamSortOption = "grade_asc";
+
+function extractExamGrade(ex) {
+  const text = `${ex.subtitle || ''} ${ex.title || ''}`;
+  const match = text.match(/(\d+)\s*(?:º|°|ª|º\s*ano|ano)/i);
+  if (match) {
+    const num = parseInt(match[1], 10);
+    return { num, label: `${num}º Ano` };
+  }
+  return { num: 999, label: "Outros" };
+}
+
+function renderExamGradePills() {
+  const container = document.getElementById("exams-grade-pills");
+  if (!container) return;
+
+  if (!examsList || examsList.length === 0) {
+    container.innerHTML = "";
+    return;
+  }
+
+  const gradesMap = new Map();
+  examsList.forEach(ex => {
+    const g = extractExamGrade(ex);
+    if (!gradesMap.has(g.label)) {
+      gradesMap.set(g.label, { num: g.num, label: g.label, count: 0 });
+    }
+    gradesMap.get(g.label).count++;
+  });
+
+  const sortedGrades = Array.from(gradesMap.values()).sort((a, b) => a.num - b.num);
+
+  let pillsHtml = `
+    <button type="button" class="grade-pill-btn ${currentExamGradeFilter === 'all' ? 'active' : ''}" onclick="setExamGradeFilter('all')">
+      Todas as Séries (${examsList.length})
+    </button>
+  `;
+
+  sortedGrades.forEach(g => {
+    const isActive = currentExamGradeFilter === g.label;
+    pillsHtml += `
+      <button type="button" class="grade-pill-btn ${isActive ? 'active' : ''}" onclick="setExamGradeFilter('${g.label}')">
+        ${g.label} (${g.count})
+      </button>
+    `;
+  });
+
+  container.innerHTML = pillsHtml;
+}
+
+function setExamGradeFilter(gradeLabel) {
+  currentExamGradeFilter = gradeLabel;
+  renderExamGradePills();
+  renderExamsGrid();
+}
+
 function renderExamsGrid(filterTerm = "") {
   const container = document.getElementById("exams-list") || document.getElementById("exams-tbody") || document.getElementById("exams-grid");
   if (!container) return;
@@ -1113,6 +1170,15 @@ function renderExamsGrid(filterTerm = "") {
   const examsSearchInput = document.getElementById("exams-search-input");
   const examsSearchClear = document.getElementById("exams-search-clear");
   const countBadge = document.getElementById("exams-count-badge");
+  const examsSortSelect = document.getElementById("exams-sort-select");
+  if (examsSortSelect && !examsSortSelect.dataset.listenerAttached) {
+    examsSortSelect.dataset.listenerAttached = "true";
+    examsSortSelect.addEventListener("change", (e) => {
+      currentExamSortOption = e.target.value;
+      renderExamsGrid();
+    });
+  }
+
   const rawTerm = (filterTerm !== undefined && filterTerm !== "" ? filterTerm : (examsSearchInput ? examsSearchInput.value : "")).trim();
 
   if (examsSearchClear) {
@@ -1121,6 +1187,7 @@ function renderExamsGrid(filterTerm = "") {
 
   if (!examsList || examsList.length === 0) {
     if (countBadge) countBadge.style.display = "none";
+    renderExamGradePills();
     container.innerHTML = `
       <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-secondary);">
         <p style="font-size: 0.95rem; font-weight: 600; color: #1e293b; margin-bottom: 0.5rem;">Nenhuma prova ou simulado cadastrado.</p>
@@ -1130,24 +1197,54 @@ function renderExamsGrid(filterTerm = "") {
     return;
   }
 
-  const filteredExams = rawTerm
-    ? examsList.filter(ex => {
-        const subCount = ex.submissions_count || 0;
-        const subText = subCount > 0 ? `${subCount} corrigidas com correcao` : "sem correcao pendente nenhuma correcao";
-        const questText = `${ex.num_questions || 0} questoes ${ex.num_alternatives ? 'alternativas A-' + String.fromCharCode(64 + ex.num_alternatives) : ''}`;
-        
-        return matchesSearchTokens([
-          ex.title || "",
-          ex.subtitle || "",
-          questText,
-          subText
-        ], rawTerm);
-      })
-    : examsList;
+  renderExamGradePills();
+
+  let filteredExams = examsList;
+
+  // Filtro por Série (pills)
+  if (currentExamGradeFilter !== "all") {
+    filteredExams = filteredExams.filter(ex => extractExamGrade(ex).label === currentExamGradeFilter);
+  }
+
+  // Filtro por busca textual
+  if (rawTerm) {
+    filteredExams = filteredExams.filter(ex => {
+      const subCount = ex.submissions_count || 0;
+      const subText = subCount > 0 ? `${subCount} corrigidas com correcao` : "sem correcao pendente nenhuma correcao";
+      const questText = `${ex.num_questions || 0} questoes ${ex.num_alternatives ? 'alternativas A-' + String.fromCharCode(64 + ex.num_alternatives) : ''}`;
+      
+      return matchesSearchTokens([
+        ex.title || "",
+        ex.subtitle || "",
+        questText,
+        subText
+      ], rawTerm);
+    });
+  }
+
+  // Ordenação inteligente
+  filteredExams = [...filteredExams].sort((a, b) => {
+    if (currentExamSortOption === "grade_asc") {
+      const gA = extractExamGrade(a).num;
+      const gB = extractExamGrade(b).num;
+      if (gA !== gB) return gA - gB;
+      return (a.title || "").localeCompare(b.title || "", "pt-BR");
+    } else if (currentExamSortOption === "grade_desc") {
+      const gA = extractExamGrade(a).num;
+      const gB = extractExamGrade(b).num;
+      if (gA !== gB) return gB - gA;
+      return (a.title || "").localeCompare(b.title || "", "pt-BR");
+    } else if (currentExamSortOption === "title_asc") {
+      return (a.title || "").localeCompare(b.title || "", "pt-BR");
+    } else if (currentExamSortOption === "created_desc") {
+      return (b.created_at || "").localeCompare(a.created_at || "");
+    }
+    return 0;
+  });
 
   // Atualiza badge de contagem de simulados
   if (countBadge) {
-    if (rawTerm) {
+    if (rawTerm || currentExamGradeFilter !== "all") {
       countBadge.style.display = "inline-flex";
       countBadge.innerHTML = `<span><strong>${filteredExams.length}</strong> de ${examsList.length} simulado(s)</span>`;
     } else {
@@ -1161,9 +1258,9 @@ function renderExamsGrid(filterTerm = "") {
         <div style="width: 44px; height: 44px; border-radius: 50%; background: #e2e8f0; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 0.65rem; color: #64748b;">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
         </div>
-        <p style="font-size: 0.95rem; font-weight: 700; color: #1e293b; margin-bottom: 0.3rem;">Nenhum simulado encontrado para "${escapeHtml(rawTerm)}"</p>
-        <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.85rem;">Tente pesquisar por outros termos, número de questões ou limpe a busca.</p>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="clearExamsSearch()">Limpar busca</button>
+        <p style="font-size: 0.95rem; font-weight: 700; color: #1e293b; margin-bottom: 0.3rem;">Nenhum simulado encontrado${currentExamGradeFilter !== "all" ? ` para ${currentExamGradeFilter}` : ""}</p>
+        <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.85rem;">Tente pesquisar por outros termos ou limpe o filtro de ano escolar.</p>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="setExamGradeFilter('all'); clearExamsSearch();">Limpar filtros</button>
       </div>
     `;
     return;
@@ -1185,18 +1282,22 @@ function renderExamsGrid(filterTerm = "") {
     row.innerHTML = `
       <div class="cl-col-main">
         <div class="cl-title-wrap">
-          <strong class="cl-name">${titleHtml}</strong>
-          <span class="cl-grade">${subTitleHtml}</span>
+          <strong class="cl-name" title="${escapeHtml(ex.title)}">${titleHtml}</strong>
+          <div class="cl-tags-wrap">
+            <span class="cl-grade" title="Série / Ano escolar">${subTitleHtml}</span>
+            ${ex.is_linked_to_school ? `
+              <span class="cl-exam-chip" style="background-color: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; font-weight: 600;" title="Vinculado à(s) escola(s): ${(ex.linked_schools || []).map(s => s.name).join(', ')}">
+                🏫 Vinculado (${(ex.linked_schools || []).length} escola${(ex.linked_schools || []).length > 1 ? 's' : ''})
+              </span>
+            ` : ''}
+          </div>
         </div>
       </div>
 
       <div class="cl-col-exams">
-        <span class="cl-exam-chip">${ex.num_questions} Questões • Opções A-${String.fromCharCode(64 + ex.num_alternatives)}</span>
-        ${ex.is_linked_to_school ? `
-          <span class="cl-exam-chip" style="background-color: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; font-weight: 600;" title="Vinculado à(s) escola(s): ${(ex.linked_schools || []).map(s => s.name).join(', ')}">
-            🏫 Vinculado (${(ex.linked_schools || []).length} escola${(ex.linked_schools || []).length > 1 ? 's' : ''})
-          </span>
-        ` : ''}
+        <span class="cl-exam-chip" style="background: #f8fafc; color: #334155; border: 1px solid #cbd5e1; font-weight: 600;">
+          📝 ${ex.num_questions} Questões • Opções A-${String.fromCharCode(64 + ex.num_alternatives)}
+        </span>
       </div>
 
       <div class="cl-col-students" style="justify-content: center;">

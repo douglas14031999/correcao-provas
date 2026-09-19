@@ -998,7 +998,7 @@ body {
 
 .exams-table-header {
   display: grid;
-  grid-template-columns: minmax(200px, 1.4fr) minmax(180px, 1.3fr) 120px auto;
+  grid-template-columns: minmax(280px, 2.3fr) minmax(170px, 1fr) 120px auto;
   gap: 0.85rem;
   padding: 0.4rem 0.85rem;
   font-size: 0.72rem;
@@ -1012,10 +1012,10 @@ body {
 
 .exam-row {
   display: grid;
-  grid-template-columns: minmax(200px, 1.4fr) minmax(180px, 1.3fr) 120px auto;
+  grid-template-columns: minmax(280px, 2.3fr) minmax(170px, 1fr) 120px auto;
   align-items: center;
   gap: 0.85rem;
-  padding: 0.65rem 0.85rem;
+  padding: 0.75rem 0.85rem;
   border: 1px solid #e2e8f0;
   border-radius: var(--radius-sm);
   background: #ffffff;
@@ -1025,6 +1025,67 @@ body {
 .exam-row:hover {
   border-color: #94a3b8;
   box-shadow: 0 2px 5px rgba(15, 23, 42, 0.04);
+}
+
+.exam-row .cl-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.exam-row .cl-name {
+  font-size: 0.93rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: break-word;
+  display: block;
+}
+
+.exam-row .cl-grade {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.18rem 0.6rem;
+  border-radius: 4px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  line-height: 1.25;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+}
+
+.grade-pill-btn {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.65rem;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.grade-pill-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.grade-pill-btn.active {
+  background: #0284c7;
+  border-color: #0284c7;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(2, 132, 199, 0.25);
 }
 
 @media (max-width: 900px) {

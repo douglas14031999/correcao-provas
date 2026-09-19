@@ -946,6 +946,25 @@
       </div>
 
       <div class="school-card" style="padding: 1rem 1.15rem; background: #ffffff; border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-sm);">
+        <!-- Barra de Filtros Rápidos por Série e Ordenação -->
+        <div class="exams-filters-toolbar" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.85rem; padding-bottom: 0.85rem; border-bottom: 1px solid #f1f5f9;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            <span style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em;">Filtrar por Ano:</span>
+            <div class="exams-grade-pills" id="exams-grade-pills" style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
+              <!-- Gerado dinamicamente -->
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.45rem;">
+            <label for="exams-sort-select" style="font-size: 0.75rem; font-weight: 600; color: #64748b; white-space: nowrap;">Ordenar por:</label>
+            <select id="exams-sort-select" class="form-control" style="font-size: 0.78rem; padding: 0.3rem 0.6rem; height: 32px; border-radius: 6px; background-color: #f8fafc; border: 1px solid #cbd5e1; cursor: pointer; color: #1e293b; font-weight: 500;">
+              <option value="grade_asc" selected>Série (1º ao 9º Ano)</option>
+              <option value="grade_desc">Série (9º ao 1º Ano)</option>
+              <option value="title_asc">Nome (A - Z)</option>
+              <option value="created_desc">Mais Recentes</option>
+            </select>
+          </div>
+        </div>
+
         <div class="exams-table-header">
           <span>Prova</span>
           <span>Questões</span>
