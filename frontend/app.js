@@ -4697,12 +4697,22 @@ async function loadSystemSettings() {
         if (fallback) fallback.style.display = "none";
       }
       const loginCity = document.getElementById("login-city-name") || document.querySelector(".login-badge-city");
-      if (loginCity && (settings.prefeitura_name || settings.state_name)) {
-        loginCity.textContent = `${settings.prefeitura_name || "Lagoa da Canoa"} ${settings.state_name ? "— " + settings.state_name : ""}`;
+      if (loginCity) {
+        let city = (settings.prefeitura_name || "Lagoa da Canoa")
+          .replace(/^prefeitura\s+(municipal\s+)?d[eo]\s+/i, "")
+          .trim();
+        let uf = settings.state_name
+          ? settings.state_name.replace(/^estado\s+d[eo]\s+/i, "").trim()
+          : "AL";
+        if (uf.toUpperCase().includes("ALAGOAS")) uf = "AL";
+        loginCity.textContent = `${city} — ${uf}`;
       }
       const loginSub = document.getElementById("login-sub-text") || document.getElementById("login-sec-name");
-      if (loginSub && (settings.secretaria_name || settings.prefeitura_name)) {
-        loginSub.textContent = settings.secretaria_name || settings.prefeitura_name;
+      if (loginSub) {
+        let sec = (settings.secretaria_name || "Secretaria de Educação")
+          .replace(/^secretaria\s+municipal\s+de\s+/i, "Secretaria de ")
+          .trim();
+        loginSub.textContent = sec;
       }
     }
   } catch (e) {
