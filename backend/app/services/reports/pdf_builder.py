@@ -269,12 +269,20 @@ def build_pdf_report(data: ReportData, orientation: str = "portrait") -> bytes:
         header_row = [Paragraph(col.header, style_th) for col in cols]
         table_data.append(header_row)
 
-        for r_idx, row_dict in enumerate(rows):
+        total_row_indices = []
+        for r_idx, row_dict in enumerate(rows, start=1):
+            is_total = any(isinstance(v, str) and ("TOTAL" in v.upper() or "SUBTOTAL" in v.upper()) for v in row_dict.values() if v)
+            if is_total:
+                total_row_indices.append(r_idx)
+
             row_cells = []
             for col in cols:
                 val = row_dict.get(col.key, "")
                 val_str = str(val if val is not None else "-")
                 
+                if is_total:
+                    val_str = f"<b>{val_str}</b>"
+
                 if col.align == "center":
                     cell_p = Paragraph(val_str, style_td_center)
                 elif col.align == "right":
@@ -299,7 +307,11 @@ def build_pdf_report(data: ReportData, orientation: str = "portrait") -> bytes:
         ]
 
         for i in range(1, len(table_data)):
-            if i % 2 == 0:
+            if i in total_row_indices:
+                t_style.append(('BACKGROUND', (0, i), (-1, i), HexColor("#e2e8f0")))
+                t_style.append(('LINEABOVE', (0, i), (-1, i), 1.0, HexColor("#94a3b8")))
+                t_style.append(('LINEBELOW', (0, i), (-1, i), 1.0, HexColor("#94a3b8")))
+            elif i % 2 == 0:
                 t_style.append(('BACKGROUND', (0, i), (-1, i), HexColor("#f8fafc")))
 
         tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
