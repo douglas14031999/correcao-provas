@@ -5043,13 +5043,11 @@ function getAuthToken() {
   return localStorage.getItem(AUTH_TOKEN_KEY) || sessionStorage.getItem(AUTH_TOKEN_KEY) || "";
 }
 
-function setAuthToken(token, remember = false) {
-  if (remember) {
-    localStorage.setItem(AUTH_TOKEN_KEY, token);
-    sessionStorage.removeItem(AUTH_TOKEN_KEY);
-  } else {
+function setAuthToken(token, remember = true) {
+  // Sempre persiste em localStorage para evitar quedas em smartphones ou segundo plano
+  localStorage.setItem(AUTH_TOKEN_KEY, token);
+  if (!remember) {
     sessionStorage.setItem(AUTH_TOKEN_KEY, token);
-    localStorage.removeItem(AUTH_TOKEN_KEY);
   }
 }
 
@@ -5316,7 +5314,7 @@ async function handleLoginSubmit(e) {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ username, password, remember_me: true })
     });
     const data = await res.json();
 

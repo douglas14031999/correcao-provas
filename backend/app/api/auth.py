@@ -10,7 +10,12 @@ from app.services.database import (
     update_system_settings,
     get_user_by_username,
     get_user_by_id,
-    update_user_last_login
+    update_user_last_login,
+    create_user_session,
+    get_user_session,
+    touch_user_session,
+    revoke_user_session,
+    revoke_all_user_sessions
 )
 
 router = APIRouter(prefix="/auth", tags=["Autenticação & Segurança"])
@@ -55,37 +60,74 @@ def get_authenticated_user(authorization: Optional[str] = Header(None), x_auth_t
     if not token:
         raise HTTPException(status_code=401, detail="Token de autenticação não fornecido.")
 
+    # 1. Validação prioritária na tabela user_sessions (suporta multi-sessão e multi-aparelho)
+    session = get_user_session(token)
+    if session:
+        expires_str = session.get("expires_at")
+        if expires_str:
+            try:
+                exp_date = datetime.fromisoformat(expires_str)
+                if datetime.utcnow() > exp_date:
+                    raise HTTPException(status_code=401, detail="Sessão expirada. Faça login novamente.")
+            except HTTPException:
+                raise
+            except Exception:
+                raise HTTPException(status_code=401, detail="Sessão inválida.")
+
+        user_info = get_user_by_id(session["user_id"])
+        if not user_info and session["user_id"] == "admin-default":
+            stored_user, _, _ = get_auth_settings()
+            user_info = {
+                "id": "admin-default",
+                "username": stored_user,
+                "name": "Administrador SEMED",
+                "role": "admin",
+                "email": "educacao@lagoadacanoa.al.gov.br"
+            }
+
+        if user_info:
+            if user_info.get("is_active") == 0:
+                raise HTTPException(status_code=403, detail="Conta desativada. Solicite liberação junto à Secretaria Municipal de Educação.")
+            # Touch da sessão para manter viva enquanto o usuário está ativo
+            try:
+                touch_user_session(token)
+            except Exception:
+                pass
+            return user_info
+
+    # 2. Fallback de compatibilidade para system_settings (testes legados e tokens antigos)
     settings = get_system_settings()
     stored_token = settings.get("admin_session_token")
     expires_str = settings.get("admin_session_expires")
 
-    if not stored_token or stored_token != token:
-        raise HTTPException(status_code=401, detail="Sessão inválida ou expirada.")
+    if stored_token and stored_token == token:
+        if expires_str:
+            try:
+                exp_date = datetime.fromisoformat(expires_str)
+                if datetime.utcnow() > exp_date:
+                    raise HTTPException(status_code=401, detail="Sessão expirada. Faça login novamente.")
+            except HTTPException:
+                raise
+            except Exception:
+                raise HTTPException(status_code=401, detail="Sessão inválida.")
 
-    if expires_str:
-        try:
-            exp_date = datetime.fromisoformat(expires_str)
-            if datetime.utcnow() > exp_date:
-                raise HTTPException(status_code=401, detail="Sessão expirada. Faça login novamente.")
-        except Exception:
-            raise HTTPException(status_code=401, detail="Sessão inválida.")
+        user_id = settings.get("admin_session_user_id")
+        user_info = None
+        if user_id:
+            user_info = get_user_by_id(user_id)
 
-    user_id = settings.get("admin_session_user_id")
-    user_info = None
-    if user_id:
-        user_info = get_user_by_id(user_id)
+        if not user_info:
+            stored_user, _, _ = get_auth_settings()
+            user_info = {
+                "id": "admin-default",
+                "username": stored_user,
+                "name": "Administrador SEMED",
+                "role": "admin",
+                "email": "educacao@lagoadacanoa.al.gov.br"
+            }
+        return user_info
 
-    if not user_info:
-        stored_user, _, _ = get_auth_settings()
-        user_info = {
-            "id": "admin-default",
-            "username": stored_user,
-            "name": "Administrador SEMED",
-            "role": "admin",
-            "email": "educacao@lagoadacanoa.al.gov.br"
-        }
-
-    return user_info
+    raise HTTPException(status_code=401, detail="Sessão inválida ou expirada.")
 
 def require_roles(allowed_roles: list, authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)) -> dict:
     user = get_authenticated_user(authorization, x_auth_token)
@@ -135,11 +177,19 @@ def login(req: LoginRequest):
     if not matched_user:
         raise HTTPException(status_code=401, detail="Usuário ou senha incorretos.")
 
-    # Generate session token
-    token = secrets.token_hex(24)
-    days = 30 if req.remember_me else 1
+    # Generate unique persistent session token
+    token = secrets.token_hex(32)
+    days = 30 if req.remember_me else 7
     expires_at = datetime.utcnow() + timedelta(days=days)
 
+    # 1. Armazena na tabela de sessões multi-usuário
+    create_user_session(
+        user_id=matched_user["id"],
+        token=token,
+        expires_at=expires_at.isoformat()
+    )
+
+    # 2. Mantém system_settings atualizado para retrocompatibilidade de testes legados
     update_system_settings({
         "admin_session_token": token,
         "admin_session_expires": expires_at.isoformat(),
@@ -161,26 +211,9 @@ def login(req: LoginRequest):
 
 @router.get("/me")
 def get_current_user(authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)):
-    is_valid = verify_token_from_header(authorization, x_auth_token)
-    if not is_valid:
-        raise HTTPException(status_code=401, detail="Sessão inválida ou expirada.")
-
+    # Obtém o usuário específico atrelado a este token exato
+    user_info = get_authenticated_user(authorization, x_auth_token)
     settings = get_system_settings()
-    user_id = settings.get("admin_session_user_id")
-
-    user_info = None
-    if user_id:
-        user_info = get_user_by_id(user_id)
-
-    if not user_info:
-        stored_user, _, _ = get_auth_settings()
-        user_info = {
-            "id": "admin-default",
-            "username": stored_user,
-            "name": "Administrador SEMED",
-            "role": "admin",
-            "email": "educacao@lagoadacanoa.al.gov.br"
-        }
 
     return {
         "authenticated": True,
@@ -199,11 +232,23 @@ def get_current_user(authorization: Optional[str] = Header(None), x_auth_token: 
     }
 
 @router.post("/logout")
-def logout():
-    update_system_settings({
-        "admin_session_token": "",
-        "admin_session_expires": ""
-    })
+def logout(authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)):
+    token = None
+    if isinstance(authorization, str) and authorization.startswith("Bearer "):
+        token = authorization.split("Bearer ")[1].strip()
+    elif isinstance(x_auth_token, str) and x_auth_token.strip():
+        token = x_auth_token.strip()
+
+    if token:
+        revoke_user_session(token)
+
+    # Limpeza em system_settings apenas se for o mesmo token registrado lá
+    settings = get_system_settings()
+    if token and settings.get("admin_session_token") == token:
+        update_system_settings({
+            "admin_session_token": "",
+            "admin_session_expires": ""
+        })
     return {"success": True, "message": "Sessão encerrada com sucesso."}
 
 @router.post("/change-password")

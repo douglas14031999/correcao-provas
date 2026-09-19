@@ -3,7 +3,7 @@ import json
 import os
 import re
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Database Configuration (PostgreSQL in production VPS or SQLite local fallback)
 DB_PATH = os.path.join(
@@ -276,6 +276,20 @@ def init_db():
                 created_at TEXT NOT NULL,
                 last_login TEXT DEFAULT ''
             );
+
+            CREATE TABLE IF NOT EXISTS user_sessions (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                token TEXT UNIQUE NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                last_activity TEXT NOT NULL,
+                user_agent TEXT DEFAULT '',
+                ip_address TEXT DEFAULT '',
+                is_revoked INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(token);
+            CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
         """)
         # Migrações seguras de compatibilidade de colunas no PostgreSQL
         cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS header_color TEXT DEFAULT '#244061';")
@@ -444,6 +458,23 @@ def init_db():
                 last_login TEXT DEFAULT ''
             )
         """)
+
+        # Tabela de Sessões Multi-Operador Persistentes (permite PC + Celular simultâneos)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS user_sessions (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                token TEXT UNIQUE NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                last_activity TEXT NOT NULL,
+                user_agent TEXT DEFAULT '',
+                ip_address TEXT DEFAULT '',
+                is_revoked INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(token)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id)")
 
     # Seed inicial do administrador mestre caso a tabela esteja vazia (tanto no SQLite quanto no PostgreSQL)
     cursor.execute("SELECT COUNT(*) FROM users")
@@ -2152,6 +2183,87 @@ def count_active_admins() -> int:
     count = cursor.fetchone()[0]
     conn.close()
     return count
+
+# =========================================================================
+# PERSISTENT MULTI-USER SESSION MANAGEMENT
+# =========================================================================
+
+def create_user_session(user_id: str, token: str, expires_at: str, user_agent: str = "", ip_address: str = "") -> Dict[str, Any]:
+    """Registers a new persistent session token for a specific user and device."""
+    import uuid
+    session_id = str(uuid.uuid4())
+    now = datetime.utcnow().isoformat()
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO user_sessions (id, user_id, token, created_at, expires_at, last_activity, user_agent, ip_address, is_revoked)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+    """, (session_id, user_id, token, now, expires_at, now, (user_agent or "")[:255], (ip_address or "")[:45]))
+    conn.commit()
+    conn.close()
+    return {
+        "id": session_id,
+        "user_id": user_id,
+        "token": token,
+        "created_at": now,
+        "expires_at": expires_at,
+        "last_activity": now,
+        "user_agent": user_agent,
+        "ip_address": ip_address,
+        "is_revoked": 0
+    }
+
+def get_user_session(token: str) -> Optional[Dict[str, Any]]:
+    """Retrieves an active (non-revoked) session by token."""
+    if not token:
+        return None
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM user_sessions WHERE token = ? AND is_revoked = 0", (token,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def touch_user_session(token: str, extend_days: int = 30) -> None:
+    """Updates last_activity and extends expires_at dynamically so active users never get logged out."""
+    if not token:
+        return
+    now = datetime.utcnow()
+    new_expires = (now + timedelta(days=extend_days)).isoformat()
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE user_sessions 
+        SET last_activity = ?, expires_at = ?
+        WHERE token = ? AND is_revoked = 0
+    """, (now.isoformat(), new_expires, token))
+    conn.commit()
+    conn.close()
+
+def revoke_user_session(token: str) -> bool:
+    """Revokes a specific session (single-device/tab logout)."""
+    if not token:
+        return False
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE user_sessions SET is_revoked = 1 WHERE token = ?", (token,))
+    revoked = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return revoked
+
+def revoke_all_user_sessions(user_id: str) -> int:
+    """Revokes all active sessions for a user (e.g., after password change)."""
+    if not user_id:
+        return 0
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE user_sessions SET is_revoked = 1 WHERE user_id = ? AND is_revoked = 0", (user_id,))
+    count = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return count
+
 
 
 
