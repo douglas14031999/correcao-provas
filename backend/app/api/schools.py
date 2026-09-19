@@ -181,8 +181,11 @@ def set_exams_linked_to_classroom(classroom_id: str, req: LinkExamsRequest):
     classroom = get_classroom_with_details(classroom_id)
     if not classroom:
         raise HTTPException(status_code=404, detail="Turma não encontrada.")
-    saved_ids = link_exams_to_classroom(classroom_id, req.exam_ids)
-    return {"success": True, "linked_exam_ids": saved_ids}
+    try:
+        saved_ids = link_exams_to_classroom(classroom_id, req.exam_ids)
+        return {"success": True, "linked_exam_ids": saved_ids}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao salvar gabaritos vinculados: {str(e)}")
 
 @router.get("/students/csv-template")
 def download_csv_template(etapa: Optional[str] = Query(None)):

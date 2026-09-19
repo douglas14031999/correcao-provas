@@ -2542,7 +2542,10 @@ async function saveLinkedExams() {
       body: JSON.stringify({ exam_ids: selectedIds })
     });
 
-    if (!res.ok) throw new Error("Erro ao salvar gabaritos vinculados.");
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.detail || "Erro ao salvar gabaritos vinculados.");
+    }
     showToast("Gabaritos vinculados à turma com sucesso!", "success");
     closeLinkExamsModal();
     await loadSchools();

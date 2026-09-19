@@ -78,14 +78,23 @@ class PostgresCursorWrapper:
     def __init__(self, cursor):
         self._cursor = cursor
 
+    def _translate_sql(self, sql: str) -> str:
+        sql_pg = sql
+        if "INSERT OR IGNORE INTO" in sql_pg.upper():
+            pattern = re.compile(r'INSERT\s+OR\s+IGNORE\s+INTO', re.IGNORECASE)
+            sql_pg = pattern.sub('INSERT INTO', sql_pg)
+            if "ON CONFLICT" not in sql_pg.upper():
+                sql_pg = sql_pg.rstrip().rstrip(';') + " ON CONFLICT DO NOTHING"
+        return sql_pg.replace("?", "%s")
+
     def execute(self, sql: str, params=None):
+        sql_pg = self._translate_sql(sql)
         if params is not None:
-            sql_pg = sql.replace("?", "%s")
             return self._cursor.execute(sql_pg, params)
-        return self._cursor.execute(sql)
+        return self._cursor.execute(sql_pg)
 
     def executemany(self, sql: str, seq_of_params):
-        sql_pg = sql.replace("?", "%s")
+        sql_pg = self._translate_sql(sql)
         return self._cursor.executemany(sql_pg, seq_of_params)
 
     def _wrap(self, row):
@@ -863,15 +872,30 @@ def link_exams_to_classroom(classroom_id: str, exam_ids: List[str]) -> List[str]
     cursor = conn.cursor()
     cursor.execute("DELETE FROM classroom_exams WHERE classroom_id = ?", (classroom_id,))
     now = datetime.utcnow().isoformat()
+    
+    # Deduplicate and validate exam_ids
+    seen = set()
+    valid_ids = []
     for eid in exam_ids:
-        if eid and str(eid).strip():
+        s_eid = str(eid).strip() if eid else ""
+        if s_eid and s_eid not in seen:
+            seen.add(s_eid)
+            valid_ids.append(s_eid)
+
+    for eid in valid_ids:
+        if is_postgres():
+            cursor.execute(
+                "INSERT INTO classroom_exams (classroom_id, exam_id, created_at) VALUES (?, ?, ?) ON CONFLICT (classroom_id, exam_id) DO NOTHING",
+                (classroom_id, eid, now)
+            )
+        else:
             cursor.execute(
                 "INSERT OR IGNORE INTO classroom_exams (classroom_id, exam_id, created_at) VALUES (?, ?, ?)",
-                (classroom_id, str(eid).strip(), now)
+                (classroom_id, eid, now)
             )
     conn.commit()
     conn.close()
-    return exam_ids
+    return valid_ids
 
 def get_classroom_exams(classroom_id: str) -> List[Dict[str, Any]]:
     """Returns all exams linked to a classroom."""
