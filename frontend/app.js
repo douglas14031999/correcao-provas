@@ -2044,8 +2044,8 @@ function renderSchoolsGrid(filterTerm = "") {
       if (school.classrooms && school.classrooms.length > 0) {
         classListHtml = school.classrooms.map(cl => {
           const linkedBadges = (cl.linked_exams && cl.linked_exams.length > 0)
-            ? cl.linked_exams.map(e => `<span class="cl-exam-chip" title="${e.title}">${e.title}</span>`).join("")
-            : `<button type="button" class="cl-no-exams-btn" onclick="openLinkExamsModal('${cl.id}', '${cl.name.replace(/'/g, "\\'")}', '${school.name.replace(/'/g, "\\'")}')" title="Clique para vincular simulados a esta turma">
+            ? cl.linked_exams.map(e => `<span class="cl-exam-chip" title="${escapeHtml(e.title)}">${escapeHtml(e.title)}</span>`).join("")
+            : `<button type="button" class="cl-no-exams-btn" onclick="openLinkExamsModal('${cl.id}')" title="Clique para vincular simulados a esta turma">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                 <span>Vincular simulado</span>
               </button>`;
@@ -2096,7 +2096,7 @@ function renderSchoolsGrid(filterTerm = "") {
           return `
           <div class="classroom-row">
             <div class="cl-col-main">
-              <strong class="cl-name" title="${cl.name}">${cl.name}</strong>
+              <strong class="cl-name" title="${escapeHtml(cl.name)}">${escapeHtml(cl.name)}</strong>
               <div class="cl-tags-wrap">
                 ${displayGrade}
                 ${displayShift}
@@ -2114,15 +2114,15 @@ function renderSchoolsGrid(filterTerm = "") {
             </div>
 
             <div class="cl-col-actions">
-              <button type="button" class="cl-action-btn cl-action-btn-primary" onclick="openBatchModal('${cl.id}', '${cl.name.replace(/'/g, "\\'")}', '${school.name.replace(/'/g, "\\'")}', ${cl.student_count || 0})" title="Gerar folha de gabaritos personalizada em lote para esta turma">
+              <button type="button" class="cl-action-btn cl-action-btn-primary" onclick="openBatchModal('${cl.id}')" title="Gerar folha de gabaritos personalizada em lote para esta turma">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                 <span>Gabaritos</span>
               </button>
-              <button type="button" class="cl-action-btn cl-action-btn-secondary" onclick="downloadSchoolEnvelopeLabels('${school.id}', '${school.name.replace(/'/g, "\\'")}', '${cl.id}', '${cl.name.replace(/'/g, "\\'")}')" title="Gerar Etiqueta de Envelope desta turma">
+              <button type="button" class="cl-action-btn cl-action-btn-secondary" onclick="downloadSchoolEnvelopeLabels('${school.id}', null, '${cl.id}')" title="Gerar Etiqueta de Envelope desta turma">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
                 <span>Etiqueta</span>
               </button>
-              <button type="button" class="cl-action-btn cl-action-btn-secondary" onclick="openClassroomReportPage('${cl.id}', '${cl.name.replace(/'/g, "\\'")}', '${school.name.replace(/'/g, "\\'")}')" title="Ver relatório de avaliação e ranking da turma">
+              <button type="button" class="cl-action-btn cl-action-btn-secondary" onclick="openClassroomReportPage('${cl.id}')" title="Ver relatório de avaliação e ranking da turma">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
                 <span>Relatório</span>
               </button>
@@ -2132,17 +2132,17 @@ function renderSchoolsGrid(filterTerm = "") {
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
                 </button>
                 <div id="cl-more-menu-${cl.id}" class="cl-dropdown-menu" style="display: none;">
-                  <button type="button" class="cl-dropdown-item" onclick="openLinkExamsModal('${cl.id}', '${cl.name.replace(/'/g, "\\'")}', '${school.name.replace(/'/g, "\\'")}'); closeAllClassroomMenus();">
+                  <button type="button" class="cl-dropdown-item" onclick="openLinkExamsModal('${cl.id}'); closeAllClassroomMenus();">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
                     <span>Vincular simulados</span>
                   </button>
-                  <button type="button" class="cl-dropdown-item" onclick="openEditClassroomModal('${cl.id}', '${cl.name.replace(/'/g, "\\'")}', '${(cl.shift || '').replace(/'/g, "\\'")}', '${(cl.grade_year || '').replace(/'/g, "\\'")}', '${school.name.replace(/'/g, "\\'")}'); closeAllClassroomMenus();">
+                  <button type="button" class="cl-dropdown-item" onclick="openEditClassroomModal('${cl.id}'); closeAllClassroomMenus();">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                     <span>Editar turma</span>
                   </button>
                   ${currentUserProfile && currentUserProfile.role === "admin" ? `
                   <div class="cl-dropdown-divider"></div>
-                  <button type="button" class="cl-dropdown-item cl-dropdown-item-danger" onclick="deleteClassroomConfirm('${cl.id}', '${cl.name.replace(/'/g, "\\'")}'); closeAllClassroomMenus();">
+                  <button type="button" class="cl-dropdown-item cl-dropdown-item-danger" onclick="deleteClassroomConfirm('${cl.id}'); closeAllClassroomMenus();">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                     <span>Excluir turma</span>
                   </button>` : ''}
@@ -2163,11 +2163,11 @@ function renderSchoolsGrid(filterTerm = "") {
       card.innerHTML = `
         <div class="school-card-header">
           <div class="school-header-info">
-            <h3 class="school-name">${school.name}</h3>
+            <h3 class="school-name">${escapeHtml(school.name)}</h3>
             <span class="school-meta-pill">${school.classroom_count || 0} turmas • ${school.student_count || 0} alunos</span>
           </div>
           <div class="school-header-actions">
-            <button type="button" class="btn btn-secondary btn-sm" onclick="downloadSchoolEnvelopeLabels('${school.id}', '${school.name.replace(/'/g, "\\'")}', ${school.classrooms && school.classrooms.length === 1 ? `'${school.classrooms[0].id}', '${school.classrooms[0].name.replace(/'/g, "\\'")}'` : 'null, null'})" title="Gerar Etiquetas de Envelope das Turmas (4 por folha A4)">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="downloadSchoolEnvelopeLabels('${school.id}')" title="Gerar Etiquetas de Envelope das Turmas (4 por folha A4)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
                 <line x1="7" y1="7" x2="7.01" y2="7"></line>
@@ -2182,7 +2182,7 @@ function renderSchoolsGrid(filterTerm = "") {
               Importar CSV
             </button>
             ${currentUserProfile && currentUserProfile.role === "admin" ? `
-            <button type="button" class="btn btn-danger-subtle btn-sm delete-school-btn" onclick="deleteSchoolConfirm('${school.id}', '${school.name.replace(/'/g, "\\'")}')" title="Excluir escola">
+            <button type="button" class="btn btn-danger-subtle btn-sm delete-school-btn" onclick="deleteSchoolConfirm('${school.id}')" title="Excluir escola">
               Excluir Escola
             </button>` : ''}
           </div>
@@ -2293,12 +2293,16 @@ function closeNewSchoolModal() {
   if (modal) modal.style.display = "none";
 }
 
-async function deleteSchoolConfirm(schoolId, schoolName) {
+async function deleteSchoolConfirm(schoolId, schoolName = null) {
   if (currentUserProfile && currentUserProfile.role !== "admin") {
     showToast("Apenas o Administrador SEMED tem permissão para excluir escolas.", "warning");
     return;
   }
-  if (!confirm(`Tem certeza que deseja excluir a escola "${schoolName}"?\n\nEsta ação excluirá permanentemente em cascata todas as turmas, alunos e notas desta escola.`)) {
+  if (!schoolName && schoolId && Array.isArray(schoolsList)) {
+    const s = schoolsList.find(x => x.id === schoolId);
+    if (s) schoolName = s.name;
+  }
+  if (!confirm(`Tem certeza que deseja excluir a escola "${schoolName || 'esta escola'}"?\n\nEsta ação excluirá permanentemente em cascata todas as turmas, alunos e notas desta escola.`)) {
     return;
   }
   try {
@@ -2317,7 +2321,21 @@ async function deleteSchoolConfirm(schoolId, schoolName) {
   }
 }
 
-async function downloadSchoolEnvelopeLabels(schoolId, schoolName, classroomId = null, classroomName = null) {
+async function downloadSchoolEnvelopeLabels(schoolId, schoolName = null, classroomId = null, classroomName = null) {
+  if (schoolId && !schoolName && Array.isArray(schoolsList)) {
+    const s = schoolsList.find(x => x.id === schoolId);
+    if (s) schoolName = s.name;
+  }
+  if (classroomId && !classroomName && Array.isArray(schoolsList)) {
+    for (const s of schoolsList) {
+      const c = (s.classrooms || []).find(item => item.id === classroomId);
+      if (c) {
+        classroomName = c.name;
+        if (!schoolName) schoolName = s.name;
+        break;
+      }
+    }
+  }
   showToast("Gerando etiquetas de envelopes... O download iniciará em instantes.", "info");
   try {
     let url = `/api/schools/${schoolId}/envelope-labels-pdf`;
@@ -2382,12 +2400,21 @@ async function downloadSchoolEnvelopeLabels(schoolId, schoolName, classroomId = 
   }
 }
 
-async function deleteClassroomConfirm(classId, className) {
+async function deleteClassroomConfirm(classId, className = null) {
   if (currentUserProfile && currentUserProfile.role !== "admin") {
     showToast("Apenas o Administrador SEMED tem permissão para excluir turmas.", "warning");
     return;
   }
-  if (!confirm(`Tem certeza que deseja excluir a turma "${className}" e seus alunos?`)) {
+  if (classId && !className && Array.isArray(schoolsList)) {
+    for (const s of schoolsList) {
+      const c = (s.classrooms || []).find(item => item.id === classId);
+      if (c) {
+        className = c.name;
+        break;
+      }
+    }
+  }
+  if (!confirm(`Tem certeza que deseja excluir a turma "${className || 'esta turma'}" e seus alunos?`)) {
     return;
   }
   try {
@@ -2443,14 +2470,24 @@ function closeCsvModal() {
 // Link Multiple Exams to Classroom Modal Functions
 let currentLinkingClassId = null;
 
-function openLinkExamsModal(classId, className, schoolName) {
+function openLinkExamsModal(classId, className = null, schoolName = null) {
   currentLinkingClassId = classId;
+  if (classId && (!className || !schoolName) && Array.isArray(schoolsList)) {
+    for (const s of schoolsList) {
+      const c = (s.classrooms || []).find(item => item.id === classId);
+      if (c) {
+        className = className || c.name;
+        schoolName = schoolName || s.name;
+        break;
+      }
+    }
+  }
   const modal = document.getElementById("link-exams-modal");
   const subtitle = document.getElementById("link-exams-class-subtitle");
   const container = document.getElementById("link-exams-list-container");
 
   if (subtitle) {
-    subtitle.textContent = `Turma: ${className} • ${schoolName}`;
+    subtitle.textContent = `Turma: ${className || ''} • ${schoolName || ''}`;
   }
 
   if (container) {
@@ -2516,7 +2553,19 @@ async function saveLinkedExams() {
 }
 
 // Edit Classroom Modal Functions
-function openEditClassroomModal(classId, className, shift, gradeYear, schoolName) {
+function openEditClassroomModal(classId, className = null, shift = null, gradeYear = null, schoolName = null) {
+  if (classId && Array.isArray(schoolsList)) {
+    for (const s of schoolsList) {
+      const c = (s.classrooms || []).find(item => item.id === classId);
+      if (c) {
+        if (!className) className = c.name;
+        if (!shift) shift = c.shift;
+        if (!gradeYear) gradeYear = c.grade_year;
+        if (!schoolName) schoolName = s.name;
+        break;
+      }
+    }
+  }
   const modal = document.getElementById("edit-classroom-modal");
   const idInput = document.getElementById("edit-classroom-id-input");
   const nameInput = document.getElementById("edit-classroom-name-input");
@@ -2578,7 +2627,18 @@ function closeEditClassroomModal() {
 }
 
 // Batch PDF Modal Functions
-function openBatchModal(classId, className, schoolName, studentCount) {
+function openBatchModal(classId, className = null, schoolName = null, studentCount = null) {
+  if (classId && Array.isArray(schoolsList)) {
+    for (const s of schoolsList) {
+      const c = (s.classrooms || []).find(item => item.id === classId);
+      if (c) {
+        if (!className) className = c.name;
+        if (!schoolName) schoolName = s.name;
+        if (studentCount === undefined || studentCount === null) studentCount = c.student_count || 0;
+        break;
+      }
+    }
+  }
   activeBatchClassId = classId;
   activeBatchClassName = className || "";
   activeBatchSchoolName = schoolName || "";
@@ -2685,7 +2745,17 @@ let reportQuestionsChart = null;
 let reportDistributionChart = null;
 let currentReportData = null;
 
-async function openClassroomReportPage(classId, className, schoolName) {
+async function openClassroomReportPage(classId, className = null, schoolName = null) {
+  if (classId && (!className || !schoolName) && Array.isArray(schoolsList)) {
+    for (const s of schoolsList) {
+      const c = (s.classrooms || []).find(item => item.id === classId);
+      if (c) {
+        className = className || c.name;
+        schoolName = schoolName || s.name;
+        break;
+      }
+    }
+  }
   activeReportClassId = classId;
   activeReportClassName = className || "Turma";
   activeReportSchoolName = schoolName || "Escola";
