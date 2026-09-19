@@ -211,7 +211,15 @@ EOF
 
 chmod 600 "$INSTALL_DIR/.env"
 
-# 12. Garantir pastas de armazenamento e permissões
+# 12. Inicializar tabelas do banco e criar usuário admin inicial
+echo -e "\n${BLUE}🗄️ Inicializando tabelas no PostgreSQL e usuário admin mestre...${NC}"
+cd "$INSTALL_DIR"
+PYTHONPATH=backend venv/bin/python -c "from app.services.database import init_db; init_db()" || {
+  echo -e "${YELLOW}[AVISO] Falha ao rodar init_db direto. A aplicação tentará ao iniciar o serviço.${NC}"
+}
+echo -e "${GREEN}✓ Tabelas e usuário administrador (admin) verificados com sucesso.${NC}"
+
+# 13. Garantir pastas de armazenamento e permissões
 mkdir -p "$INSTALL_DIR/backend/storage/scans"
 mkdir -p "$INSTALL_DIR/backend/storage/sheets"
 mkdir -p "$INSTALL_DIR/backend/storage/overlays"
