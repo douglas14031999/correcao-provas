@@ -253,7 +253,7 @@ User=www-data
 Group=www-data
 WorkingDirectory=${INSTALL_DIR}
 EnvironmentFile=${INSTALL_DIR}/.env
-Environment="PATH=${INSTALL_DIR}/venv/bin"
+Environment="PATH=${INSTALL_DIR}/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ExecStart=${INSTALL_DIR}/venv/bin/uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8080 --workers 3
 Restart=always
 RestartSec=5

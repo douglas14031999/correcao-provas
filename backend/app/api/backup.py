@@ -358,15 +358,26 @@ def execute_system_update(
     import subprocess
     import threading
     import time
+    import shutil
 
     root_dir = os.path.dirname(BACKEND_DIR)
     git_output = []
 
+    # Garante PATH completo do sistema Linux para encontrar git, sudo e systemctl
+    env = os.environ.copy()
+    extra_paths = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    current_path = env.get("PATH", "")
+    env["PATH"] = f"{current_path}:{extra_paths}".strip(":")
+
+    # Localizar binário do git com fallbacks absolutos
+    git_bin = shutil.which("git", path=env["PATH"]) or "/usr/bin/git" or "/bin/git" or "git"
+
     try:
         # Executar git fetch origin
         fetch_res = subprocess.run(
-            ["git", "-c", "safe.directory=*", "fetch", "origin"],
+            [git_bin, "-c", "safe.directory=*", "fetch", "origin"],
             cwd=root_dir,
+            env=env,
             capture_output=True,
             text=True,
             timeout=30
@@ -378,8 +389,9 @@ def execute_system_update(
 
         # Executar git reset --hard origin/main
         reset_res = subprocess.run(
-            ["git", "-c", "safe.directory=*", "reset", "--hard", "origin/main"],
+            [git_bin, "-c", "safe.directory=*", "reset", "--hard", "origin/main"],
             cwd=root_dir,
+            env=env,
             capture_output=True,
             text=True,
             timeout=30
@@ -402,9 +414,12 @@ def execute_system_update(
     # Agenda reinicialização assíncrona após responder HTTP 200
     def delayed_restart():
         time.sleep(1.5)
+        sudo_bin = shutil.which("sudo", path=env["PATH"]) or "/usr/bin/sudo" or "sudo"
+        systemctl_bin = shutil.which("systemctl", path=env["PATH"]) or "/bin/systemctl" or "/usr/bin/systemctl" or "systemctl"
+
         # 1. Tenta reiniciar o serviço Systemd via sudo
         try:
-            res = subprocess.run(["sudo", "systemctl", "restart", "correcao-provas"], timeout=15)
+            res = subprocess.run([sudo_bin, systemctl_bin, "restart", "correcao-provas"], env=env, timeout=15)
             if res.returncode == 0:
                 return
         except Exception:
@@ -412,7 +427,7 @@ def execute_system_update(
 
         # 2. Tenta systemctl direto
         try:
-            res = subprocess.run(["systemctl", "restart", "correcao-provas"], timeout=15)
+            res = subprocess.run([systemctl_bin, "restart", "correcao-provas"], env=env, timeout=15)
             if res.returncode == 0:
                 return
         except Exception:
