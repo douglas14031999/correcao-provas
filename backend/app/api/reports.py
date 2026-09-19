@@ -13,6 +13,7 @@ from app.services.reports import (
     generate_comparison_report_data,
     generate_schools_overview_report_data,
     generate_school_report_data,
+    generate_print_run_report_data,
 )
 from app.services.database import (
     get_classroom_linked_exams,
@@ -177,4 +178,24 @@ def export_school_report(
 
     sch_name = data.metadata.school_name or "escola"
     return export_report_response(data, format, f"Relatorio_Escola_{sch_name}")
+
+@router.get("/print-run")
+def export_print_run_report(
+    format: str = Query("pdf", description="Formato: pdf, xlsx, docx"),
+    school_id: Optional[str] = Query(None, description="Filtrar por ID da Escola"),
+    exam_id: Optional[str] = Query(None, description="Filtrar por ID do Simulado/Avaliação")
+):
+    """R7: Relatório Oficial de Tiragem e Impressão de Provas (Geral por Série, Escola/Série/Gabarito e Turmas). Formatos: PDF, XLSX, DOCX."""
+    data = generate_print_run_report_data(school_id=school_id, exam_id=exam_id)
+    if not data:
+        raise HTTPException(
+            status_code=404,
+            detail="Nenhuma turma com simulado vinculado encontrada para os filtros selecionados."
+        )
+
+    base_name = "Relatorio_Tiragem_Impressao_Provas"
+    if school_id and data.metadata.school_name and data.metadata.school_name != "REDE MUNICIPAL DE ENSINO":
+        base_name += f"_{data.metadata.school_name}"
+
+    return export_report_response(data, format, base_name)
 

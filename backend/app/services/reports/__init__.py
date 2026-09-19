@@ -9,6 +9,7 @@ from .generators import (
     generate_comparison_report_data,
     generate_schools_overview_report_data,
     generate_school_report_data,
+    generate_print_run_report_data,
 )
 
 __all__ = [
@@ -25,4 +26,5 @@ __all__ = [
     "generate_comparison_report_data",
     "generate_schools_overview_report_data",
     "generate_school_report_data",
+    "generate_print_run_report_data",
 ]

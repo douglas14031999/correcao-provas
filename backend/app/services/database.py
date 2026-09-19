@@ -2264,6 +2264,41 @@ def revoke_all_user_sessions(user_id: str) -> int:
     conn.close()
     return count
 
+# =========================================================================
+# PRINT RUN & LOGISTICS REPORT
+# =========================================================================
+
+def get_print_run_data(school_id: Optional[str] = None, exam_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Returns linked classroom exams with enrolled student counts for print run calculation."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    query = """
+        SELECT 
+            s.id as school_id, s.name as school_name,
+            c.id as classroom_id, c.name as classroom_name, c.grade_year, c.shift,
+            (SELECT COUNT(*) FROM students st WHERE st.classroom_id = c.id) as student_count,
+            e.id as exam_id, e.title as exam_title, e.subtitle as exam_subtitle
+        FROM classrooms c
+        JOIN schools s ON c.school_id = s.id
+        JOIN classroom_exams ce ON ce.classroom_id = c.id
+        JOIN exams e ON ce.exam_id = e.id
+        WHERE 1=1
+    """
+    params = []
+    if school_id:
+        query += " AND s.id = ?"
+        params.append(school_id)
+    if exam_id:
+        query += " AND e.id = ?"
+        params.append(exam_id)
+
+    query += " ORDER BY s.name ASC, c.name ASC, e.title ASC"
+    cursor.execute(query, tuple(params))
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
 
 
 

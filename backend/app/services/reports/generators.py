@@ -1,4 +1,9 @@
 from typing import Optional, Dict, Any, List
+import os
+import re
+from collections import defaultdict
+from datetime import datetime
+
 from .base_report import ReportData, ReportMetadata, ReportTableColumn, ReportTableSection
 from ..database import (
     get_classroom_report,
@@ -7,11 +12,9 @@ from ..database import (
     get_schools_overview_report,
     get_school_report_details,
     get_system_settings,
-    get_school
+    get_school,
+    get_print_run_data
 )
-
-import os
-from datetime import datetime
 
 def get_base_metadata(school_name: str = "", inep: str = "", classroom_name: str = "", grade_year: str = "", shift: str = "", exam_title: str = "") -> ReportMetadata:
     settings = get_system_settings()
@@ -466,4 +469,206 @@ def generate_school_report_data(school_id: str) -> Optional[ReportData]:
         sections=[sec1, sec2, sec3],
         signatures=["Direção Escolar", "Coordenação Pedagógica"]
     )
+
+# =========================================================================
+# REL-07: RELATÓRIO DE TIRAGEM E IMPRESSÃO DE PROVAS (LOGÍSTICA / GRÁFICA)
+# =========================================================================
+
+def extract_clean_grade(grade_year: str, classroom_name: str) -> str:
+    """Standardizes grade/year string into clean label like '2º ANO' or '9º ANO'."""
+    src = (grade_year or "").strip()
+    if src.upper() in ["MANHÃ", "TARDE", "NOITE", "INTEGRAL", "MATUTINO", "VESPERTINO"]:
+        src = ""
+    m = re.search(r'\b([1-9])\s*[º°ªo\.]?\s*ANO\b', src, re.IGNORECASE) or re.search(r'\b([1-9])\s*[º°ªo\.]?\s*ANO\b', classroom_name or "", re.IGNORECASE)
+    if m:
+        return f"{m.group(1)}º ANO"
+    if src:
+        return src
+    m_spec = re.search(r'\b(EJA|INFANTIL|PRÉ|BERÇÁRIO|CRECHE)\b', classroom_name or "", re.IGNORECASE)
+    if m_spec:
+        return m_spec.group(1).upper()
+    return "GERAL"
+
+def generate_print_run_report_data(school_id: Optional[str] = None, exam_id: Optional[str] = None) -> Optional[ReportData]:
+    """Generates the Print Run / Copies Logistics Report for municipal exam printing."""
+    raw_data = get_print_run_data(school_id=school_id, exam_id=exam_id)
+    if not raw_data:
+        return None
+
+    # Resolve School info if single school
+    selected_school_name = ""
+    if school_id:
+        sch = get_school(school_id)
+        if sch:
+            selected_school_name = sch["name"]
+
+    meta = get_base_metadata(
+        school_name=selected_school_name or "REDE MUNICIPAL DE ENSINO",
+        exam_title="Planejamento de Tiragem e Impressão de Provas"
+    )
+
+    # 1. Process data structures
+    distinct_schools = set()
+    distinct_classrooms = set()
+    classroom_students = {}
+    total_copies_all = 0
+
+    by_grade = defaultdict(lambda: defaultdict(int))
+    by_school_grade = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+    classroom_rows = []
+
+    for r in raw_data:
+        s_name = r["school_name"]
+        c_id = r["classroom_id"]
+        c_name = r["classroom_name"]
+        c_shift = r["shift"] or "MANHÃ"
+        st_count = int(r["student_count"] or 0)
+        e_title = r["exam_title"]
+        clean_g = extract_clean_grade(r["grade_year"], c_name)
+
+        distinct_schools.add(s_name)
+        distinct_classrooms.add(c_id)
+        classroom_students[c_id] = st_count
+
+        by_grade[clean_g][e_title] += st_count
+        by_school_grade[s_name][clean_g][e_title] += st_count
+        total_copies_all += st_count
+
+        classroom_rows.append({
+            "school_name": s_name,
+            "classroom_name": c_name,
+            "shift": c_shift,
+            "grade_year": clean_g,
+            "student_count": st_count,
+            "exam_title": e_title,
+            "copies_needed": st_count
+        })
+
+    total_enrolled = sum(classroom_students.values())
+
+    def grade_sort_key(g):
+        digits = re.findall(r'\d+', g)
+        if digits:
+            return (0, int(digits[0]), g)
+        return (1, 99, g)
+
+    sorted_grades = sorted(by_grade.keys(), key=grade_sort_key)
+
+    # Section 1: CONSOLIDADO GERAL DA REDE POR ANO / SÉRIE ESCOLAR
+    sec1_columns = [
+        ReportTableColumn(key="grade_year", header="Ano / Série Escolar", width_ratio=2.5, align="center"),
+        ReportTableColumn(key="exam_title", header="Simulado / Avaliação", width_ratio=5.0, align="left"),
+        ReportTableColumn(key="copies_needed", header="Qtd. Provas a Imprimir", width_ratio=2.5, align="center", is_numeric=True)
+    ]
+    sec1_rows = []
+    for g in sorted_grades:
+        exams_dict = by_grade[g]
+        grade_total = 0
+        for ex_title, count in sorted(exams_dict.items()):
+            sec1_rows.append({
+                "grade_year": g,
+                "exam_title": ex_title,
+                "copies_needed": count
+            })
+            grade_total += count
+        sec1_rows.append({
+            "grade_year": f"TOTAL {g}",
+            "exam_title": f"Subtotal do {g} (Todas as Provas)",
+            "copies_needed": grade_total
+        })
+
+    sec1_rows.append({
+        "grade_year": "TOTAL GERAL",
+        "exam_title": "Consolidado Geral da Rede Municipal",
+        "copies_needed": total_copies_all
+    })
+
+    sec1 = ReportTableSection(
+        title="1. CONSOLIDADO GERAL DA REDE POR ANO / SÉRIE ESCOLAR",
+        columns=sec1_columns,
+        rows=sec1_rows,
+        subtitle="Quantitativo total de cadernos de avaliação a serem impressos por série/ano"
+    )
+
+    # Section 2: QUANTITATIVO POR ESCOLA E POR ANO ESCOLAR
+    sec2_columns = [
+        ReportTableColumn(key="school_name", header="Unidade Escolar", width_ratio=3.5, align="left"),
+        ReportTableColumn(key="grade_year", header="Ano / Série", width_ratio=2.0, align="center"),
+        ReportTableColumn(key="exam_title", header="Simulado / Avaliação", width_ratio=4.5, align="left"),
+        ReportTableColumn(key="copies_needed", header="Cópias", width_ratio=1.8, align="center", is_numeric=True)
+    ]
+    sec2_rows = []
+    for s_name in sorted(by_school_grade.keys()):
+        school_grades = by_school_grade[s_name]
+        school_total = 0
+        for g in sorted(school_grades.keys(), key=grade_sort_key):
+            g_exams = school_grades[g]
+            g_total = 0
+            for ex_title, count in sorted(g_exams.items()):
+                sec2_rows.append({
+                    "school_name": s_name,
+                    "grade_year": g,
+                    "exam_title": ex_title,
+                    "copies_needed": count
+                })
+                g_total += count
+                school_total += count
+            if len(g_exams) > 1:
+                sec2_rows.append({
+                    "school_name": s_name,
+                    "grade_year": f"Subtotal {g}",
+                    "exam_title": f"Subtotal do {g} na Escola",
+                    "copies_needed": g_total
+                })
+        sec2_rows.append({
+            "school_name": f"TOTAL {s_name}",
+            "grade_year": "-",
+            "exam_title": "Total da Escola (Todas as Séries e Provas)",
+            "copies_needed": school_total
+        })
+
+    sec2 = ReportTableSection(
+        title="2. QUANTITATIVO POR ESCOLA, ANO ESCOLAR E GABARITO",
+        columns=sec2_columns,
+        rows=sec2_rows,
+        subtitle="Divisão de cópias e cadernos de avaliação por escola e por ano escolar"
+    )
+
+    # Section 3: LOGÍSTICA DETALHADA POR TURMA (ENVELOPAMENTO)
+    sec3_columns = [
+        ReportTableColumn(key="school_name", header="Escola", width_ratio=3.2, align="left"),
+        ReportTableColumn(key="classroom_name", header="Turma", width_ratio=2.5, align="left"),
+        ReportTableColumn(key="shift", header="Turno", width_ratio=1.5, align="center"),
+        ReportTableColumn(key="student_count", header="Alunos", width_ratio=1.3, align="center", is_numeric=True),
+        ReportTableColumn(key="exam_title", header="Avaliação Vinculada", width_ratio=3.5, align="left"),
+        ReportTableColumn(key="copies_needed", header="Qtd. Envelope", width_ratio=1.6, align="center", is_numeric=True)
+    ]
+    sec3 = ReportTableSection(
+        title="3. LOGÍSTICA DETALHADA POR TURMA (ORGANIZAÇÃO DE ENVELOPES)",
+        columns=sec3_columns,
+        rows=classroom_rows,
+        subtitle="Quantitativo exato de provas por envelope de turma para aplicação em sala"
+    )
+
+    summary_cards = [
+        {"label": "Escolas Atendidas", "value": len(distinct_schools)},
+        {"label": "Turmas Vinculadas", "value": len(distinct_classrooms)},
+        {"label": "Alunos Matriculados", "value": total_enrolled},
+        {"label": "Total Geral de Cópias", "value": total_copies_all}
+    ]
+
+    title_text = "Relatório Oficial de Tiragem e Impressão de Provas"
+    if selected_school_name:
+        title_text += f" — {selected_school_name}"
+
+    return ReportData(
+        title=title_text,
+        metadata=meta,
+        columns=sec1_columns,
+        rows=sec1_rows,
+        summary_cards=summary_cards,
+        sections=[sec1, sec2, sec3],
+        signatures=["Coordenador(a) Geral de Avaliações", "Secretário(a) Municipal de Educação"]
+    )
+
 

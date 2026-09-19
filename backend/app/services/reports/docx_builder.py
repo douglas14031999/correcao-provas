@@ -250,6 +250,11 @@ def build_docx_report(data: ReportData) -> bytes:
         for r_idx, row_dict in enumerate(rows, start=1):
             is_even = (r_idx % 2 == 0)
             row_bg = "F8FAFC" if is_even else "FFFFFF"
+            
+            # Highlight summary/total rows
+            is_total_row = any(isinstance(v, str) and ("TOTAL" in v.upper() or "SUBTOTAL" in v.upper()) for v in row_dict.values() if v)
+            if is_total_row:
+                row_bg = "E2E8F0"
 
             for c_idx, col in enumerate(cols):
                 c = table.cell(r_idx, c_idx)
@@ -268,6 +273,8 @@ def build_docx_report(data: ReportData) -> bytes:
                 r = p.add_run(str(val if val is not None else "-"))
                 r.font.name = "Segoe UI"
                 r.font.size = Pt(8)
+                if is_total_row:
+                    r.font.bold = True
                 r.font.color.rgb = RGBColor(15, 23, 42)
 
         doc.add_paragraph().paragraph_format.space_after = Pt(4)

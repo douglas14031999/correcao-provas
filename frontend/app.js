@@ -4365,6 +4365,18 @@ function exportSchoolReport(format = "pdf") {
   downloadReport(`/api/reports/school/${activeExportSchoolId}?format=${format}`, `Relatorio_Escola_${schName}.${format}`);
 }
 
+function exportPrintRunReport(format = "pdf", schoolId = null) {
+  closeAllExportDropdowns();
+  let url = `/api/reports/print-run?format=${format}`;
+  let baseFilename = "Relatorio_Tiragem_Impressao_Provas";
+  if (schoolId) {
+    url += `&school_id=${schoolId}`;
+    const schName = getActiveSchoolNameClean(schoolId);
+    baseFilename += `_${schName}`;
+  }
+  downloadReport(url, `${baseFilename}.${format}`);
+}
+
 const EXPORT_REPORT_DEFINITIONS = {
   classroom: [
     {
@@ -4392,6 +4404,12 @@ const EXPORT_REPORT_DEFINITIONS = {
       title: "Relatório da Escola",
       desc: "Turmas por prova, Quadro de Honra e Melhores por Série",
       icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>'
+    },
+    {
+      id: "print_run_school",
+      title: "Tiragem de Provas da Escola",
+      desc: "Qtd. de cópias desta escola por Série e Gabarito",
+      icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>'
     }
   ],
   network: [
@@ -4400,6 +4418,12 @@ const EXPORT_REPORT_DEFINITIONS = {
       title: "Panorâmico da Rede",
       desc: "Escolas, turmas e matrículas",
       icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>'
+    },
+    {
+      id: "print_run",
+      title: "Tiragem de Provas (Gráfica)",
+      desc: "Cópias por Ano, Escola, Gabarito e Turma",
+      icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>'
     },
     {
       id: "year_performance",
@@ -4451,9 +4475,9 @@ function openExportReportModal(context, preferredReport, preferredFormat, target
         const found = schoolsList.find(s => s.id === activeExportSchoolId);
         if (found && found.name) schName = found.name;
       }
-      subEl.textContent = `${schName} • Relatório de Desempenho`;
+      subEl.textContent = `${schName} • Relatórios Oficiais`;
     } else if (context === "network") {
-      subEl.textContent = "Rede Municipal • Lagoa da Canoa";
+      subEl.textContent = preferredReport === "print_run" ? "Planejamento de Tiragem e Impressão de Provas" : "Rede Municipal • Lagoa da Canoa";
     } else if (context === "year") {
       subEl.textContent = "Rendimento por Ano Escolar";
     }
@@ -4570,6 +4594,10 @@ function executeModalReportExport() {
     }
   } else if (r === "school_performance") {
     exportSchoolReport(fmt);
+  } else if (r === "print_run_school") {
+    exportPrintRunReport(fmt, activeExportSchoolId);
+  } else if (r === "print_run") {
+    exportPrintRunReport(fmt);
   } else if (r === "network_overview") {
     exportNetworkReport(fmt);
   } else if (r === "year_performance") {
@@ -5043,6 +5071,7 @@ window.closeExportReportModal = closeExportReportModal;
 window.selectExportModalReport = selectExportModalReport;
 window.selectExportModalFormat = selectExportModalFormat;
 window.executeModalReportExport = executeModalReportExport;
+window.exportPrintRunReport = exportPrintRunReport;
 window.updateYearReportExamsDropdown = updateYearReportExamsDropdown;
 window.toggleExportDropdown = toggleExportDropdown;
 window.clearSchoolsSearch = clearSchoolsSearch;
