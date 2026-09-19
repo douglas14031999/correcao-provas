@@ -369,13 +369,24 @@ def execute_system_update(
     current_path = env.get("PATH", "")
     env["PATH"] = f"{current_path}:{extra_paths}".strip(":")
 
-    # Localizar binário do git com fallbacks absolutos
+    # Localizar binários com fallbacks absolutos
+    sudo_bin = shutil.which("sudo", path=env["PATH"]) or "/usr/bin/sudo" or "/bin/sudo" or "sudo"
     git_bin = shutil.which("git", path=env["PATH"]) or "/usr/bin/git" or "/bin/git" or "git"
+
+    # Verificar se sudo está habilitado sem senha para www-data
+    cmd_prefix = []
+    try:
+        check_sudo = subprocess.run([sudo_bin, "-n", "true"], env=env, capture_output=True, timeout=5)
+        if check_sudo.returncode == 0:
+            cmd_prefix = [sudo_bin]
+    except Exception:
+        cmd_prefix = []
 
     try:
         # Executar git fetch origin
+        fetch_cmd = cmd_prefix + [git_bin, "-c", "safe.directory=*", "fetch", "origin"]
         fetch_res = subprocess.run(
-            [git_bin, "-c", "safe.directory=*", "fetch", "origin"],
+            fetch_cmd,
             cwd=root_dir,
             env=env,
             capture_output=True,
@@ -388,8 +399,9 @@ def execute_system_update(
             git_output.append(fetch_res.stderr.strip())
 
         # Executar git reset --hard origin/main
+        reset_cmd = cmd_prefix + [git_bin, "-c", "safe.directory=*", "reset", "--hard", "origin/main"]
         reset_res = subprocess.run(
-            [git_bin, "-c", "safe.directory=*", "reset", "--hard", "origin/main"],
+            reset_cmd,
             cwd=root_dir,
             env=env,
             capture_output=True,
@@ -404,6 +416,11 @@ def execute_system_update(
         if reset_res.returncode != 0:
             err_msg = reset_res.stderr or reset_res.stdout or "Código de retorno diferente de zero"
             raise Exception(f"Erro ao executar git reset: {err_msg}")
+
+        # Reatribui permissão da pasta a www-data caso tenha sido executado como sudo
+        if cmd_prefix:
+            chown_bin = shutil.which("chown", path=env["PATH"]) or "/bin/chown" or "/usr/bin/chown"
+            subprocess.run([sudo_bin, chown_bin, "-R", "www-data:www-data", root_dir], env=env, timeout=15)
 
     except Exception as e:
         raise HTTPException(
