@@ -3470,6 +3470,16 @@ body.mobile-menu-open {
   overflow-y: auto;
 }
 
+.modal-footer {
+  padding: 1rem 1.35rem;
+  border-top: 1px solid var(--border-color);
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
 .modal-instruction {
   font-size: 0.85rem;
   color: var(--text-secondary);
