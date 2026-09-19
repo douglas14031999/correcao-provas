@@ -21,8 +21,60 @@ def is_postgres() -> bool:
     url = get_database_url()
     return url.startswith("postgresql://")
 
+class RowAdapter:
+    """
+    Adapta uma linha do PostgreSQL para ser 100% compatível com sqlite3.Row:
+    - Suporta acesso por índice numérico: row[0]
+    - Suporta acesso por nome de coluna (case-insensitive): row['name']
+    - Suporta dict(row), row.keys(), row.items(), row.values(), row.get()
+    """
+    def __init__(self, row, description):
+        self._row = row
+        if description:
+            self._keys = [col.name if hasattr(col, 'name') else col[0] for col in description]
+            self._map = {k.lower(): i for i, k in enumerate(self._keys)}
+        else:
+            self._keys = []
+            self._map = {}
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self._row[key]
+        if isinstance(key, str):
+            idx = self._map.get(key.lower())
+            if idx is not None:
+                return self._row[idx]
+            raise KeyError(key)
+        raise TypeError(f"Row indices must be integers or strings, not {type(key).__name__}")
+
+    def __iter__(self):
+        return iter(self._keys)
+
+    def __len__(self):
+        return len(self._keys)
+
+    def __contains__(self, key):
+        if isinstance(key, str):
+            return key.lower() in self._map
+        return False
+
+    def keys(self):
+        return self._keys
+
+    def values(self):
+        return [self._row[i] for i in range(len(self._keys))]
+
+    def items(self):
+        return [(k, self._row[i]) for i, k in enumerate(self._keys)]
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
 class PostgresCursorWrapper:
-    """Wrapper around psycopg2 DictCursor that adapts SQLite '?' placeholders to PostgreSQL '%s'."""
+    """Wrapper around psycopg2 cursor that adapts SQLite '?' placeholders to PostgreSQL '%s' and wraps rows with RowAdapter."""
     def __init__(self, cursor):
         self._cursor = cursor
 
@@ -36,14 +88,24 @@ class PostgresCursorWrapper:
         sql_pg = sql.replace("?", "%s")
         return self._cursor.executemany(sql_pg, seq_of_params)
 
+    def _wrap(self, row):
+        if row is None:
+            return None
+        return RowAdapter(row, self._cursor.description)
+
     def fetchone(self):
-        return self._cursor.fetchone()
+        row = self._cursor.fetchone()
+        return self._wrap(row)
 
     def fetchall(self):
-        return self._cursor.fetchall()
+        rows = self._cursor.fetchall()
+        desc = self._cursor.description
+        return [RowAdapter(r, desc) for r in rows]
 
     def fetchmany(self, size: Optional[int] = None):
-        return self._cursor.fetchmany(size) if size is not None else self._cursor.fetchmany()
+        rows = self._cursor.fetchmany(size) if size is not None else self._cursor.fetchmany()
+        desc = self._cursor.description
+        return [RowAdapter(r, desc) for r in rows]
 
     @property
     def rowcount(self) -> int:
@@ -57,7 +119,9 @@ class PostgresCursorWrapper:
         self._cursor.close()
 
     def __iter__(self):
-        return iter(self._cursor)
+        desc = self._cursor.description
+        for row in self._cursor:
+            yield RowAdapter(row, desc)
 
     def __enter__(self):
         return self
@@ -66,7 +130,7 @@ class PostgresCursorWrapper:
         self._cursor.close()
 
 class PostgresConnectionWrapper:
-    """Wrapper around psycopg2 connection providing SQLite-like behavior and DictCursor factory."""
+    """Wrapper around psycopg2 connection providing SQLite-like behavior and RowAdapter rows."""
     def __init__(self, conn):
         self._conn = conn
         self._row_factory = None
@@ -80,8 +144,7 @@ class PostgresConnectionWrapper:
         self._row_factory = val
 
     def cursor(self):
-        import psycopg2.extras
-        cur = self._conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cur = self._conn.cursor()
         return PostgresCursorWrapper(cur)
 
     def commit(self):
@@ -1949,8 +2012,8 @@ def get_macro_dashboard_data(exam_id: Optional[str] = None) -> Dict[str, Any]:
         JOIN submissions s ON s.classroom_id = cl.id
         {alert_where}
         GROUP BY cl.id, cl.name, sc.name, cl.grade_year, cl.shift
-        HAVING avg_pct < 50.0 AND graded_count > 0
-        ORDER BY avg_pct ASC
+        HAVING AVG((s.score * 100.0) / s.max_score) < 50.0 AND COUNT(s.id) > 0
+        ORDER BY AVG((s.score * 100.0) / s.max_score) ASC
         LIMIT 10
     """, alert_params)
     alert_rows = cursor.fetchall()
