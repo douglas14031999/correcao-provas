@@ -50,8 +50,19 @@ fi
 
 # 3. Detectar IP público
 echo -e "\n${BLUE}🔍 Detectando endereço IP público da VPS...${NC}"
-PUBLIC_IP=$(curl -sSL --max-time 4 https://ifconfig.me || curl -sSL --max-time 4 https://api.ipify.org || hostname -I | awk '{print $1}')
-echo -e "IP público detectado: ${GREEN}${BOLD}${PUBLIC_IP}${NC}"
+# Tenta detectar IPv4 explicitamente
+PUBLIC_IP=$(curl -4 -sSL --max-time 3 https://api.ipify.org 2>/dev/null || \
+            curl -4 -sSL --max-time 3 https://ifconfig.me 2>/dev/null || \
+            curl -4 -sSL --max-time 3 https://icanhazip.com 2>/dev/null || \
+            curl -sSL --max-time 3 https://ifconfig.me 2>/dev/null || \
+            hostname -I | awk '{print $1}')
+
+echo -e "IP detectado: ${GREEN}${BOLD}${PUBLIC_IP}${NC}"
+read -r -p "👉 Pressione Enter para confirmar ou digite o IPv4 da VPS: " USER_IP </dev/tty
+if [ -n "$USER_IP" ]; then
+  PUBLIC_IP=$(echo "$USER_IP" | tr -d '[:space:]')
+  echo -e "IP definido para: ${GREEN}${BOLD}${PUBLIC_IP}${NC}"
+fi
 
 # 4. Perguntar sobre Domínio e Certificado SSL
 echo -e "\n${YELLOW}------------------------------------------------------------------------------${NC}"
@@ -270,6 +281,7 @@ if [ -n "$DOMAIN" ]; then
   cat <<EOF > /etc/nginx/sites-available/correcao-provas
 server {
     listen 80;
+    listen [::]:80;
     server_name ${DOMAIN};
 
     client_max_body_size 50M;
@@ -316,12 +328,14 @@ else
   cat <<EOF > /etc/nginx/sites-available/correcao-provas
 server {
     listen 80;
+    listen [::]:80;
     server_name ${PUBLIC_IP} localhost;
     return 301 https://\$host\$request_uri;
 }
 
 server {
     listen 443 ssl;
+    listen [::]:443 ssl;
     server_name ${PUBLIC_IP} localhost;
 
     ssl_certificate ${SSL_DIR}/selfsigned.crt;
