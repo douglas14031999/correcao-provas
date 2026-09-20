@@ -33,7 +33,13 @@ def get_chrome_executable() -> Optional[str]:
         r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
         r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
         os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Edge\Application\msedge.exe"),
+        "/usr/bin/google-chrome",
+        "/usr/bin/google-chrome-stable",
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        "/snap/bin/chromium",
         "google-chrome",
+        "google-chrome-stable",
         "chromium-browser",
         "chromium",
         "chrome"
@@ -299,9 +305,148 @@ def generate_classroom_covers_pdf(
     if not students or not exams:
         raise ValueError("Estudantes e simulados são obrigatórios para emissão das capas.")
 
+def generate_classroom_covers_reportlab(
+    classroom: Dict[str, Any],
+    students: List[Dict[str, Any]],
+    exams: List[Dict[str, Any]],
+    order_by: str = "student",
+    include_attendance_roster: bool = True
+) -> bytes:
+    """
+    Renderizador 100% nativo ReportLab para capas personalizadas com folha OMR integrada.
+    Utilizado quando o servidor não possui navegador Google Chrome/Chromium instalado.
+    Garante funcionamento imediato e confiável em qualquer ambiente VPS Linux/Docker.
+    """
+    from reportlab.pdfgen import canvas
+    from reportlab.lib import pagesizes
+    from app.services.pdf_generator import render_attendance_roster_page
+    from app.services.reports.exam_cover_builder import generate_exam_cover
+
+    merged_pdf = fitz.open()
+
+    # 1. Página 1: Ata Oficial de Presença e Entrega
+    if include_attendance_roster and students:
+        try:
+            buf_roster = io.BytesIO()
+            c_roster = canvas.Canvas(buf_roster, pagesize=pagesizes.A4)
+            render_attendance_roster_page(
+                c=c_roster,
+                classroom=classroom,
+                students=students,
+                exams=exams,
+                logo_path=None
+            )
+            c_roster.save()
+            roster_bytes = buf_roster.getvalue()
+            buf_roster.close()
+
+            if roster_bytes:
+                roster_doc = fitz.open(stream=roster_bytes, filetype="pdf")
+                merged_pdf.insert_pdf(roster_doc)
+                roster_doc.close()
+        except Exception as e:
+            import logging
+            logging.getLogger("uvicorn").error(f"Erro ao gerar ata de presença para capas (ReportLab): {e}")
+
+    # 2. Sequência de pares (simulado, estudante)
+    pairs = []
+    if order_by == "exam":
+        for ex in exams:
+            for st in students:
+                pairs.append((ex, st))
+    else:
+        for st in students:
+            for ex in exams:
+                pairs.append((ex, st))
+
+    temp_dir = tempfile.mkdtemp(prefix="covers_rl_")
+    try:
+        class_name = (classroom.get("name") or "Turma").strip()
+        school_name = (classroom.get("school_name") or "Escola").strip()
+        grade_stage = classroom.get("grade_year") or "Ensino Fundamental"
+
+        for idx, (ex, st) in enumerate(pairs):
+            st_name = (st.get("name") or "ESTUDANTE").strip()
+            st_id = str(st.get("id") or idx + 1)
+            ex_id = str(ex.get("id") or "1")
+            qr_payload = f"E:{ex_id}|S:{st_id}"
+
+            ex_title = (ex.get("cover_title") or ex.get("title") or "PROVA CANOA").upper()
+            discipline = extract_exam_discipline(ex)
+            num_q = int(ex.get("num_questions", 22))
+            num_alt = int(ex.get("num_alternatives", 4))
+
+            page_pdf_path = os.path.join(temp_dir, f"cover_{idx:04d}.pdf")
+
+            if " - " in ex_title:
+                parts = ex_title.split(" - ", 1)
+                title_lines = [parts[0], parts[1]]
+            elif len(ex_title) > 26:
+                words = ex_title.split()
+                mid = len(words) // 2
+                title_lines = [" ".join(words[:mid]), " ".join(words[mid:])]
+            else:
+                title_lines = [ex_title]
+
+            caderno_label = f"CAD-{ex_id[:4].upper()}" if len(ex_id) > 2 else f"CAD-0{ex_id}"
+
+            generate_exam_cover(
+                output_pdf_path=page_pdf_path,
+                year="2026",
+                main_title_lines=title_lines,
+                header_subtitle=f"{school_name.upper()} • {class_name}",
+                caderno_code=caderno_label,
+                discipline=discipline,
+                grade_stage=f"{grade_stage} • {class_name}",
+                qr_code_text=qr_payload,
+                num_questions=num_q,
+                num_alternatives=num_alt,
+                student_name=st_name,
+                tracking_code=f"CANOA-{ex_id[:4]}-{st_id[:4]}",
+                caderno_accent_color="#1e3a8a"
+            )
+
+            cover_doc = fitz.open(page_pdf_path)
+            merged_pdf.insert_pdf(cover_doc)
+            cover_doc.close()
+
+        out_buf = io.BytesIO()
+        merged_pdf.save(out_buf)
+        merged_pdf.close()
+        return out_buf.getvalue()
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+def generate_classroom_covers_pdf(
+    classroom: Dict[str, Any],
+    students: List[Dict[str, Any]],
+    exams: List[Dict[str, Any]],
+    order_by: str = "student",
+    model_id: str = "opcao_1_montanhas_canoa",
+    chunk_size: int = 15,
+    include_attendance_roster: bool = True
+) -> bytes:
+    """
+    Renders high-definition cover PDFs for every student in the classroom,
+    merged into a single PDF document in the requested sorting order.
+    ALWAYS includes as Page 1 (and subsequent if > 28 students) the official
+    Attendance & Signature Roster (Ata de Frequência e Entrega de Gabaritos/Capas).
+    Uses chunked multi-page single-pass Chrome printing for ultra-fast generation (10x-20x faster).
+    Falls back gracefully to native pure ReportLab generation if Chrome/Chromium is not installed.
+    """
+    if not students or not exams:
+        raise ValueError("Estudantes e simulados são obrigatórios para emissão das capas.")
+
     chrome_bin = get_chrome_executable()
     if not chrome_bin:
-        raise RuntimeError("Navegador Google Chrome ou Microsoft Edge não encontrado no servidor para renderizar o PDF.")
+        # Fallback instantâneo via ReportLab nativo caso Chrome não esteja instalado no Linux
+        return generate_classroom_covers_reportlab(
+            classroom=classroom,
+            students=students,
+            exams=exams,
+            order_by=order_by,
+            include_attendance_roster=include_attendance_roster
+        )
 
     temp_dir = tempfile.mkdtemp(prefix="covers_batch_")
     merged_pdf = fitz.open()
