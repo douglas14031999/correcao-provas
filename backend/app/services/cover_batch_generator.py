@@ -27,9 +27,9 @@ SHEETS_DIR = os.path.join(
 
 def get_chrome_executable() -> Optional[str]:
     candidates = [
+        "/opt/google/chrome/chrome",
         "/usr/bin/google-chrome",
         "/usr/bin/google-chrome-stable",
-        "/opt/google/chrome/chrome",
         r"C:\Program Files\Google\Chrome\Application\chrome.exe",
         r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
         os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
@@ -609,6 +609,7 @@ html, body {
             ]
 
             proc_env = os.environ.copy()
+            proc_env["PATH"] = f"/var/www/correcao-provas/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:{proc_env.get('PATH', '')}"
             proc_env["HOME"] = temp_dir
             proc_env["TMPDIR"] = temp_dir
             proc_env["XDG_CONFIG_HOME"] = os.path.join(temp_dir, "xdg_config")
