@@ -11,44 +11,24 @@ from reportlab.graphics.barcode.qr import QrCodeWidget
 # Standard A4: 595.275 x 841.889 pt
 PAGE_WIDTH, PAGE_HEIGHT = pagesizes.A4
 
-def _draw_floral_watermark(c: canvas.Canvas):
-    """Draws subtle, elegant organic/floral silhouette curves at the top header area."""
+def _draw_modern_header(c: canvas.Canvas, accent_color: str = "#1e3a8a"):
+    """Draws sleek modern corporate header area matching Prefeitura de Lagoa da Canoa design."""
     c.saveState()
-    # Soft light grayish background for the upper section
+    # Soft background for the top header banner
     c.setFillColor(colors.HexColor("#f8fafc"))
-    c.rect(0, PAGE_HEIGHT - 270, PAGE_WIDTH, 270, stroke=0, fill=1)
+    c.rect(0, PAGE_HEIGHT - 230, PAGE_WIDTH, 230, stroke=0, fill=1)
 
-    # Soft decorative petals / leaves matching the CAEd / SAEB assessment aesthetic
-    c.setFillColor(colors.Color(1, 1, 1, alpha=0.85))
-    c.setStrokeColor(colors.Color(0.85, 0.89, 0.93, alpha=0.7))
-    c.setLineWidth(1.0)
+    # Accent top border (4pt)
+    c.setFillColor(colors.HexColor(accent_color))
+    c.rect(0, PAGE_HEIGHT - 6, PAGE_WIDTH, 6, stroke=0, fill=1)
 
-    # Stylized petal clusters
-    petals = [
-        # (center_x, center_y, rx, ry, angle)
-        (75, PAGE_HEIGHT - 55, 48, 13, 35),
-        (75, PAGE_HEIGHT - 55, 48, 13, -35),
-        (75, PAGE_HEIGHT - 55, 42, 11, 90),
-        (75, PAGE_HEIGHT - 55, 38, 9, 0),
-        (350, PAGE_HEIGHT - 40, 65, 15, 40),
-        (350, PAGE_HEIGHT - 40, 65, 15, -45),
-        (350, PAGE_HEIGHT - 40, 58, 13, 85),
-        (350, PAGE_HEIGHT - 40, 58, 13, -15),
-        (560, PAGE_HEIGHT - 90, 52, 14, 30),
-        (560, PAGE_HEIGHT - 90, 52, 14, -50),
-        (560, PAGE_HEIGHT - 90, 46, 12, 75),
-    ]
-
-    for cx, cy, rx, ry, angle in petals:
-        c.saveState()
-        c.translate(cx, cy)
-        c.rotate(angle)
-        p = c.beginPath()
-        p.moveTo(-rx, 0)
-        p.curveTo(-rx * 0.5, ry, rx * 0.5, ry, rx, 0)
-        p.curveTo(rx * 0.5, -ry, -rx * 0.5, -ry, -rx, 0)
-        c.drawPath(p, stroke=1, fill=1)
-        c.restoreState()
+    # Subtle modern wave line in the header background
+    c.setStrokeColor(colors.HexColor("#e2e8f0"))
+    c.setLineWidth(1.2)
+    path = c.beginPath()
+    path.moveTo(0, PAGE_HEIGHT - 220)
+    path.curveTo(PAGE_WIDTH * 0.35, PAGE_HEIGHT - 200, PAGE_WIDTH * 0.65, PAGE_HEIGHT - 240, PAGE_WIDTH, PAGE_HEIGHT - 215)
+    c.drawPath(path, stroke=1, fill=0)
 
     c.restoreState()
 
@@ -56,7 +36,7 @@ def generate_exam_cover(
     output_pdf_path: str,
     year: str = "2026",
     main_title_lines: Optional[List[str]] = None,
-    header_subtitle: str = "AVALIAÇÃO CONTÍNUA DA APRENDIZAGEM - CICLO II",
+    header_subtitle: str = "PREFEITURA DE LAGOA DA CANOA • SEMED",
     caderno_code: str = "M0402",
     discipline: str = "MATEMÁTICA",
     grade_stage: str = "4º ano do Ensino Fundamental",
@@ -66,18 +46,18 @@ def generate_exam_cover(
     student_name: str = "",
     student_birth_date: str = "",  # format "DDMMAAAA" or "DD/MM/AAAA"
     tracking_code: str = "4454197329",
-    caderno_accent_color: str = "#475569"
+    caderno_accent_color: str = "#1e3a8a",
+    school_name: str = "",
+    classroom_name: str = "",
+    shift: str = "MATUTINO"
 ) -> str:
     """
     Generates a high-precision assessment cover + OMR answer sheet conforming to the
-    CAEd / SAEB official template layout.
+    official Prefeitura de Lagoa da Canoa 2026 template layout.
     """
     if main_title_lines is None:
         main_title_lines = [
-            "AVALIAÇÃO",
-            "CONTÍNUA DA",
-            "APRENDIZAGEM",
-            "CICLO II"
+            "PROVA CANOA"
         ]
 
     if qr_code_text is None:
@@ -86,26 +66,24 @@ def generate_exam_cover(
     os.makedirs(os.path.dirname(os.path.abspath(output_pdf_path)), exist_ok=True)
     c = canvas.Canvas(output_pdf_path, pagesize=pagesizes.A4)
 
-    # 1. Subtle Background & Floral Watermark
-    _draw_floral_watermark(c)
+    # 1. Sleek Modern Header
+    _draw_modern_header(c, accent_color=caderno_accent_color)
 
     # 2. Year Pill Badge (Top Left)
     pill_x, pill_y, pill_w, pill_h = 44, PAGE_HEIGHT - 54, 70, 22
     c.saveState()
-    c.setFillColor(colors.white)
-    c.setStrokeColor(colors.HexColor("#cbd5e1"))
-    c.setLineWidth(1.0)
-    c.roundRect(pill_x, pill_y, pill_w, pill_h, 11, stroke=1, fill=1)
+    c.setFillColor(colors.HexColor(caderno_accent_color))
+    c.roundRect(pill_x, pill_y, pill_w, pill_h, 11, stroke=0, fill=1)
 
-    c.setFillColor(colors.HexColor("#1e293b"))
+    c.setFillColor(colors.white)
     c.setFont("Helvetica-Bold", 12)
-    c.drawCentredString(pill_x + pill_w / 2.0, pill_y + 5.5, str(year))
+    c.drawCentredString(pill_x + pill_w / 2.0, pill_y + 6.0, str(year))
     c.restoreState()
 
     # 3. Main Title (Left Column)
     title_start_y = pill_y - 28
     line_height = 24
-    c.setFont("Helvetica-Bold", 21)
+    c.setFont("Helvetica-Bold", 22)
     c.setFillColor(colors.HexColor("#0f172a"))
     for idx, line in enumerate(main_title_lines):
         c.drawString(pill_x, title_start_y - idx * line_height, line)
@@ -160,15 +138,27 @@ def generate_exam_cover(
 
     c.saveState()
     # Light gray rounded background
-    c.setFillColor(colors.HexColor("#f1f5f9"))
-    c.setStrokeColor(colors.HexColor("#e2e8f0"))
+    c.setFillColor(colors.HexColor("#f8fafc"))
+    c.setStrokeColor(colors.HexColor("#cbd5e1"))
     c.setLineWidth(1.0)
     c.roundRect(card_x, card_y, card_w, card_h, 8, stroke=1, fill=1)
 
-    # 6.1 QR Code inside card (top-left)
-    qr_size = 46
-    qr_x = card_x + 24
-    qr_y = card_y + card_h - qr_size - 18
+    # 6.1 Card Header Bar
+    bar_h = 24
+    c.setFillColor(colors.HexColor(caderno_accent_color))
+    c.roundRect(card_x, card_y + card_h - bar_h, card_w, bar_h, 8, stroke=0, fill=1)
+    c.rect(card_x, card_y + card_h - bar_h, card_w, 8, stroke=0, fill=1)
+
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica-Bold", 8.5)
+    c.drawString(card_x + 16, card_y + card_h - 16, f"DADOS DO(A) ESTUDANTE • {discipline.upper()}")
+    if grade_stage:
+        c.drawRightString(card_x + card_w - 16, card_y + card_h - 16, str(grade_stage).upper())
+
+    # 6.2 QR Code inside card (left)
+    qr_size = 60
+    qr_x = card_x + 16
+    qr_y = card_y + (card_h - bar_h - qr_size) / 2.0 + 4
 
     qr_widget = QrCodeWidget(qr_code_text)
     qr_widget.barWidth = qr_size
@@ -179,95 +169,57 @@ def generate_exam_cover(
     d.drawOn(c, qr_x, qr_y)
 
     # Text under QR code
-    c.setFont("Helvetica-Bold", 7.5)
-    c.setFillColor(colors.HexColor("#1e293b"))
+    c.setFont("Helvetica", 7.0)
+    c.setFillColor(colors.HexColor("#64748b"))
     c.drawCentredString(qr_x + qr_size / 2.0, qr_y - 9.0, qr_code_text)
 
-    # 6.2 Discipline & Stage (top-right of card)
-    c.setFont("Helvetica-Bold", 13.5)
-    c.setFillColor(colors.HexColor("#0f172a"))
-    c.drawRightString(card_x + card_w - 24, card_y + card_h - 30, discipline.upper())
+    # 6.3 Student Fields Table (right of QR code)
+    field_x = qr_x + qr_size + 18
+    field_w = card_w - (field_x - card_x) - 16
+    start_field_y = card_y + card_h - bar_h - 22
 
-    c.setFont("Helvetica", 10.0)
-    c.setFillColor(colors.HexColor("#334155"))
-    c.drawRightString(card_x + card_w - 24, card_y + card_h - 46, grade_stage)
-
-    # 6.3 Student Name Field (Cleanly below QR code)
-    label_y = card_y + 80
-    c.setFont("Helvetica-Bold", 8.5)
-    c.setFillColor(colors.HexColor("#334155"))
-    c.circle(card_x + 26, label_y + 3, 2.5, stroke=0, fill=1)
-    c.drawString(card_x + 34, label_y, "Nome do(a) estudante")
-
-    # Name input box
-    name_box_x = card_x + 24
-    name_box_y = label_y - 28
-    name_box_w = card_w - 48
-    name_box_h = 24
-    c.setFillColor(colors.white)
-    c.setStrokeColor(colors.HexColor("#94a3b8"))
-    c.setLineWidth(0.8)
-    c.rect(name_box_x, name_box_y, name_box_w, name_box_h, stroke=1, fill=1)
-
-    if student_name:
-        c.setFillColor(colors.HexColor("#0f172a"))
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(name_box_x + 8, name_box_y + 7, student_name.upper())
-
-    # 6.4 Birth Date Field
-    date_label_x = card_x + card_w - 245
-    date_label_y = name_box_y - 24
+    # Field 1: Unidade Escolar
+    effective_school = school_name or "SECRETARIA MUNICIPAL DE EDUCAÇÃO - SEMED"
     c.setFont("Helvetica-Bold", 7.5)
-    c.setFillColor(colors.HexColor("#334155"))
-    c.drawRightString(date_label_x - 12, date_label_y + 8, "Data de Nascimento")
-    c.drawRightString(date_label_x - 12, date_label_y - 2, "do(a) estudante")
+    c.setFillColor(colors.HexColor("#475569"))
+    c.drawString(field_x, start_field_y, "UNIDADE ESCOLAR:")
+    c.setFont("Helvetica-Bold", 8.5)
+    c.setFillColor(colors.HexColor("#0f172a"))
+    c.drawString(field_x + 95, start_field_y, effective_school[:48].upper())
+    c.setStrokeColor(colors.HexColor("#e2e8f0"))
+    c.setLineWidth(0.6)
+    c.line(field_x, start_field_y - 4, field_x + field_w, start_field_y - 4)
 
-    # Date boxes: [D][D]  [M][M]  [A][A][A][A]
-    box_s = 20
-    gap = 2
-    group_gap = 8
+    # Field 2: Nome Completo do(a) Estudante
+    effective_student = student_name or "ESTUDANTE"
+    start_field_y -= 26
+    c.setFont("Helvetica-Bold", 7.5)
+    c.setFillColor(colors.HexColor("#475569"))
+    c.drawString(field_x, start_field_y, "NOME DO(A) ESTUDANTE:")
+    c.setFont("Helvetica-Bold", 10.5)
+    c.setFillColor(colors.HexColor("#0f172a"))
+    c.drawString(field_x + 120, start_field_y, effective_student[:42].upper())
+    c.line(field_x, start_field_y - 4, field_x + field_w, start_field_y - 4)
 
-    clean_date = student_birth_date.replace("/", "").replace("-", "").strip() if student_birth_date else ""
+    # Field 3: Turma e Turno
+    start_field_y -= 26
+    effective_class = classroom_name or grade_stage
+    effective_shift = shift or "MATUTINO"
 
-    curr_x = date_label_x
-    box_idx = 0
-    # Day (2 boxes)
-    for _ in range(2):
-        c.setFillColor(colors.white)
-        c.setStrokeColor(colors.HexColor("#94a3b8"))
-        c.rect(curr_x, date_label_y - 6, box_s, box_s, stroke=1, fill=1)
-        if clean_date and box_idx < len(clean_date):
-            c.setFillColor(colors.HexColor("#0f172a"))
-            c.setFont("Helvetica-Bold", 9.5)
-            c.drawCentredString(curr_x + box_s / 2.0, date_label_y - 1, clean_date[box_idx])
-        curr_x += box_s + gap
-        box_idx += 1
+    c.setFont("Helvetica-Bold", 7.5)
+    c.setFillColor(colors.HexColor("#475569"))
+    c.drawString(field_x, start_field_y, "TURMA:")
+    c.setFont("Helvetica-Bold", 9.0)
+    c.setFillColor(colors.HexColor("#0f172a"))
+    c.drawString(field_x + 45, start_field_y, str(effective_class).upper())
 
-    curr_x += group_gap - gap
-    # Month (2 boxes)
-    for _ in range(2):
-        c.setFillColor(colors.white)
-        c.setStrokeColor(colors.HexColor("#94a3b8"))
-        c.rect(curr_x, date_label_y - 6, box_s, box_s, stroke=1, fill=1)
-        if clean_date and box_idx < len(clean_date):
-            c.setFillColor(colors.HexColor("#0f172a"))
-            c.setFont("Helvetica-Bold", 9.5)
-            c.drawCentredString(curr_x + box_s / 2.0, date_label_y - 1, clean_date[box_idx])
-        curr_x += box_s + gap
-        box_idx += 1
-
-    curr_x += group_gap - gap
-    # Year (4 boxes)
-    for _ in range(4):
-        c.setFillColor(colors.white)
-        c.setStrokeColor(colors.HexColor("#94a3b8"))
-        c.rect(curr_x, date_label_y - 6, box_s, box_s, stroke=1, fill=1)
-        if clean_date and box_idx < len(clean_date):
-            c.setFillColor(colors.HexColor("#0f172a"))
-            c.setFont("Helvetica-Bold", 9.5)
-            c.drawCentredString(curr_x + box_s / 2.0, date_label_y - 1, clean_date[box_idx])
-        curr_x += box_s + gap
-        box_idx += 1
+    c.setFont("Helvetica-Bold", 7.5)
+    c.setFillColor(colors.HexColor("#475569"))
+    c.drawString(field_x + field_w * 0.55, start_field_y, "TURNO:")
+    c.setFont("Helvetica-Bold", 9.0)
+    c.setFillColor(colors.HexColor("#0f172a"))
+    c.drawString(field_x + field_w * 0.55 + 45, start_field_y, str(effective_shift).upper())
+    c.line(field_x, start_field_y - 4, field_x + field_w, start_field_y - 4)
 
     c.restoreState()
 

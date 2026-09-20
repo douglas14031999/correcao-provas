@@ -381,6 +381,8 @@ def generate_classroom_covers_reportlab(
         class_name = (classroom.get("name") or "Turma").strip()
         school_name = (classroom.get("school_name") or "Escola").strip()
         grade_stage = classroom.get("grade_year") or "Ensino Fundamental"
+        raw_shift = (classroom.get("shift") or "MATUTINO").strip().upper()
+        shift = "MATUTINO" if ("MANHÃ" in raw_shift or "MATUTINO" in raw_shift) else "VESPERTINO"
 
         for idx, (ex, st) in enumerate(pairs):
             st_name = (st.get("name") or "ESTUDANTE").strip()
@@ -431,7 +433,10 @@ def generate_classroom_covers_reportlab(
                 num_alternatives=num_alt,
                 student_name=st_name,
                 tracking_code=f"CANOA-{ex_id[:4]}-{st_id[:4]}",
-                caderno_accent_color=caderno_color
+                caderno_accent_color=caderno_color,
+                school_name=school_name,
+                classroom_name=class_name,
+                shift=shift
             )
 
             cover_doc = fitz.open(page_pdf_path)
