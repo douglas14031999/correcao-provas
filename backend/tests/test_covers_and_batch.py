@@ -125,5 +125,14 @@ class TestCoverModelsAndBatch(unittest.TestCase):
         self.assertEqual(len(doc2), 5)
         doc2.close()
 
+        # 3. Test explicit model_id override
+        pdf_bytes_model = generate_classroom_covers_pdf(
+            classroom, students, exams, order_by="student", model_id="opcao_3_por_do_sol_solar"
+        )
+        self.assertGreater(len(pdf_bytes_model), 1000)
+        doc3 = fitz.open(stream=pdf_bytes_model, filetype="pdf")
+        self.assertEqual(len(doc3), 5)
+        doc3.close()
+
 if __name__ == "__main__":
     unittest.main()

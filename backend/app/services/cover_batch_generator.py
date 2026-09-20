@@ -27,14 +27,15 @@ SHEETS_DIR = os.path.join(
 
 def get_chrome_executable() -> Optional[str]:
     candidates = [
+        "/usr/bin/google-chrome",
+        "/usr/bin/google-chrome-stable",
+        "/opt/google/chrome/chrome",
         r"C:\Program Files\Google\Chrome\Application\chrome.exe",
         r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
         os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
         r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
         r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
         os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Edge\Application\msedge.exe"),
-        "/usr/bin/google-chrome",
-        "/usr/bin/google-chrome-stable",
         "/usr/bin/chromium",
         "/usr/bin/chromium-browser",
         "/snap/bin/chromium",
@@ -210,11 +211,13 @@ def extract_exam_discipline(exam: Dict[str, Any]) -> str:
 def render_single_cover_html(
     exam: Dict[str, Any],
     student: Dict[str, Any],
-    classroom: Dict[str, Any]
+    classroom: Dict[str, Any],
+    model_override: Optional[str] = None
 ) -> str:
     """Populates template HTML with exam and student metadata."""
-    model_id = exam.get("cover_model") or "opcao_4_azul_nautico_lagoa"
-    content = get_cover_template_html(model_id)
+    effective_model = model_override or exam.get("cover_model") or "opcao_4_azul_nautico_lagoa"
+    effective_model = str(effective_model).strip().replace(".html", "")
+    content = get_cover_template_html(effective_model)
     
     school_name = (classroom.get("school_name") or exam.get("school_name") or "SEMED LAGOA DA CANOA").upper()
     student_name = (student.get("name") or "ESTUDANTE").upper()
@@ -236,7 +239,7 @@ def render_single_cover_html(
         "opcao_3_por_do_sol_solar": "#c2410c",
         "opcao_4_azul_nautico_lagoa": "#1e3a8a"
     }
-    base_color = header_colors.get(model_id, "#1e3a8a")
+    base_color = header_colors.get(effective_model, "#1e3a8a")
 
     # 1. Update Title and Brand
     content = re.sub(
@@ -317,34 +320,18 @@ def render_single_cover_html(
 
     return content
 
-def generate_classroom_covers_pdf(
-    classroom: Dict[str, Any],
-    students: List[Dict[str, Any]],
-    exams: List[Dict[str, Any]],
-    order_by: str = "student",
-    chunk_size: int = 120,
-    include_attendance_roster: bool = True
-) -> bytes:
-    """
-    Renders high-definition cover PDFs for every student in the classroom,
-    merged into a single PDF document in the requested sorting order.
-    ALWAYS includes as Page 1 (and subsequent if > 28 students) the official
-    Attendance & Signature Roster (Ata de Frequência e Entrega de Gabaritos/Capas).
-    Uses chunked multi-page single-pass Chrome printing for ultra-fast generation (10x-20x faster).
-    """
-    if not students or not exams:
-        raise ValueError("Estudantes e simulados são obrigatórios para emissão das capas.")
-
 def generate_classroom_covers_reportlab(
     classroom: Dict[str, Any],
     students: List[Dict[str, Any]],
     exams: List[Dict[str, Any]],
     order_by: str = "student",
+    model_id: Optional[str] = None,
     include_attendance_roster: bool = True
 ) -> bytes:
     """
     Renderizador 100% nativo ReportLab para capas personalizadas com folha OMR integrada.
-    Utilizado quando o servidor não possui navegador Google Chrome/Chromium instalado.
+    Utilizado quando o servidor não possui navegador Google Chrome/Chromium instalado
+    ou quando a execução do browser em modo headless falha por restrição de ambiente.
     Garante funcionamento imediato e confiável em qualquer ambiente VPS Linux/Docker.
     """
     from reportlab.pdfgen import canvas
@@ -420,14 +407,16 @@ def generate_classroom_covers_reportlab(
 
             caderno_label = f"CAD-{ex_id[:4].upper()}" if len(ex_id) > 2 else f"CAD-0{ex_id}"
 
-            model_id = (ex.get("cover_model") or "opcao_1_montanhas_canoa").strip()
+            effective_model = model_id or ex.get("cover_model") or "opcao_4_azul_nautico_lagoa"
+            effective_model = str(effective_model).strip().replace(".html", "")
+
             theme_colors = {
                 "opcao_1_montanhas_canoa": "#0e2a47",
                 "opcao_2_rio_verde_petroleo": "#0b5d5c",
                 "opcao_3_por_do_sol_solar": "#c2410c",
                 "opcao_4_azul_nautico_lagoa": "#1e3a8a"
             }
-            caderno_color = theme_colors.get(model_id, "#0e2a47")
+            caderno_color = theme_colors.get(effective_model, "#1e3a8a")
 
             generate_exam_cover(
                 output_pdf_path=page_pdf_path,
@@ -461,7 +450,7 @@ def generate_classroom_covers_pdf(
     students: List[Dict[str, Any]],
     exams: List[Dict[str, Any]],
     order_by: str = "student",
-    model_id: str = "opcao_1_montanhas_canoa",
+    model_id: Optional[str] = None,
     chunk_size: int = 15,
     include_attendance_roster: bool = True
 ) -> bytes:
@@ -470,20 +459,21 @@ def generate_classroom_covers_pdf(
     merged into a single PDF document in the requested sorting order.
     ALWAYS includes as Page 1 (and subsequent if > 28 students) the official
     Attendance & Signature Roster (Ata de Frequência e Entrega de Gabaritos/Capas).
-    Uses chunked multi-page single-pass Chrome printing for ultra-fast generation (10x-20x faster).
-    Falls back gracefully to native pure ReportLab generation if Chrome/Chromium is not installed.
+    Uses chunked multi-page single-pass Chrome printing for ultra-fast generation.
+    Falls back gracefully to native pure ReportLab generation if Chrome/Chromium
+    is not installed or encounters environmental sandboxing restrictions.
     """
     if not students or not exams:
         raise ValueError("Estudantes e simulados são obrigatórios para emissão das capas.")
 
     chrome_bin = get_chrome_executable()
     if not chrome_bin:
-        # Fallback instantâneo via ReportLab nativo caso Chrome não esteja instalado no Linux
         return generate_classroom_covers_reportlab(
             classroom=classroom,
             students=students,
             exams=exams,
             order_by=order_by,
+            model_id=model_id,
             include_attendance_roster=include_attendance_roster
         )
 
@@ -526,7 +516,6 @@ def generate_classroom_covers_pdf(
                 for st in students:
                     pairs.append((ex, st))
         else:
-            # Default: student
             for st in students:
                 for ex in exams:
                     pairs.append((ex, st))
@@ -537,7 +526,7 @@ def generate_classroom_covers_pdf(
             slots = []
 
             for ex, st in chunk_pairs:
-                page_html = render_single_cover_html(ex, st, classroom)
+                page_html = render_single_cover_html(ex, st, classroom, model_override=model_id)
                 slots.append(f'<div class="cover-page-slot">{page_html}</div>')
 
             combined_html = """<!DOCTYPE html>
@@ -573,6 +562,10 @@ html, body {
 
             chunk_html_file = os.path.join(temp_dir, f"chunk_{chunk_idx}.html")
             chunk_pdf_file = os.path.join(temp_dir, f"chunk_{chunk_idx}.pdf")
+            user_data_dir = os.path.join(temp_dir, f"ud_{chunk_idx}")
+            crash_dumps_dir = os.path.join(temp_dir, f"dumps_{chunk_idx}")
+            os.makedirs(user_data_dir, exist_ok=True)
+            os.makedirs(crash_dumps_dir, exist_ok=True)
 
             with open(chunk_html_file, "w", encoding="utf-8") as f:
                 f.write(combined_html)
@@ -584,22 +577,62 @@ html, body {
                 "--disable-setuid-sandbox",
                 "--disable-dev-shm-usage",
                 "--disable-gpu",
+                "--disable-software-rasterizer",
+                "--no-zygote",
+                "--no-first-run",
+                f"--user-data-dir={user_data_dir}",
+                f"--crash-dumps-dir={crash_dumps_dir}",
                 "--no-pdf-header-footer",
                 "--disable-extensions",
                 "--disable-background-networking",
                 "--disable-sync",
                 "--disable-default-apps",
-                "--no-first-run",
                 "--metrics-recording-only",
                 f"--print-to-pdf={chunk_pdf_file}",
                 os.path.abspath(chunk_html_file)
             ]
-            try:
-                subprocess.run(cmd, check=True, capture_output=True, timeout=120)
-            except Exception:
-                # Se falhar com --headless=new, tenta com --headless tradicional
-                cmd[1] = "--headless"
-                subprocess.run(cmd, check=True, capture_output=True, timeout=120)
+
+            proc_env = os.environ.copy()
+            proc_env["HOME"] = temp_dir
+            proc_env["TMPDIR"] = temp_dir
+            proc_env["XDG_CONFIG_HOME"] = os.path.join(temp_dir, "xdg_config")
+            proc_env["XDG_DATA_HOME"] = os.path.join(temp_dir, "xdg_data")
+
+            chrome_success = False
+            last_err = ""
+            for headless_flag in ["--headless=new", "--headless"]:
+                cmd[1] = headless_flag
+                try:
+                    res = subprocess.run(
+                        cmd,
+                        check=False,
+                        capture_output=True,
+                        timeout=120,
+                        env=proc_env
+                    )
+                    if res.returncode == 0 and os.path.exists(chunk_pdf_file) and os.path.getsize(chunk_pdf_file) > 0:
+                        chrome_success = True
+                        break
+                    else:
+                        err_bytes = (res.stderr or b"") + (res.stdout or b"")
+                        last_err = err_bytes.decode("utf-8", errors="ignore")
+                except Exception as ex_proc:
+                    last_err = str(ex_proc)
+
+            if not chrome_success:
+                import logging
+                logging.getLogger("uvicorn").warning(
+                    f"Execução do Chrome/Chromium falhou no servidor: {last_err.strip()[:300]}. "
+                    "Ativando fallback seguro via ReportLab para emissão das capas."
+                )
+                return generate_classroom_covers_reportlab(
+                    classroom=classroom,
+                    students=students,
+                    exams=exams,
+                    order_by=order_by,
+                    model_id=model_id,
+                    include_attendance_roster=include_attendance_roster
+                )
 
             if os.path.exists(chunk_pdf_file):
                 chunk_doc = fitz.open(chunk_pdf_file)

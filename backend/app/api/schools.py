@@ -454,7 +454,8 @@ def download_classroom_batch_pdf(
 async def download_classroom_covers_pdf(
     classroom_id: str,
     exam_id: str = "all",
-    order_by: str = Query("student", description="'student' or 'exam'")
+    order_by: str = Query("student", description="'student' or 'exam'"),
+    model_id: Optional[str] = Query(None, description="Optional cover model override (e.g. opcao_1_montanhas_canoa)")
 ):
     """
     Generates a merged PDF containing nominal cover sheets for EVERY student in the classroom.
@@ -462,6 +463,7 @@ async def download_classroom_covers_pdf(
     order_by controls sorting:
       - 'student': Intercalado por aluno (Aluno 1 - Prova A, Aluno 1 - Prova B, Aluno 2 - Prova A...)
       - 'exam': Agrupado por prova (Todas as capas da Prova A, depois todas as capas da Prova B)
+    model_id allows selecting the visual theme directly (opcao_1_montanhas_canoa, etc.).
     Runs generation in background threadpool to maintain server responsiveness.
     """
     classroom = await run_in_threadpool(get_classroom_with_details, classroom_id)
@@ -512,13 +514,16 @@ async def download_classroom_covers_pdf(
         else:
             exams_to_render = [exam]
 
+    effective_model = model_id.strip() if model_id and model_id.strip() not in ["auto", "", "undefined"] else None
+
     try:
         pdf_bytes = await run_in_threadpool(
             generate_classroom_covers_pdf,
             classroom=classroom,
             students=students,
             exams=exams_to_render,
-            order_by=order_by
+            order_by=order_by,
+            model_id=effective_model
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao gerar capas da turma: {str(e)}")

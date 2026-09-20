@@ -3018,6 +3018,23 @@ function openCoversModal(classId, className = null, schoolName = null, studentCo
         examSelect.appendChild(opt);
       });
     }
+
+    const modelSelect = document.getElementById("covers-model-select");
+    if (modelSelect) {
+      modelSelect.value = "auto";
+    }
+
+    examSelect.onchange = () => {
+      const selectedId = examSelect.value;
+      if (selectedId && selectedId !== "all" && modelSelect) {
+        const foundEx = (linkedExams || []).find(x => x.id === selectedId);
+        if (foundEx && foundEx.cover_model) {
+          modelSelect.value = foundEx.cover_model;
+        }
+      } else if (modelSelect) {
+        modelSelect.value = "auto";
+      }
+    };
   }
 
   if (modal) modal.style.display = "flex";
@@ -4398,7 +4415,11 @@ function initSchoolBatchEventListeners() {
 
         showToast(`Gerando lote de ${totalEstimatedPages} páginas (Ata + Capas)... O download iniciará automaticamente.`, "info");
 
-        const downloadUrl = `/api/classrooms/${activeCoversClassId}/exams/${examId}/covers-pdf?order_by=${orderBy}`;
+        const selectedModel = document.getElementById("covers-model-select")?.value || "auto";
+        let downloadUrl = `/api/classrooms/${activeCoversClassId}/exams/${examId}/covers-pdf?order_by=${orderBy}`;
+        if (selectedModel && selectedModel !== "auto") {
+          downloadUrl += `&model_id=${encodeURIComponent(selectedModel)}`;
+        }
 
         let defaultFileName = "CAPAS.pdf";
         if (activeCoversClassName && activeCoversSchoolName) {
