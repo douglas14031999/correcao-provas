@@ -482,7 +482,18 @@ def generate_classroom_covers_pdf(
             include_attendance_roster=include_attendance_roster
         )
 
-    temp_dir = tempfile.mkdtemp(prefix="covers_batch_")
+    base_temp = None
+    if os.name != 'nt':
+        home_dir = os.path.expanduser("~")
+        if os.path.exists(home_dir) and os.access(home_dir, os.W_OK):
+            snap_compatible_dir = os.path.join(home_dir, ".covers_batch_tmp")
+            try:
+                os.makedirs(snap_compatible_dir, exist_ok=True)
+                base_temp = snap_compatible_dir
+            except Exception:
+                base_temp = None
+
+    temp_dir = tempfile.mkdtemp(prefix="covers_batch_", dir=base_temp)
     merged_pdf = fitz.open()
 
     try:
