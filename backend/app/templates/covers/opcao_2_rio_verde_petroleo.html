@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<style>
+
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&family=Poppins:wght@600;700;800;900&family=Space+Mono:wght@700&display=swap');
+
+@page {
+    size: 210mm 297mm;
+    margin: 0;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    background: #ffffff;
+    font-family: 'Montserrat', Arial, sans-serif;
+    color: #1e293b;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+}
+.capa {
+    width: 210mm;
+    height: 297mm;
+    position: relative;
+    overflow: hidden;
+    margin: 0 auto;
+    background: #ffffff;
+}
+
+/* =========================================================================
+   PARTE SUPERIOR: MARCAÇÃO 2026 E PROVA CANOA (Sem slogans)
+   ========================================================================= */
+.top-brand {
+    position: absolute;
+    top: 13mm;
+    left: 16mm;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2.5mm;
+}
+.ano-pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 2.5px;
+    padding: 1.8mm 5mm;
+    border-radius: 20px;
+    line-height: 1;
+}
+.titulo-prova {
+    font-size: 25px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+/* Badge do Caderno à Direita (3 níveis: CADERNO / MATEMÁTICA / 8º ANO) */
+.badge-caderno-3tier {
+    position: absolute;
+    top: 12mm;
+    right: 16mm;
+    width: 48mm;
+    border-radius: 4mm;
+    overflow: hidden;
+    z-index: 10;
+    box-shadow: 0 3mm 8mm rgba(0,0,0,0.22);
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.4);
+}
+.bc-top {
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 2.2px;
+    padding: 2.2mm 0;
+    text-transform: uppercase;
+}
+.bc-mid {
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 1.2px;
+    padding: 2.5mm 0;
+    text-transform: uppercase;
+}
+.bc-bot {
+    background: #ffffff;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    padding: 2.2mm 0;
+    text-transform: uppercase;
+}
+
+/* =========================================================================
+   PARTE DO MEIO: IDENTIFICAÇÃO DO ESTUDANTE (Largo, sem QR Code ao lado)
+   ========================================================================= */
+.student-card {
+    position: absolute;
+    top: 80mm;
+    left: 12mm;
+    right: 12mm;
+    background: #ffffff;
+    border-radius: 3.5mm;
+    padding: 3.5mm 5mm 4mm 5mm;
+    box-shadow: 0 2mm 8mm rgba(0,0,0,0.06);
+    border: 1.2px solid #e2e8f0;
+    z-index: 15;
+}
+.student-card-header {
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 2mm;
+    padding-bottom: 1.5mm;
+    border-bottom: 1px solid #f1f5f9;
+}
+.student-card-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 2mm;
+}
+.field-block {
+    background: #f8fafc;
+    border: 1.2px solid #cbd5e1;
+    border-radius: 2mm;
+    padding: 1.6mm 3mm;
+}
+.field-block.highlight {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+}
+.field-lbl {
+    font-size: 7px;
+    font-weight: 800;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    display: block;
+    margin-bottom: 1px;
+}
+.field-txt {
+    font-size: 9.8px;
+    font-weight: 700;
+    color: #0f172a;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.field-txt.name {
+    font-size: 11.5px;
+    font-weight: 900;
+    color: #0b192c;
+    letter-spacing: 0.2px;
+}
+.field-row-dual {
+    display: flex;
+    gap: 3mm;
+}
+
+/* =========================================================================
+   PARTE INFERIOR: ÁREA DE LEITURA ESCANEÁVEL (Apenas a metade inferior)
+   ========================================================================= */
+.reading-area {
+    position: absolute;
+    top: 135mm;
+    bottom: 8mm;
+    left: 8mm;
+    right: 8mm;
+    z-index: 20;
+}
+
+/* Marcadores de Registro ArUco nos 4 cantos da Área de Leitura */
+.aruco-mark {
+    position: absolute;
+    width: 14mm;
+    height: 14mm;
+    z-index: 50;
+}
+.aruco-mark img {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+.aruco-mark.tl { top: 2mm; left: 2mm; }
+.aruco-mark.tr { top: 2mm; right: 2mm; }
+.aruco-mark.bl { bottom: 2mm; left: 2mm; }
+.aruco-mark.br { bottom: 2mm; right: 2mm; }
+
+/* Faixa de Orientações entre os Marcadores Superiores */
+.omr-instructions {
+    position: absolute;
+    top: 3.5mm;
+    left: 20mm;
+    right: 20mm;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 7.2px;
+    font-weight: 700;
+    padding: 2.2mm 4.5mm;
+    border-radius: 2mm;
+    border: 1px solid #c9e2f2;
+    background: #eef7fc;
+    color: #1e3a5f;
+}
+
+/* Tabelas de Questões Calibradas com Precisão Milimétrica OMR (Sem Sobreposição) */
+.omr-tables-container {
+    position: static;
+}
+.omr-col-wrap:nth-child(1) {
+    position: absolute;
+    top: 18.00mm;
+    left: 10.00mm;
+    width: 73.00mm;
+}
+.omr-col-wrap:nth-child(2) {
+    position: absolute;
+    top: 18.00mm;
+    left: 91.00mm;
+    width: 73.00mm;
+}
+.omr-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+    border: 1.2px solid #b8d5e5;
+    table-layout: fixed;
+}
+.omr-table th, .omr-table td {
+    border: 1px solid #cce3ef;
+    text-align: center;
+    vertical-align: middle;
+    padding: 0;
+}
+.th-item {
+    color: #ffffff;
+    font-size: 8px;
+    font-weight: 900;
+    height: 6.20mm;
+    width: 20.0%;
+}
+.th-opt {
+    background: #e2eef6;
+    color: #1e3a5f;
+    font-size: 8.5px;
+    font-weight: 800;
+    height: 6.20mm;
+    width: 20.0%;
+}
+.td-item {
+    background: #f8fafc;
+    font-size: 8.5px;
+    font-weight: 800;
+    color: #1e293b;
+    height: 7.20mm;
+}
+.td-opt {
+    background: #ffffff;
+    height: 7.20mm;
+}
+.bubble {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 4.80mm;
+    height: 4.80mm;
+    border: 1.3px solid #0b5d5c;
+    border-radius: 50%;
+    font-size: 7.2px;
+    font-weight: 700;
+    color: #0b5d5c;
+    background: #ffffff;
+}
+
+/* QR Code de Identificação no Canto Inferior Direito */
+.scan-qr-box {
+    position: absolute;
+    bottom: 6.00mm;
+    right: 26.00mm;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 45;
+}
+.scan-qr-box img {
+    width: 24.00mm;
+    height: 24.00mm;
+    display: block;
+}
+
+.m2 .topo-art { position: absolute; top: 0; left: 0; width: 100%; height: 75mm; z-index: 1; }
+.m2 .ano-pill { background: #0b5d5c; color: #ffffff; border: 1.5px solid rgba(255,255,255,0.4); }
+.m2 .titulo-prova { color: #ffffff; font-family: 'Poppins', sans-serif; text-shadow: 0 2px 5px rgba(11,93,92,0.5); }
+
+.m2 .bc-top { background: #0b5d5c; color: #a7f3d0; }
+.m2 .bc-mid { background: #267c6e; color: #ffffff; }
+.m2 .bc-bot { color: #0b5d5c; }
+
+.m2 .student-card { border-left: 3.5mm solid #0e7c7b; }
+.m2 .omr-instructions { background: #e6f7f6; color: #0e7c7b; border-color: #b2e6e3; }
+.m2 .bubble { border-color: #0e7c7b; color: #0e7c7b; }
+</style>
+</head>
+<body>
+<div class="capa m2">
+    <svg class="topo-art" viewBox="0 0 800 290" preserveAspectRatio="none">
+        <rect width="800" height="290" fill="#cbf1e7"/>
+        <path d="M0 140 Q200 95 400 135 T800 115 V290 H0 Z" fill="#7ed4c1"/>
+        <path d="M0 185 Q180 145 380 180 T800 160 V290 H0 Z" fill="#38a390"/>
+        <path d="M0 225 Q220 190 440 225 T800 215 V290 H0 Z" fill="#0e7c7b"/>
+        <path d="M0 258 Q 220 230 400 258 T 800 258 V 290 H 0 Z" fill="#e8fbf6"/>
+        <path d="M330 244 Q400 266 470 244 Q400 255 330 244Z" fill="#f4a261"/>
+        <line x1="400" y1="242" x2="400" y2="208" stroke="#78350f" stroke-width="2.5"/>
+        <path d="M400 208 Q428 218 400 234Z" fill="#ffffff"/>
+    </svg>
+
+    <div class="top-brand">
+        <div class="ano-pill">2026</div>
+        <div class="titulo-prova">PROVA CANOA</div>
+    </div>
+
+    <div class="badge-caderno-3tier">
+        <div class="bc-top">CADERNO</div>
+        <div class="bc-mid">MATEMÁTICA</div>
+        <div class="bc-bot">8º ANO</div>
+    </div>
+
+    <div class="student-card">
+        <div class="student-card-header">DADOS DO(A) ESTUDANTE &bull; CADERNO M0802</div>
+        <div class="student-card-fields">
+            <div class="field-block">
+                <span class="field-lbl">Unidade Escolar:</span>
+                <span class="field-txt">E. M. GOVERNADOR LUIZ CAVALCANTE</span>
+            </div>
+            <div class="field-block highlight">
+                <span class="field-lbl">Nome Completo do(a) Estudante:</span>
+                <span class="field-txt name">LUCAS GABRIEL DOS SANTOS SILVA</span>
+            </div>
+            <div class="field-row-dual">
+                <div class="field-block" style="flex: 1;">
+                    <span class="field-lbl">Turma:</span>
+                    <span class="field-txt">8º ANO A</span>
+                </div>
+                <div class="field-block" style="flex: 1;">
+                    <span class="field-lbl">Turno:</span>
+                    <span class="field-txt">MATUTINO</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="reading-area">
+        <div class="aruco-mark tl"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIwAAACMCAAAAACLqx7iAAAA0UlEQVR4nO3ZQQrDQAwEwU6T/3/ZeYEDBkPaZOoqwS5Cl0EwMzMzMzMz37zOCsel/uOWVyVEQiREQiREQiREQiREQiREQiREQiREQiREQiREQiREnhBVbkkwF9tTk5EQCZEQCZEQCZEQCZEQCZEQCZEQCZEQCZEQCZEQCZEHR5UTu6r80c5IiIRIiIRIiIRIiIRIiIRIiIRIiIRIiIRIiIRIiIS8S7FMQiREQiREQiREQiREQiREQiREQiREQiREQiREQiREQvz1B2ZmZmZmZuI+pOYFuxx93sUAAAAASUVORK5CYII=" alt="ArUco 0"></div>
+        <div class="aruco-mark tr"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIwAAACMCAAAAACLqx7iAAAAsElEQVR4nO3XMQrDYAzFYEX0/lduT9AhEIh+eN/qwcabYGZmZmZmZmZmZmZmZg5z/Rt8X9gqIRIiIRIiIRIiIRIiIRIiIRIiIRIiIRIiIRIiIRIiIRLyeSptngie1GckREIkREIkREIkREIkREIkREIkREIkREIkREIkREIkRA7uppt9dJ37GQmREAmREAmREAmREAmREAmREAmREAmREAmREAmREN8+YGZmZmZmJu4HngcDkC7revUAAAAASUVORK5CYII=" alt="ArUco 1"></div>
+        <div class="aruco-mark bl"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIwAAACMCAAAAACLqx7iAAAAzUlEQVR4nO3XQQrDUAzEUEX3v3N6ghYCH6qWeVsPg/HOMDMzMzMzM59c7wb3w/yJFgmREAmREAmREAmREAmREAmREAmREAmREAmREAmREAmREAmREAmREAmREAmREAmREAmREAmREAmREAmREAmREAmREAm5HubvMzU/cBkJkRAJkRAJkRAJkRAJkRAJkRAJkRAJkRAJkRAJkRAJkf/7m87Upy4jIRIiIRIiIRIiIRIiIRIiIRIiIRIiIRIiIRIiIRLitxeYmZmZmZmJewGw0gS4Hrf5iwAAAABJRU5ErkJggg==" alt="ArUco 3"></div>
+        <div class="aruco-mark br"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIwAAACMCAAAAACLqx7iAAAAyUlEQVR4nO3awQlDQQwD0dkh/becdBD4sJAJ6BVg6+CbBTMzMzMzM/PN4Yr3la0SIiESIiESIiESIiESIiESIiESIiESIiESIiESIiESIiESIiESIiESIiESIiESIiESIiESIiESIiESIiESIiESIiES8io9bSREQiREQiREQiREQiREQiREQiREQiREQiREQiREQiREQiTk3OmXnWdT1kb755uREAmREAmREAmREAmREAmREAmREAmREAmREAnx1wFmZmZmZmbiPkM3A7zmJpVRAAAAAElFTkSuQmCC" alt="ArUco 2"></div>
+
+        <div class="omr-instructions">
+            <span>ORIENTAÇÕES: Preencha totalmente a bolha com caneta azul ou preta.</span>
+            <span>CORRETO: [ ⬤ ] &nbsp; ERRADO: [ ✕ ] [ ✓ ]</span>
+        </div>
+
+        
+    <div class="omr-tables-container">
+        <div class="omr-col-wrap">
+        <table class="omr-table">
+            <thead>
+                <tr>
+                    <th class="th-item" style="background: #0b5d5c;">ITEM</th>
+                    <th class="th-opt">A</th><th class="th-opt">B</th><th class="th-opt">C</th><th class="th-opt">D</th>
+                </tr>
+            </thead>
+            <tbody>
+        
+                <tr>
+                    <td class="td-item">01</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">02</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">03</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">04</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">05</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">06</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">07</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">08</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">09</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">10</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">11</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">12</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            </tbody></table></div>
+        <div class="omr-col-wrap">
+        <table class="omr-table">
+            <thead>
+                <tr>
+                    <th class="th-item" style="background: #0b5d5c;">ITEM</th>
+                    <th class="th-opt">A</th><th class="th-opt">B</th><th class="th-opt">C</th><th class="th-opt">D</th>
+                </tr>
+            </thead>
+            <tbody>
+        
+                <tr>
+                    <td class="td-item">13</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">14</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">15</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">16</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">17</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">18</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">19</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">20</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">21</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            
+                <tr>
+                    <td class="td-item">22</td>
+                    <td class="td-opt"><span class="bubble">A</span></td><td class="td-opt"><span class="bubble">B</span></td><td class="td-opt"><span class="bubble">C</span></td><td class="td-opt"><span class="bubble">D</span></td>
+                </tr>
+            </tbody></table></div>
+    </div>
+    
+
+        <div class="scan-qr-box">
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAANgAAADYAQAAAAChWxBAAAABPklEQVR4nN1Y7W6EMAyzK97/lT3FaQt/ttNxmxYCJ5qrhRQrHw6l8O018HzsANMQQIhBl3OnBz84ggQoMDhi7TThB87oeXXw6J1Kfo7fwQjN7Px/X/4Ak5yf5f18Lz81bYHKDqOX742HYDjJnXer/qnLv2gzJ8Em8VOuqQtLHSC1iB9MyHdYXqR49MhPmE7GbLNDkq3k57iNKWeXYBRX6J9CJlTMz08weWIJnraZKl/Pz5v6IOeje4ozFFmPbeoP08puo/Wr5Of4ENNUPpceM1Mr+nlP/7QF8BrL8cNr4yEY9/jC1WWUbYbq9f0uclYiI5JN8vPYX+uOn3VBRnroH7Lksgr38Ik29TcudgwteTIBl2VVP29iAhkawdVSi/r5bv1h1hvdOr3w5XvjIdixjzuDVRwRZjl2mT/Z/Pz6CzHfskIH20C/AAAAAElFTkSuQmCC" alt="QR Code">
+        </div>
+    </div>
+</div>
+</body>
+</html>

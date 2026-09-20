@@ -40,6 +40,7 @@ backend/storage/overlays/*
 !backend/storage/overlays/.gitkeep
 backend/storage/sheets/*
 !backend/storage/sheets/.gitkeep
+!backend/storage/sheets/opcao_*.html
 backend/storage/output_verification/
 
 # Temporary debug, sample & test files

@@ -120,6 +120,11 @@ def build_table_html(num_questions: int = 22, num_alternatives: int = 4, header_
     </div>
     """
 
+TEMPLATES_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "templates", "covers"
+)
+
 @functools.lru_cache(maxsize=16)
 def get_cover_template_html(model_id: str) -> str:
     """Reads base template HTML for the chosen cover model (cached in RAM)."""
@@ -127,12 +132,37 @@ def get_cover_template_html(model_id: str) -> str:
     if not safe_name.endswith(".html"):
         safe_name += ".html"
     
-    file_path = os.path.join(SHEETS_DIR, safe_name)
-    if not os.path.exists(file_path):
-        file_path = os.path.join(SHEETS_DIR, "opcao_4_azul_nautico_lagoa.html")
-    
-    with open(file_path, "r", encoding="utf-8") as f:
-        return f.read()
+    # 1. Busca nos diretórios candidatos
+    candidates = [
+        os.path.join(TEMPLATES_DIR, safe_name),
+        os.path.join(SHEETS_DIR, safe_name),
+        os.path.join(TEMPLATES_DIR, "opcao_4_azul_nautico_lagoa.html"),
+        os.path.join(SHEETS_DIR, "opcao_4_azul_nautico_lagoa.html"),
+        os.path.join(TEMPLATES_DIR, "opcao_1_montanhas_canoa.html"),
+        os.path.join(SHEETS_DIR, "opcao_1_montanhas_canoa.html"),
+    ]
+
+    for p in candidates:
+        if os.path.exists(p):
+            with open(p, "r", encoding="utf-8") as f:
+                return f.read()
+
+    # 2. Fallback dinâmico do gerador oficial (zero dependência de arquivo em disco)
+    try:
+        from app.services.reports.generate_4_canoa_proposals import html_op1, html_op2, html_op3, html_op4
+        map_html = {
+            "opcao_1_montanhas_canoa.html": html_op1,
+            "opcao_2_rio_verde_petroleo.html": html_op2,
+            "opcao_3_por_do_sol_solar.html": html_op3,
+            "opcao_4_azul_nautico_lagoa.html": html_op4,
+        }
+        if safe_name in map_html:
+            return map_html[safe_name]
+        return html_op4
+    except Exception:
+        pass
+
+    raise FileNotFoundError(f"Template de capa '{safe_name}' não localizado.")
 
 def extract_exam_discipline(exam: Dict[str, Any]) -> str:
     """
