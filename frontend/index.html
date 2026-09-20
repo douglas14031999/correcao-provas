@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css?v=1789790000">
+  <link rel="stylesheet" href="/static/styles.css?v=1789790030">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -1457,6 +1457,36 @@
               </div>
             </div>
 
+            <!-- Cover Model & Customization -->
+            <div class="form-section-title">Capa da Prova (Integrada com OMR)</div>
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label for="exam-cover-model-select">Modelo de Capa da Prova:</label>
+                <select id="exam-cover-model-select" class="form-select">
+                  <option value="opcao_4_azul_nautico_lagoa" selected>Opção 4: Lagoa Serena & Náutico Real (Oficial Canoa 2026)</option>
+                  <option value="opcao_1_montanhas_canoa">Opção 1: Montanhas de Canoa (Ouro & Verde)</option>
+                  <option value="opcao_2_rio_verde_petroleo">Opção 2: Rio São Francisco (Verde Petróleo)</option>
+                  <option value="opcao_3_por_do_sol_solar">Opção 3: Pôr do Sol Solar do Agreste</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label for="exam-cover-title-input">Título da Capa:</label>
+                <input type="text" id="exam-cover-title-input" class="form-input" value="PROVA CANOA" placeholder="Ex: PROVA CANOA">
+              </div>
+              <div class="form-group flex-1">
+                <label for="exam-cover-subtitle-input">Subtítulo / Caderno da Capa:</label>
+                <input type="text" id="exam-cover-subtitle-input" class="form-input" placeholder="Ex: CADERNO M0802 • MATEMÁTICA">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group flex-1" style="margin-bottom: 0.5rem;">
+                <label for="exam-cover-instructions-input">Orientações da Capa (opcional):</label>
+                <input type="text" id="exam-cover-instructions-input" class="form-input" placeholder="ORIENTAÇÕES: Preencha totalmente a bolha com caneta azul ou preta.">
+              </div>
+            </div>
+
             <!-- Exam Parameters -->
             <div class="form-section-title">Questões</div>
             <div class="form-row">
@@ -1550,6 +1580,55 @@
             <div class="mockup-marker bl">3</div>
             <div class="mockup-marker br">2</div>
 
+          </div>
+
+          <!-- Live Cover Mockup right below -->
+          <div class="preview-panel-header" style="margin-top: 1.75rem;">
+            <h3>Prévia da Capa da Prova</h3>
+            <span class="badge-tag" id="cover-model-badge">Capa 2026</span>
+          </div>
+          <div class="live-sheet-mockup live-cover-mockup" id="live-cover-mockup">
+            <!-- Header Art Banner -->
+            <div class="cover-art-banner" id="cover-art-banner">
+              <div class="cover-top-brand">
+                <span class="cover-ano-pill">2026</span>
+                <span class="cover-titulo-text" id="live-cover-title-text">PROVA CANOA</span>
+              </div>
+              <div class="cover-caderno-badge" id="live-cover-caderno-badge">
+                <div class="ccb-top">CADERNO</div>
+                <div class="ccb-mid" id="live-cover-badge-sub">MATEMÁTICA</div>
+                <div class="ccb-bot" id="live-cover-badge-class">TURMA</div>
+              </div>
+            </div>
+            <!-- Student Card Mockup -->
+            <div class="cover-student-card">
+              <div class="csc-header" id="live-cover-card-header">DADOS DO(A) ESTUDANTE • PROVA CANOA</div>
+              <div class="csc-fields">
+                <div class="csc-item"><span class="csc-lbl">Unidade Escolar:</span> <span class="csc-val" id="live-cover-school-text">E.M.E.F. Monsenhor Clóvis Duarte</span></div>
+                <div class="csc-item highlight"><span class="csc-lbl">Nome Completo do(a) Estudante:</span> <span class="csc-val bold">NOME DO(A) ESTUDANTE</span></div>
+                <div class="csc-row">
+                  <div class="csc-item" style="flex:1;"><span class="csc-lbl">Turma:</span> <span class="csc-val" id="live-cover-turma-text">2º ANO A</span></div>
+                  <div class="csc-item" style="flex:1;"><span class="csc-lbl">Turno:</span> <span class="csc-val" id="live-cover-turno-text">MATUTINO</span></div>
+                </div>
+              </div>
+            </div>
+            <!-- OMR Reading Area at Bottom -->
+            <div class="cover-omr-reading-area">
+              <div class="mockup-marker tl">0</div>
+              <div class="mockup-marker tr">1</div>
+              <div class="cover-omr-guide">
+                <span>ORIENTAÇÕES: Preencha totalmente a bolha.</span>
+                <span>[ ⬤ ] CORRETO</span>
+              </div>
+              <div class="mockup-questions-grid" id="live-cover-questions-grid">
+                <!-- Dynamically populated sample bubbles -->
+              </div>
+              <div class="cover-qr-box">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h6v6H3V3zm2 2v2h2V5H5zm8-2h6v6h-6V3zm2 2v2h2V5h-2zM3 13h6v6H3v-6zm2 2v2h2v-2H5zm13-2h3v2h-3v-2zm-3 0h2v3h-2v-3zm3 3v3h-2v-3h2zm-3 2h-2v2h2v-2zm5-2h2v5h-2v-5zm-5 3h2v2h-2v-2zM7 7h1v1H7V7zm10 0h1v1h-1V7zM7 17h1v1H7v-1z"/></svg>
+              </div>
+              <div class="mockup-marker bl">3</div>
+              <div class="mockup-marker br">2</div>
+            </div>
           </div>
         </div>
 
@@ -2202,6 +2281,24 @@
           </div>
         </div>
 
+        <!-- Barra de Progresso da Emissão dos Gabaritos -->
+        <div id="batch-progress-container" class="covers-progress-area" style="display: none;">
+          <div class="covers-progress-top">
+            <div class="covers-progress-label">
+              <span class="pulse-dot"></span>
+              <span id="batch-progress-status">Gerando gabaritos nominais...</span>
+            </div>
+            <span id="batch-progress-percent" class="covers-progress-percent">0%</span>
+          </div>
+          <div class="covers-progress-track">
+            <div id="batch-progress-bar-fill" class="covers-progress-bar"></div>
+          </div>
+          <div class="covers-progress-meta">
+            <span id="batch-progress-step-text">Iniciando renderização...</span>
+            <span id="batch-progress-pages-count">0 / 0</span>
+          </div>
+        </div>
+
         <div class="form-actions">
           <button type="button" class="btn btn-secondary" id="btn-cancel-batch">Cancelar</button>
           <button type="button" class="btn btn-primary" id="btn-confirm-batch-pdf">
@@ -2211,6 +2308,69 @@
               <rect x="6" y="14" width="12" height="8"></rect>
             </svg>
             <span>Baixar Gabaritos em Lote (PDF)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Gerar Capas da Turma em Lote -->
+  <div id="covers-pdf-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Gerar Capas da Turma</h3>
+        <button type="button" class="modal-close" id="btn-close-covers-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-instruction" style="margin-bottom: 0.35rem;">Turma: <strong id="covers-modal-class-name"></strong> (<span id="covers-modal-school-name"></span>)</p>
+        <p class="modal-instruction" style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 1rem;">Serão emitidas capas nominais com QR Code individualizado e folha OMR integrada para os <strong id="covers-modal-student-count">0</strong> alunos.</p>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label for="covers-exam-select">Selecione o Gabarito / Simulado: *</label>
+          <select id="covers-exam-select" class="form-select"></select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.25rem;" id="covers-order-wrapper">
+          <label>Ordem de Impressão das Capas:</label>
+          <div class="radio-group" style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.4rem;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+              <input type="radio" name="covers-order-radio" value="student" checked>
+              <strong>Por Aluno</strong> <span style="color: var(--text-secondary); font-size: 0.78rem;">(Aluno 1 - Prova A, Aluno 1 - Prova B, Aluno 2 - Prova A...)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+              <input type="radio" name="covers-order-radio" value="exam">
+              <strong>Por Prova</strong> <span style="color: var(--text-secondary); font-size: 0.78rem;">(Todas as capas da Prova A, depois todas as da Prova B)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Barra de Progresso da Emissão das Capas -->
+        <div id="covers-progress-container" class="covers-progress-area" style="display: none;">
+          <div class="covers-progress-top">
+            <div class="covers-progress-label">
+              <span class="pulse-dot"></span>
+              <span id="covers-progress-status">Gerando capas nominais...</span>
+            </div>
+            <span id="covers-progress-percent" class="covers-progress-percent">0%</span>
+          </div>
+          <div class="covers-progress-track">
+            <div id="covers-progress-bar-fill" class="covers-progress-bar"></div>
+          </div>
+          <div class="covers-progress-meta">
+            <span id="covers-progress-step-text">Iniciando renderização...</span>
+            <span id="covers-progress-pages-count">0 / 0</span>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-covers">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btn-confirm-covers-pdf">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 6 2 18 2 18 9"></polyline>
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+              <rect x="6" y="14" width="12" height="8"></rect>
+            </svg>
+            <span>Baixar Capas da Turma (PDF)</span>
           </button>
         </div>
       </div>
@@ -2804,6 +2964,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=1789790005"></script>
+  <script src="/static/app.js?v=1789790080"></script>
 </body>
 </html>

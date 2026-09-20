@@ -6,6 +6,7 @@ from typing import Optional, List
 from pydantic import BaseModel
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Response, Query, Header
 from fastapi.responses import StreamingResponse
+from starlette.concurrency import run_in_threadpool
 
 from app.services.database import (
     get_or_create_school,
@@ -24,6 +25,7 @@ from app.services.database import (
     update_classroom
 )
 from app.services.pdf_generator import generate_batch_classroom_pdf, generate_envelope_labels_pdf, DEFAULT_LOGO_PATH
+from app.services.cover_batch_generator import generate_classroom_covers_pdf
 from app.api.auth import require_roles
 
 router = APIRouter(tags=["Escolas e Turmas"])
@@ -433,6 +435,93 @@ def download_classroom_batch_pdf(
         sheets_per_page=sheets_per_page,
         exams=exams_to_render if len(exams_to_render) > 1 else None
     )
+    
+    import urllib.parse
+    ascii_clean = sanitize_header_filename(filename.replace(".pdf", ""))
+    safe_ascii = f"{ascii_clean}.pdf"
+    encoded_filename = urllib.parse.quote(filename)
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{safe_ascii}"; filename*=UTF-8\'\'{encoded_filename}'
+        }
+    )
+
+@router.get("/classrooms/{classroom_id}/exams/{exam_id}/covers-pdf")
+@router.get("/classrooms/{classroom_id}/covers-pdf")
+async def download_classroom_covers_pdf(
+    classroom_id: str,
+    exam_id: str = "all",
+    order_by: str = Query("student", description="'student' or 'exam'")
+):
+    """
+    Generates a merged PDF containing nominal cover sheets for EVERY student in the classroom.
+    If exam_id is 'all', 'both' or 'linked', covers for all linked exams are rendered.
+    order_by controls sorting:
+      - 'student': Intercalado por aluno (Aluno 1 - Prova A, Aluno 1 - Prova B, Aluno 2 - Prova A...)
+      - 'exam': Agrupado por prova (Todas as capas da Prova A, depois todas as capas da Prova B)
+    Runs generation in background threadpool to maintain server responsiveness.
+    """
+    classroom = await run_in_threadpool(get_classroom_with_details, classroom_id)
+    if not classroom:
+        raise HTTPException(status_code=404, detail="Turma não encontrada")
+        
+    students = classroom.get("students", [])
+    if not students:
+        raise HTTPException(status_code=400, detail="A turma não possui alunos cadastrados.")
+        
+    linked_exams = classroom.get("linked_exams", [])
+
+    school_name = (classroom.get("school_name") or "").strip()
+    if not school_name and classroom.get("school_id"):
+        sch = await run_in_threadpool(get_school, classroom["school_id"])
+        if sch:
+            school_name = (sch.get("name") or "").strip()
+
+    class_name = (classroom.get("name") or "Turma").strip()
+    if school_name and class_name:
+        filename = f"{class_name} - CAPAS - {school_name}.pdf"
+    elif class_name:
+        filename = f"{class_name} - CAPAS.pdf"
+    elif school_name:
+        filename = f"CAPAS - {school_name}.pdf"
+    else:
+        filename = "CAPAS.pdf"
+
+    exams_to_render = []
+
+    if exam_id in ["all", "both", "linked"]:
+        if not linked_exams:
+            raise HTTPException(status_code=400, detail="Esta turma não possui simulados vinculados.")
+        for le in linked_exams:
+            full_ex = await run_in_threadpool(get_exam, le["id"])
+            if full_ex:
+                exams_to_render.append(full_ex)
+    else:
+        exam = await run_in_threadpool(get_exam, exam_id)
+        if not exam:
+            if linked_exams:
+                for le in linked_exams:
+                    full_ex = await run_in_threadpool(get_exam, le["id"])
+                    if full_ex:
+                        exams_to_render.append(full_ex)
+            if not exams_to_render:
+                raise HTTPException(status_code=404, detail="Simulado não encontrado")
+        else:
+            exams_to_render = [exam]
+
+    try:
+        pdf_bytes = await run_in_threadpool(
+            generate_classroom_covers_pdf,
+            classroom=classroom,
+            students=students,
+            exams=exams_to_render,
+            order_by=order_by
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar capas da turma: {str(e)}")
     
     import urllib.parse
     ascii_clean = sanitize_header_filename(filename.replace(".pdf", ""))

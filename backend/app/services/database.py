@@ -211,7 +211,11 @@ def init_db():
                 shift TEXT DEFAULT '(  ) MANHÃ       (  ) TARDE',
                 logo_path TEXT DEFAULT '',
                 created_at TEXT NOT NULL,
-                header_color TEXT DEFAULT '#244061'
+                header_color TEXT DEFAULT '#244061',
+                cover_model TEXT DEFAULT 'opcao_4_azul_nautico_lagoa',
+                cover_title TEXT DEFAULT 'PROVA CANOA',
+                cover_subtitle TEXT DEFAULT '',
+                cover_instructions TEXT DEFAULT ''
             );
 
             CREATE TABLE IF NOT EXISTS submissions (
@@ -303,6 +307,10 @@ def init_db():
         # Migrações seguras de compatibilidade de colunas no PostgreSQL
         cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS header_color TEXT DEFAULT '#244061';")
         cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS primary_color TEXT DEFAULT '#244061';")
+        cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS cover_model TEXT DEFAULT 'opcao_4_azul_nautico_lagoa';")
+        cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS cover_title TEXT DEFAULT 'PROVA CANOA';")
+        cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS cover_subtitle TEXT DEFAULT '';")
+        cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS cover_instructions TEXT DEFAULT '';")
     else:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS exams (
@@ -322,7 +330,11 @@ def init_db():
                 shift TEXT,
                 logo_path TEXT,
                 created_at TEXT NOT NULL,
-                header_color TEXT DEFAULT '#244061'
+                header_color TEXT DEFAULT '#244061',
+                cover_model TEXT DEFAULT 'opcao_4_azul_nautico_lagoa',
+                cover_title TEXT DEFAULT 'PROVA CANOA',
+                cover_subtitle TEXT DEFAULT '',
+                cover_instructions TEXT DEFAULT ''
             )
         """)
         
@@ -337,7 +349,11 @@ def init_db():
             ("shift", "TEXT DEFAULT '(  ) MANHÃ       (  ) TARDE'"),
             ("logo_path", "TEXT DEFAULT ''"),
             ("header_color", "TEXT DEFAULT '#244061'"),
-            ("primary_color", "TEXT DEFAULT '#244061'")
+            ("primary_color", "TEXT DEFAULT '#244061'"),
+            ("cover_model", "TEXT DEFAULT 'opcao_4_azul_nautico_lagoa'"),
+            ("cover_title", "TEXT DEFAULT 'PROVA CANOA'"),
+            ("cover_subtitle", "TEXT DEFAULT ''"),
+            ("cover_instructions", "TEXT DEFAULT ''")
         ]
         for col_name, col_type in new_cols:
             if col_name not in existing_cols:
@@ -519,9 +535,10 @@ def save_exam(exam_data: Dict[str, Any]) -> Dict[str, Any]:
         INSERT INTO exams (
             id, title, institution, num_questions, num_alternatives, points_per_question,
             answer_key, weights, sheet_template, subtitle, school_name, classroom,
-            student_name, shift, logo_path, created_at, header_color
+            student_name, shift, logo_path, created_at, header_color,
+            cover_model, cover_title, cover_subtitle, cover_instructions
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         exam_data["id"],
         exam_data["title"],
@@ -539,7 +556,11 @@ def save_exam(exam_data: Dict[str, Any]) -> Dict[str, Any]:
         exam_data.get("shift", "(  ) MANHÃ       (  ) TARDE"),
         exam_data.get("logo_path", ""),
         datetime.utcnow().isoformat(),
-        exam_data.get("header_color", "#244061")
+        exam_data.get("header_color", "#244061"),
+        exam_data.get("cover_model", "opcao_4_azul_nautico_lagoa"),
+        exam_data.get("cover_title", "PROVA CANOA"),
+        exam_data.get("cover_subtitle", ""),
+        exam_data.get("cover_instructions", "")
     ))
     conn.commit()
     conn.close()
@@ -559,6 +580,10 @@ def get_exam(exam_id: str) -> Optional[Dict[str, Any]]:
     data["sheet_template"] = json.loads(data["sheet_template"] or "{}")
     if not data.get("header_color"):
         data["header_color"] = "#244061"
+    if not data.get("cover_model"):
+        data["cover_model"] = "opcao_4_azul_nautico_lagoa"
+    if not data.get("cover_title"):
+        data["cover_title"] = "PROVA CANOA"
     return data
 
 def list_exams() -> List[Dict[str, Any]]:
@@ -575,6 +600,10 @@ def list_exams() -> List[Dict[str, Any]]:
         item["sheet_template"] = json.loads(item["sheet_template"] or "{}")
         if not item.get("header_color"):
             item["header_color"] = "#244061"
+        if not item.get("cover_model"):
+            item["cover_model"] = "opcao_4_azul_nautico_lagoa"
+        if not item.get("cover_title"):
+            item["cover_title"] = "PROVA CANOA"
         result.append(item)
     return result
 
@@ -586,7 +615,7 @@ def update_exam(exam_id: str, exam_data: Dict[str, Any]) -> Optional[Dict[str, A
         SET title = ?, subtitle = ?, school_name = ?, classroom = ?, student_name = ?,
             shift = ?, logo_path = ?, num_questions = ?, num_alternatives = ?,
             points_per_question = ?, answer_key = ?, weights = ?, sheet_template = ?,
-            header_color = ?
+            header_color = ?, cover_model = ?, cover_title = ?, cover_subtitle = ?, cover_instructions = ?
         WHERE id = ?
     """, (
         exam_data["title"],
@@ -603,6 +632,10 @@ def update_exam(exam_id: str, exam_data: Dict[str, Any]) -> Optional[Dict[str, A
         json.dumps(exam_data.get("weights", {})),
         json.dumps(exam_data.get("sheet_template", {})),
         exam_data.get("header_color", "#244061"),
+        exam_data.get("cover_model", "opcao_4_azul_nautico_lagoa"),
+        exam_data.get("cover_title", "PROVA CANOA"),
+        exam_data.get("cover_subtitle", ""),
+        exam_data.get("cover_instructions", ""),
         exam_id
     ))
     updated = cursor.rowcount > 0

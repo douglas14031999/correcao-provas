@@ -1,5 +1,5 @@
 // Prova Canoa - PWA Service Worker
-const CACHE_NAME = 'prova-canoa-v5';
+const CACHE_NAME = 'prova-canoa-v7';
 const PRECACHE_ASSETS = [
   '/',
   '/manifest.json',

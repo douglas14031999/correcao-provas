@@ -74,4 +74,8 @@ Thumbs.db
 
 # OS / Scratch artifacts
 .agents/scratch/
+scratch/
+visualizador_capas.html
+propostas_capas_canoa.html
+backend/visualizador_capas.html
 

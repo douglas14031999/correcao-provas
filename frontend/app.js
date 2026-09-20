@@ -105,7 +105,7 @@ function initTabs() {
         c.classList.toggle("active", c.id === savedTab);
       });
     }
-  } catch (e) {}
+  } catch (e) { }
 
   const brandLink = document.getElementById("nav-brand-link");
   if (brandLink) {
@@ -167,7 +167,7 @@ function switchTab(tabId) {
   try {
     localStorage.removeItem("omr_active_subpage");
     localStorage.setItem("omr_active_tab", tabId);
-  } catch (e) {}
+  } catch (e) { }
 
   tabButtons.forEach(b => b.classList.toggle("active", b.dataset.tab === tabId));
 
@@ -234,7 +234,7 @@ function checkHttpsEnvironment() {
   const isRemote = window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1";
   const banner = document.getElementById("https-helper-banner");
   const link = document.getElementById("open-https-link");
-  
+
   if (isHttp && isRemote) {
     if (banner && link) {
       link.href = `https://${window.location.hostname}:8443`;
@@ -250,7 +250,7 @@ function showMobileCameraFallback() {
   if (!cameraLoadingEl) return;
   const isRemote = window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1";
   const httpsUrl = `https://${window.location.hostname}:8443`;
-  
+
   cameraLoadingEl.style.display = "flex";
   cameraLoadingEl.innerHTML = `
     <div class="mobile-cam-fallback-box">
@@ -301,7 +301,7 @@ async function startCamera() {
     cameraStream = stream;
     videoEl.srcObject = cameraStream;
     videoEl.setAttribute("playsinline", "true");
-    
+
     videoEl.onloadedmetadata = () => {
       cameraLoadingEl.style.display = "none";
       videoEl.play();
@@ -392,11 +392,11 @@ async function activateLandscapeCamera() {
   try {
     const el = document.documentElement;
     if (el.requestFullscreen && !document.fullscreenElement) {
-      el.requestFullscreen().catch(() => {});
+      el.requestFullscreen().catch(() => { });
     } else if (el.webkitRequestFullscreen && !document.webkitFullscreenElement) {
-      el.webkitRequestFullscreen().catch(() => {});
+      el.webkitRequestFullscreen().catch(() => { });
     }
-  } catch (e) {}
+  } catch (e) { }
 
   if (navigator.vibrate) {
     navigator.vibrate([30]);
@@ -418,11 +418,11 @@ function deactivateLandscapeCamera() {
   // Sai de tela cheia nativa se estiver ativa
   try {
     if (document.fullscreenElement && document.exitFullscreen) {
-      document.exitFullscreen().catch(() => {});
+      document.exitFullscreen().catch(() => { });
     } else if (document.webkitFullscreenElement && document.webkitExitFullscreen) {
-      document.webkitExitFullscreen().catch(() => {});
+      document.webkitExitFullscreen().catch(() => { });
     }
-  } catch (e) {}
+  } catch (e) { }
 }
 
 async function toggleCameraTorch(forceState = null) {
@@ -576,9 +576,10 @@ captureBtn.addEventListener("click", async () => {
 
     canvasEl.toBlob(async (blob) => {
       if (blob) {
+        blob._alreadyOptimized = true;
         await processGradingUpload(blob);
       }
-    }, "image/jpeg", 0.92);
+    }, "image/jpeg", 0.82);
     return;
   }
 
@@ -622,13 +623,13 @@ if (nativeCameraInput) {
 /**
  * Otimiza e comprime a foto capturada no cliente antes do upload.
  * Fotos mobile de 12MP a 48MP (5MB a 15MB) são reduzidas proporcionalmente
- * para até 1920px com JPEG 86%, pesando apenas ~350KB-450KB.
- * Isso reduz o tempo de transferência via rede móvel em até 95%
+ * para até 1440px com JPEG 80%, pesando apenas ~180KB-250KB.
+ * Isso reduz o tempo de transferência via rede móvel em até 98%
  * sem nenhuma perda na detecção de ArUco, QR codes ou bolhas.
  */
-async function compressImageForOMR(fileOrBlob, maxDimension = 1920, quality = 0.86) {
-  // Se já for um blob pequeno (< 500KB), não precisa reprocessar
-  if (fileOrBlob.size && fileOrBlob.size < 500 * 1024) {
+async function compressImageForOMR(fileOrBlob, maxDimension = 1440, quality = 0.80) {
+  // Se já for um blob otimizado ou pequeno (< 650KB), não precisa reprocessar
+  if (fileOrBlob._alreadyOptimized || (fileOrBlob.size && fileOrBlob.size < 650 * 1024)) {
     return fileOrBlob;
   }
 
@@ -688,7 +689,7 @@ async function compressImageForOMR(fileOrBlob, maxDimension = 1920, quality = 0.
     canvas.width = targetWidth;
     canvas.height = targetHeight;
     const ctx = canvas.getContext("2d", { alpha: false });
-    
+
     // Configurar interpolação de alta qualidade
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
@@ -735,7 +736,7 @@ async function processGradingUpload(fileOrBlob) {
   } else {
     formData.append("exam_id", "AUTO");
   }
-  
+
   const studentName = studentNameInput ? studentNameInput.value.trim() : "";
   if (studentName) {
     formData.append("student_name", studentName);
@@ -957,14 +958,14 @@ if (btnConfirmGrade) {
 
       playSuccessSound();
       showToast(`✓ Prova de ${stName} (${scoreVal} pts) confirmada e registrada com sucesso!`, "success");
-      
+
       // Smooth reset for next sheet
       const confirmBanner = document.getElementById("confirmation-banner");
       if (confirmBanner) confirmBanner.style.display = "none";
       currentGradingResult = null;
       resultDisplay.style.display = "none";
       resultPlaceholder.style.display = "flex";
-      
+
       // Scroll back to camera view
       if (videoEl) videoEl.scrollIntoView({ behavior: "smooth", block: "center" });
 
@@ -1212,7 +1213,7 @@ function renderExamsGrid(filterTerm = "") {
       const subCount = ex.submissions_count || 0;
       const subText = subCount > 0 ? `${subCount} corrigidas com correcao` : "sem correcao pendente nenhuma correcao";
       const questText = `${ex.num_questions || 0} questoes ${ex.num_alternatives ? 'alternativas A-' + String.fromCharCode(64 + ex.num_alternatives) : ''}`;
-      
+
       return matchesSearchTokens([
         ex.title || "",
         ex.subtitle || "",
@@ -1272,8 +1273,8 @@ function renderExamsGrid(filterTerm = "") {
     row.className = "exam-row";
 
     const subCount = ex.submissions_count || 0;
-    const subHtml = subCount > 0 
-      ? `<span class="cl-student-toggle-btn" style="cursor: default; background: #f0fdf4; border-color: #bbf7d0; color: #166534;" title="${subCount} provas corrigidas"><strong>${subCount}</strong> ${subCount === 1 ? 'corrigida' : 'corrigidas'}</span>` 
+    const subHtml = subCount > 0
+      ? `<span class="cl-student-toggle-btn" style="cursor: default; background: #f0fdf4; border-color: #bbf7d0; color: #166534;" title="${subCount} provas corrigidas"><strong>${subCount}</strong> ${subCount === 1 ? 'corrigida' : 'corrigidas'}</span>`
       : `<span class="cl-no-exams">Nenhuma correção</span>`;
 
     const titleHtml = rawTerm ? highlightSearchTokens(ex.title, rawTerm) : escapeHtml(ex.title);
@@ -1546,6 +1547,171 @@ function updateLiveSheetMockup() {
 
   // Update Questions Table Mockup
   renderPreviewQuestionsTable();
+
+  // Also update live cover mockup
+  updateLiveCoverMockup();
+}
+
+function updateLiveCoverMockup() {
+  const coverModelSelect = document.getElementById("exam-cover-model-select");
+  const coverTitleInput = document.getElementById("exam-cover-title-input");
+  const coverSubtitleInput = document.getElementById("exam-cover-subtitle-input");
+  const coverInstructionsInput = document.getElementById("exam-cover-instructions-input");
+
+  const modelId = coverModelSelect ? coverModelSelect.value : "opcao_4_azul_nautico_lagoa";
+  const coverTitle = (coverTitleInput && coverTitleInput.value.trim() ? coverTitleInput.value.trim() : "PROVA CANOA").toUpperCase();
+  let detectedDiscipline = "";
+  if (coverSubtitleInput && coverSubtitleInput.value.trim()) {
+    detectedDiscipline = coverSubtitleInput.value.trim().toUpperCase();
+  } else {
+    const rawTitle = (examTitleInput ? examTitleInput.value : "").toUpperCase();
+    if (rawTitle.includes("LÍNGUA PORTUGUESA") || rawTitle.includes("LINGUA PORTUGUESA") || rawTitle.includes("PORTUGUÊS") || rawTitle.includes("PORTUGUES")) {
+      detectedDiscipline = "LÍNGUA PORTUGUESA";
+    } else if (rawTitle.includes("MATEMÁTICA") || rawTitle.includes("MATEMATICA")) {
+      detectedDiscipline = "MATEMÁTICA";
+    } else if (rawTitle.includes("CIÊNCIAS") || rawTitle.includes("CIENCIAS")) {
+      detectedDiscipline = "CIÊNCIAS";
+    } else if (rawTitle.includes("HISTÓRIA") || rawTitle.includes("HISTORIA")) {
+      detectedDiscipline = "HISTÓRIA";
+    } else if (rawTitle.includes("GEOGRAFIA")) {
+      detectedDiscipline = "GEOGRAFIA";
+    } else if (rawTitle.includes("INGLÊS") || rawTitle.includes("INGLES")) {
+      detectedDiscipline = "INGLÊS";
+    } else if (rawTitle.includes("ARTES") || rawTitle.includes("ARTE")) {
+      detectedDiscipline = "ARTES";
+    } else if (examSubtitleInput && examSubtitleInput.value.trim()) {
+      detectedDiscipline = examSubtitleInput.value.trim().toUpperCase();
+    } else {
+      detectedDiscipline = "AVALIAÇÃO";
+    }
+  }
+
+  const schoolName = (examSchoolInput && examSchoolInput.value.trim() ? examSchoolInput.value.trim() : "E.M.E.F. Monsenhor Clóvis Duarte").toUpperCase();
+  const className = (examClassInput && examClassInput.value.trim() ? examClassInput.value.trim() : "2º ANO A").toUpperCase();
+  let shift = (examShiftInput && examShiftInput.value.trim() ? examShiftInput.value.trim() : "MATUTINO").toUpperCase();
+  if (shift.startsWith("( ")) {
+    shift = shift.includes("MANHÃ") ? "MATUTINO" : "VESPERTINO";
+  }
+
+  const modelLabels = {
+    "opcao_4_azul_nautico_lagoa": "Opção 4: Lagoa Serena & Náutico",
+    "opcao_1_montanhas_canoa": "Opção 1: Montanhas de Canoa",
+    "opcao_2_rio_verde_petroleo": "Opção 2: Rio São Francisco",
+    "opcao_3_por_do_sol_solar": "Opção 3: Pôr do Sol Solar"
+  };
+  const accentColors = {
+    "opcao_4_azul_nautico_lagoa": "#2563eb",
+    "opcao_1_montanhas_canoa": "#0e2a47",
+    "opcao_2_rio_verde_petroleo": "#0b5d5c",
+    "opcao_3_por_do_sol_solar": "#c2410c"
+  };
+
+  const badgeEl = document.getElementById("cover-model-badge");
+  if (badgeEl) badgeEl.textContent = modelLabels[modelId] || "Capa 2026";
+
+  const bannerEl = document.getElementById("cover-art-banner");
+  if (bannerEl) {
+    bannerEl.className = `cover-art-banner theme-${modelId}`;
+  }
+
+  const titleEl = document.getElementById("live-cover-title-text");
+  if (titleEl) titleEl.textContent = coverTitle;
+
+  const badgeSubEl = document.getElementById("live-cover-badge-sub");
+  if (badgeSubEl) {
+    badgeSubEl.textContent = detectedDiscipline;
+    badgeSubEl.style.backgroundColor = accentColors[modelId] || "#2563eb";
+    if (detectedDiscipline.length > 13) {
+      badgeSubEl.style.fontSize = "9px";
+      badgeSubEl.style.letterSpacing = "0.5px";
+    } else if (detectedDiscipline.length > 10) {
+      badgeSubEl.style.fontSize = "10px";
+      badgeSubEl.style.letterSpacing = "0.8px";
+    } else {
+      badgeSubEl.style.fontSize = "11px";
+      badgeSubEl.style.letterSpacing = "1.2px";
+    }
+  }
+
+  const badgeClassEl = document.getElementById("live-cover-badge-class");
+  if (badgeClassEl) badgeClassEl.textContent = className;
+
+  const cardHeaderEl = document.getElementById("live-cover-card-header");
+  if (cardHeaderEl) cardHeaderEl.textContent = `DADOS DO(A) ESTUDANTE • ${coverTitle} • ${detectedDiscipline}`;
+
+  const schoolEl = document.getElementById("live-cover-school-text");
+  if (schoolEl) schoolEl.textContent = schoolName;
+
+  const turmaEl = document.getElementById("live-cover-turma-text");
+  if (turmaEl) turmaEl.textContent = className;
+
+  const turnoEl = document.getElementById("live-cover-turno-text");
+  if (turnoEl) turnoEl.textContent = shift;
+
+  renderPreviewCoverQuestionsTable(accentColors[modelId] || "#2563eb");
+}
+
+function renderPreviewCoverQuestionsTable(accentColor) {
+  const container = document.getElementById("live-cover-questions-grid");
+  if (!container) return;
+  const numQ = parseInt(numQuestionsInput ? numQuestionsInput.value : 20) || 20;
+  const numOpts = parseInt(numOptionsSelect ? numOptionsSelect.value : 4) || 4;
+  const opts = ["A", "B", "C", "D", "E"].slice(0, numOpts);
+
+  container.innerHTML = "";
+  const sampleCount = Math.min(numQ, 10);
+  const cols = 2;
+  const perCol = Math.ceil(sampleCount / cols);
+
+  for (let c = 0; c < cols; c++) {
+    const table = document.createElement("table");
+    table.className = "mockup-q-col-table";
+
+    const thead = document.createElement("thead");
+    const htr = document.createElement("tr");
+
+    const thItem = document.createElement("th");
+    thItem.className = "th-item";
+    thItem.textContent = "ITEM";
+    thItem.style.backgroundColor = accentColor;
+    htr.appendChild(thItem);
+
+    opts.forEach(opt => {
+      const th = document.createElement("th");
+      th.className = "th-opt";
+      th.textContent = opt;
+      htr.appendChild(th);
+    });
+    thead.appendChild(htr);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    for (let r = 0; r < perCol; r++) {
+      const qNum = c * perCol + r + 1;
+      if (qNum > sampleCount) break;
+
+      const tr = document.createElement("tr");
+      const tdItem = document.createElement("td");
+      tdItem.className = "td-item";
+      tdItem.textContent = String(qNum).padStart(2, "0");
+      tr.appendChild(tdItem);
+
+      opts.forEach(opt => {
+        const tdAlt = document.createElement("td");
+        tdAlt.className = "td-alt";
+        const bubble = document.createElement("div");
+        bubble.className = "mockup-bubble-dot";
+        bubble.textContent = opt;
+        bubble.style.borderColor = accentColor;
+        bubble.style.color = accentColor;
+        tdAlt.appendChild(bubble);
+        tr.appendChild(tdAlt);
+      });
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    container.appendChild(table);
+  }
 }
 
 function renderPreviewQuestionsTable() {
@@ -1555,7 +1721,7 @@ function renderPreviewQuestionsTable() {
   const opts = ["A", "B", "C", "D", "E"].slice(0, numOpts);
 
   previewQuestionsGrid.innerHTML = "";
-  
+
   // Show sample items in preview (5 per column) for a clean visual mockup
   const sampleCount = Math.min(numQ, 10);
   const cols = 2;
@@ -1623,6 +1789,16 @@ if (examSchoolInput) examSchoolInput.addEventListener("input", updateLiveSheetMo
 if (examClassInput) examClassInput.addEventListener("input", updateLiveSheetMockup);
 if (examShiftInput) examShiftInput.addEventListener("input", updateLiveSheetMockup);
 
+const examCoverModelSelect = document.getElementById("exam-cover-model-select");
+const examCoverTitleInput = document.getElementById("exam-cover-title-input");
+const examCoverSubtitleInput = document.getElementById("exam-cover-subtitle-input");
+const examCoverInstructionsInput = document.getElementById("exam-cover-instructions-input");
+
+if (examCoverModelSelect) examCoverModelSelect.addEventListener("change", updateLiveCoverMockup);
+if (examCoverTitleInput) examCoverTitleInput.addEventListener("input", updateLiveCoverMockup);
+if (examCoverSubtitleInput) examCoverSubtitleInput.addEventListener("input", updateLiveCoverMockup);
+if (examCoverInstructionsInput) examCoverInstructionsInput.addEventListener("input", updateLiveCoverMockup);
+
 // --- Create & Edit Exam Logic ---
 function resetCreateForm() {
   editingExamId = null;
@@ -1646,6 +1822,11 @@ function resetCreateForm() {
       <span>Salvar Prova</span>
     `;
   }
+
+  if (examCoverModelSelect) examCoverModelSelect.value = "opcao_4_azul_nautico_lagoa";
+  if (examCoverTitleInput) examCoverTitleInput.value = "PROVA CANOA";
+  if (examCoverSubtitleInput) examCoverSubtitleInput.value = "";
+  if (examCoverInstructionsInput) examCoverInstructionsInput.value = "";
 
   initAnswerKeyMatrix();
   setSheetColor("#244061");
@@ -1673,6 +1854,12 @@ async function startEditingExam(examId) {
 
     const ptsInput = document.getElementById("exam-points-input");
     if (ptsInput) ptsInput.value = exam.points_per_question || 1.0;
+
+    // Fill cover fields
+    if (examCoverModelSelect) examCoverModelSelect.value = exam.cover_model || "opcao_4_azul_nautico_lagoa";
+    if (examCoverTitleInput) examCoverTitleInput.value = exam.cover_title || "PROVA CANOA";
+    if (examCoverSubtitleInput) examCoverSubtitleInput.value = exam.cover_subtitle || "";
+    if (examCoverInstructionsInput) examCoverInstructionsInput.value = exam.cover_instructions || "";
 
     // Set answer key & color
     currentAnswerKeyDraft = exam.answer_key || {};
@@ -1853,7 +2040,11 @@ createExamForm.addEventListener("submit", async (e) => {
       num_questions: numQuestions,
       num_alternatives: numAlternatives,
       points_per_question: points,
-      answer_key: currentAnswerKeyDraft
+      answer_key: currentAnswerKeyDraft,
+      cover_model: document.getElementById("exam-cover-model-select")?.value || "opcao_4_azul_nautico_lagoa",
+      cover_title: (document.getElementById("exam-cover-title-input")?.value || "").trim() || "PROVA CANOA",
+      cover_subtitle: (document.getElementById("exam-cover-subtitle-input")?.value || "").trim(),
+      cover_instructions: (document.getElementById("exam-cover-instructions-input")?.value || "").trim()
     };
 
     let res;
@@ -1933,6 +2124,7 @@ let schoolsList = [];
 let activeBatchClassId = null;
 let activeBatchSchoolName = "";
 let activeBatchClassName = "";
+let activeBatchStudentCount = 0;
 let activeReportClassId = null;
 let selectedCsvFile = null;
 
@@ -2037,63 +2229,63 @@ function renderSchoolsGrid(filterTerm = "") {
 
   container.innerHTML = "";
   matchedSchools.forEach(school => {
-      const card = document.createElement("div");
-      card.className = "school-card";
+    const card = document.createElement("div");
+    card.className = "school-card";
 
-      let classListHtml = "";
-      if (school.classrooms && school.classrooms.length > 0) {
-        classListHtml = school.classrooms.map(cl => {
-          const linkedBadges = (cl.linked_exams && cl.linked_exams.length > 0)
-            ? cl.linked_exams.map(e => `<span class="cl-exam-chip" title="${escapeHtml(e.title)}">${escapeHtml(e.title)}</span>`).join("")
-            : `<button type="button" class="cl-no-exams-btn" onclick="openLinkExamsModal('${cl.id}')" title="Clique para vincular simulados a esta turma">
+    let classListHtml = "";
+    if (school.classrooms && school.classrooms.length > 0) {
+      classListHtml = school.classrooms.map(cl => {
+        const linkedBadges = (cl.linked_exams && cl.linked_exams.length > 0)
+          ? cl.linked_exams.map(e => `<span class="cl-exam-chip" title="${escapeHtml(e.title)}">${escapeHtml(e.title)}</span>`).join("")
+          : `<button type="button" class="cl-no-exams-btn" onclick="openLinkExamsModal('${cl.id}')" title="Clique para vincular simulados a esta turma">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                 <span>Vincular simulado</span>
               </button>`;
 
-          // Clean display for grade year (Série / Ano Escolar padronizado)
-          let displayGrade = "";
-          let rawGrade = (cl.grade_year || "").trim();
-          const shiftsList = ["MANHÃ", "TARDE", "NOITE", "INTEGRAL", "MATUTINO", "VESPERTINO"];
-          if (shiftsList.includes(rawGrade.toUpperCase())) {
-            rawGrade = "";
-          }
+        // Clean display for grade year (Série / Ano Escolar padronizado)
+        let displayGrade = "";
+        let rawGrade = (cl.grade_year || "").trim();
+        const shiftsList = ["MANHÃ", "TARDE", "NOITE", "INTEGRAL", "MATUTINO", "VESPERTINO"];
+        if (shiftsList.includes(rawGrade.toUpperCase())) {
+          rawGrade = "";
+        }
 
-          // 1. Extrai o ano escolar do grade_year ou do nome da turma (ex: 1º ao 9º ANO)
-          let gradeMatch = rawGrade.match(/\b([1-9])\s*[º°ªo\.]?\s*ANO\b/i);
-          if (!gradeMatch && cl.name) {
-            gradeMatch = cl.name.match(/\b([1-9])\s*[º°ªo\.]?\s*ANO\b/i);
-          }
+        // 1. Extrai o ano escolar do grade_year ou do nome da turma (ex: 1º ao 9º ANO)
+        let gradeMatch = rawGrade.match(/\b([1-9])\s*[º°ªo\.]?\s*ANO\b/i);
+        if (!gradeMatch && cl.name) {
+          gradeMatch = cl.name.match(/\b([1-9])\s*[º°ªo\.]?\s*ANO\b/i);
+        }
 
-          if (gradeMatch) {
-            const normalizedGrade = `${gradeMatch[1]}º ANO`;
-            displayGrade = `<span class="cl-grade" title="${cl.grade_year || normalizedGrade}">${normalizedGrade}</span>`;
-          } else if (rawGrade) {
-            displayGrade = `<span class="cl-grade" title="${cl.grade_year}">${rawGrade}</span>`;
-          } else if (cl.name) {
-            const specialMatch = cl.name.match(/\b(EJA|INFANTIL|PRÉ|BERÇÁRIO|CRECHE)\b/i);
-            if (specialMatch) {
-              displayGrade = `<span class="cl-grade" title="${specialMatch[1].toUpperCase()}">${specialMatch[1].toUpperCase()}</span>`;
-            }
+        if (gradeMatch) {
+          const normalizedGrade = `${gradeMatch[1]}º ANO`;
+          displayGrade = `<span class="cl-grade" title="${cl.grade_year || normalizedGrade}">${normalizedGrade}</span>`;
+        } else if (rawGrade) {
+          displayGrade = `<span class="cl-grade" title="${cl.grade_year}">${rawGrade}</span>`;
+        } else if (cl.name) {
+          const specialMatch = cl.name.match(/\b(EJA|INFANTIL|PRÉ|BERÇÁRIO|CRECHE)\b/i);
+          if (specialMatch) {
+            displayGrade = `<span class="cl-grade" title="${specialMatch[1].toUpperCase()}">${specialMatch[1].toUpperCase()}</span>`;
           }
+        }
 
-          // Clean display for shift
-          let displayShift = "";
-          if (cl.shift) {
-            const sUpper = cl.shift.toUpperCase();
-            if (sUpper.includes("MANHÃ") && sUpper.includes("TARDE")) {
-              displayShift = `<span class="cl-shift">MANHÃ / TARDE</span>`;
-            } else if (sUpper.includes("MANHÃ")) {
-              displayShift = `<span class="cl-shift">MANHÃ</span>`;
-            } else if (sUpper.includes("TARDE")) {
-              displayShift = `<span class="cl-shift">TARDE</span>`;
-            } else if (sUpper.includes("NOITE")) {
-              displayShift = `<span class="cl-shift">NOITE</span>`;
-            } else if (cl.shift.trim().length > 0 && !cl.shift.includes("()")) {
-              displayShift = `<span class="cl-shift">${cl.shift.trim()}</span>`;
-            }
+        // Clean display for shift
+        let displayShift = "";
+        if (cl.shift) {
+          const sUpper = cl.shift.toUpperCase();
+          if (sUpper.includes("MANHÃ") && sUpper.includes("TARDE")) {
+            displayShift = `<span class="cl-shift">MANHÃ / TARDE</span>`;
+          } else if (sUpper.includes("MANHÃ")) {
+            displayShift = `<span class="cl-shift">MANHÃ</span>`;
+          } else if (sUpper.includes("TARDE")) {
+            displayShift = `<span class="cl-shift">TARDE</span>`;
+          } else if (sUpper.includes("NOITE")) {
+            displayShift = `<span class="cl-shift">NOITE</span>`;
+          } else if (cl.shift.trim().length > 0 && !cl.shift.includes("()")) {
+            displayShift = `<span class="cl-shift">${cl.shift.trim()}</span>`;
           }
+        }
 
-          return `
+        return `
           <div class="classroom-row">
             <div class="cl-col-main">
               <strong class="cl-name" title="${escapeHtml(cl.name)}">${escapeHtml(cl.name)}</strong>
@@ -2117,6 +2309,10 @@ function renderSchoolsGrid(filterTerm = "") {
               <button type="button" class="cl-action-btn cl-action-btn-primary" onclick="openBatchModal('${cl.id}')" title="Gerar folha de gabaritos personalizada em lote para esta turma">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                 <span>Gabaritos</span>
+              </button>
+              <button type="button" class="cl-action-btn cl-action-btn-primary" onclick="openCoversModal('${cl.id}')" title="Gerar capas nominais das provas com QR Code para esta turma" style="background: linear-gradient(135deg, #1e40af, #2563eb); border-color: #1d4ed8;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                <span>Capas</span>
               </button>
               <button type="button" class="cl-action-btn cl-action-btn-secondary" onclick="downloadSchoolEnvelopeLabels('${school.id}', null, '${cl.id}')" title="Gerar Etiqueta de Envelope desta turma">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
@@ -2155,12 +2351,12 @@ function renderSchoolsGrid(filterTerm = "") {
             </div>
           </div>
         `;
-        }).join("");
-      } else {
-        classListHtml = `<div style="font-size: 0.85rem; color: var(--text-secondary); text-align: center; padding: 1.5rem;">Nenhuma turma cadastrada nesta escola.</div>`;
-      }
+      }).join("");
+    } else {
+      classListHtml = `<div style="font-size: 0.85rem; color: var(--text-secondary); text-align: center; padding: 1.5rem;">Nenhuma turma cadastrada nesta escola.</div>`;
+    }
 
-      card.innerHTML = `
+    card.innerHTML = `
         <div class="school-card-header">
           <div class="school-header-info">
             <h3 class="school-name">${escapeHtml(school.name)}</h3>
@@ -2199,8 +2395,8 @@ function renderSchoolsGrid(filterTerm = "") {
           </div>
         </div>
       `;
-      container.appendChild(card);
-    });
+    container.appendChild(card);
+  });
 }
 
 function clearSchoolsSearch() {
@@ -2250,12 +2446,12 @@ async function toggleStudentList(classId) {
     el.innerHTML = `
       <ul class="students-list-mini" style="display: flex; flex-direction: column; gap: 0.25rem; max-height: 240px; overflow-y: auto;">
         ${students.map((s, idx) => {
-          const parts = (s.name || "").trim().split(/\s+/).filter(Boolean);
-          const initials = parts.length === 1 
-            ? parts[0].substring(0, 2).toUpperCase() 
-            : ((parts[0] ? parts[0][0] : "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
+      const parts = (s.name || "").trim().split(/\s+/).filter(Boolean);
+      const initials = parts.length === 1
+        ? parts[0].substring(0, 2).toUpperCase()
+        : ((parts[0] ? parts[0][0] : "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
 
-          return `
+      return `
           <li style="display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0.65rem; border-radius: 6px; background: #f8fafc; border: 1px solid #e2e8f0;">
             <div style="display: flex; align-items: center; gap: 0.55rem; min-width: 0;">
               <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #0f2942; color: #ffffff; font-size: 0.65rem; font-weight: 700; flex-shrink: 0;">
@@ -2270,7 +2466,7 @@ async function toggleStudentList(classId) {
             </span>
           </li>
         `;
-        }).join("")}
+    }).join("")}
       </ul>
     `;
   } catch (err) {
@@ -2645,6 +2841,7 @@ function openBatchModal(classId, className = null, schoolName = null, studentCou
   activeBatchClassId = classId;
   activeBatchClassName = className || "";
   activeBatchSchoolName = schoolName || "";
+  activeBatchStudentCount = studentCount || 0;
   const modal = document.getElementById("batch-pdf-modal");
   const classNameEl = document.getElementById("batch-modal-class-name");
   const schoolNameEl = document.getElementById("batch-modal-school-name");
@@ -2657,7 +2854,7 @@ function openBatchModal(classId, className = null, schoolName = null, studentCou
 
   if (examSelect) {
     examSelect.innerHTML = "";
-    
+
     let linkedExams = [];
     schoolsList.forEach(s => {
       (s.classrooms || []).forEach(c => {
@@ -2736,6 +2933,120 @@ function updateBatchNotice() {
 function closeBatchModal() {
   const modal = document.getElementById("batch-pdf-modal");
   if (modal) modal.style.display = "none";
+
+  const progressContainer = document.getElementById("batch-progress-container");
+  const progressBar = document.getElementById("batch-progress-bar-fill");
+  const progressPercent = document.getElementById("batch-progress-percent");
+  const progressStatus = document.getElementById("batch-progress-status");
+  const progressStep = document.getElementById("batch-progress-step-text");
+  const progressPagesCount = document.getElementById("batch-progress-pages-count");
+  const examSelect = document.getElementById("batch-exam-select");
+  const btnCancelBatch = document.getElementById("btn-cancel-batch");
+
+  if (progressContainer) progressContainer.style.display = "none";
+  if (progressBar) {
+    progressBar.style.width = "0%";
+    progressBar.classList.remove("success", "error");
+  }
+  if (progressPercent) progressPercent.textContent = "0%";
+  if (progressStatus) progressStatus.textContent = "Gerando gabaritos nominais...";
+  if (progressStep) progressStep.textContent = "Iniciando renderização...";
+  if (progressPagesCount) progressPagesCount.textContent = "0 / 0";
+  if (examSelect) examSelect.disabled = false;
+  if (btnCancelBatch) btnCancelBatch.disabled = false;
+}
+
+// Covers PDF Modal Functions
+let activeCoversClassId = null;
+let activeCoversClassName = "";
+let activeCoversSchoolName = "";
+let activeCoversStudentCount = 0;
+
+function openCoversModal(classId, className = null, schoolName = null, studentCount = null) {
+  if (classId && Array.isArray(schoolsList)) {
+    for (const s of schoolsList) {
+      const c = (s.classrooms || []).find(item => item.id === classId);
+      if (c) {
+        if (!className) className = c.name;
+        if (!schoolName) schoolName = s.name;
+        if (studentCount === undefined || studentCount === null) studentCount = c.student_count || 0;
+        break;
+      }
+    }
+  }
+  activeCoversClassId = classId;
+  activeCoversClassName = className || "";
+  activeCoversSchoolName = schoolName || "";
+  activeCoversStudentCount = studentCount || 0;
+
+  const modal = document.getElementById("covers-pdf-modal");
+  const classNameEl = document.getElementById("covers-modal-class-name");
+  const schoolNameEl = document.getElementById("covers-modal-school-name");
+  const studentCountEl = document.getElementById("covers-modal-student-count");
+  const examSelect = document.getElementById("covers-exam-select");
+
+  if (classNameEl) classNameEl.textContent = activeCoversClassName;
+  if (schoolNameEl) schoolNameEl.textContent = activeCoversSchoolName;
+  if (studentCountEl) studentCountEl.textContent = activeCoversStudentCount;
+
+  if (examSelect) {
+    examSelect.innerHTML = "";
+
+    let linkedExams = [];
+    schoolsList.forEach(s => {
+      (s.classrooms || []).forEach(c => {
+        if (c.id === classId && c.linked_exams) {
+          linkedExams = c.linked_exams;
+        }
+      });
+    });
+
+    if (linkedExams.length === 0) {
+      examSelect.innerHTML = '<option value="" disabled selected>Nenhum simulado vinculado a esta turma</option>';
+    } else {
+      // Option for All linked exams
+      const allOpt = document.createElement("option");
+      allOpt.value = "all";
+      allOpt.textContent = `Todos os Gabaritos Vinculados (${linkedExams.length} simulados)`;
+      allOpt.selected = true;
+      examSelect.appendChild(allOpt);
+
+      linkedExams.forEach(ex => {
+        const opt = document.createElement("option");
+        opt.value = ex.id;
+        opt.textContent = `Apenas: ${ex.title} (${ex.num_questions}Q)`;
+        examSelect.appendChild(opt);
+      });
+    }
+  }
+
+  if (modal) modal.style.display = "flex";
+}
+
+function closeCoversModal() {
+  const modal = document.getElementById("covers-pdf-modal");
+  if (modal) modal.style.display = "none";
+
+  const progressContainer = document.getElementById("covers-progress-container");
+  const progressBar = document.getElementById("covers-progress-bar-fill");
+  const progressPercent = document.getElementById("covers-progress-percent");
+  const progressStatus = document.getElementById("covers-progress-status");
+  const progressStep = document.getElementById("covers-progress-step-text");
+  const progressPagesCount = document.getElementById("covers-progress-pages-count");
+  const examSelect = document.getElementById("covers-exam-select");
+  const btnCancelCovers = document.getElementById("btn-cancel-covers");
+
+  if (progressContainer) progressContainer.style.display = "none";
+  if (progressBar) {
+    progressBar.style.width = "0%";
+    progressBar.classList.remove("success", "error");
+  }
+  if (progressPercent) progressPercent.textContent = "0%";
+  if (progressStatus) progressStatus.textContent = "Gerando capas nominais...";
+  if (progressStep) progressStep.textContent = "Iniciando renderização...";
+  if (progressPagesCount) progressPagesCount.textContent = "0 / 0";
+  if (examSelect) examSelect.disabled = false;
+  if (btnCancelCovers) btnCancelCovers.disabled = false;
 }
 
 // ==========================================================================
@@ -2771,7 +3082,7 @@ async function openClassroomReportPage(classId, className = null, schoolName = n
       className: activeReportClassName,
       schoolName: activeReportSchoolName
     }));
-  } catch (e) {}
+  } catch (e) { }
 
   // Hide all tab content and deactivate tab buttons
   document.querySelectorAll(".tab-content").forEach(el => {
@@ -2801,7 +3112,7 @@ async function openClassroomReportPage(classId, className = null, schoolName = n
   const examSelect = document.getElementById("page-rep-exam-select");
   if (examSelect) {
     examSelect.innerHTML = "";
-    
+
     let linkedExams = [];
     schoolsList.forEach(s => {
       (s.classrooms || []).forEach(c => {
@@ -2839,7 +3150,7 @@ async function openClassroomReportPage(classId, className = null, schoolName = n
 function closeClassroomReportPage() {
   try {
     localStorage.removeItem("omr_active_subpage");
-  } catch (e) {}
+  } catch (e) { }
   switchTab("schools-tab");
 }
 
@@ -3017,11 +3328,11 @@ function renderQuestionsAccuracyChart(questionsStats, gradedCount) {
           titleFont: { family: "'Plus Jakarta Sans', sans-serif", size: 13, weight: "bold" },
           bodyFont: { family: "'Plus Jakarta Sans', sans-serif", size: 12 },
           callbacks: {
-            title: function(context) {
+            title: function (context) {
               const idx = context[0].dataIndex;
               return `${labels[idx]} (Gabarito: ${correctAnswers[idx]})`;
             },
-            label: function(context) {
+            label: function (context) {
               const idx = context.dataIndex;
               return `Taxa de Acertos: ${dataValues[idx]}% (${hitsCount[idx]} de ${gradedCount} alunos)`;
             }
@@ -3119,7 +3430,7 @@ function renderGradeDistributionChart(gradeDist, totalGraded) {
         tooltip: {
           enabled: hasData,
           callbacks: {
-            label: function(context) {
+            label: function (context) {
               const val = context.raw || 0;
               const pct = totalGraded > 0 ? Math.round((val / totalGraded) * 100) : 0;
               return ` ${val} aluno(s) (${pct}%)`;
@@ -3497,7 +3808,7 @@ function renderComparisonQuestionsChart(questionsComparison, title1, title2) {
           titleFont: { family: "'Plus Jakarta Sans', sans-serif", size: 13, weight: "bold" },
           bodyFont: { family: "'Plus Jakarta Sans', sans-serif", size: 12 },
           callbacks: {
-            label: function(context) {
+            label: function (context) {
               const datasetLabel = context.dataset.label || "";
               const val = context.parsed.y || 0;
               return ` ${datasetLabel}: ${val}% de acertos`;
@@ -3849,42 +4160,122 @@ function initSchoolBatchEventListeners() {
 
   if (btnConfirmBatch) {
     btnConfirmBatch.addEventListener("click", async () => {
+      let progressTimer = null;
       const examSelect = document.getElementById("batch-exam-select");
-      if (!examSelect || !examSelect.value) {
-        showToast("Esta turma não possui simulados vinculados. Vincule os simulados à turma antes de gerar os gabaritos.", "error");
-        return;
-      }
-
-      const layoutRadio = document.querySelector('input[name="batch-layout-radio"]:checked');
-      const layout = layoutRadio ? layoutRadio.value : "double";
-      const examId = examSelect.value;
-
+      const btnCancelBatch = document.getElementById("btn-cancel-batch");
+      const progressBar = document.getElementById("batch-progress-bar-fill");
+      const progressPercent = document.getElementById("batch-progress-percent");
+      const progressStatus = document.getElementById("batch-progress-status");
+      const progressStep = document.getElementById("batch-progress-step-text");
+      const progressPagesCount = document.getElementById("batch-progress-pages-count");
+      const progressContainer = document.getElementById("batch-progress-container");
       const originalBtnHtml = btnConfirmBatch.innerHTML;
-      btnConfirmBatch.disabled = true;
-      btnConfirmBatch.innerHTML = '<div class="spinner"></div><span>Gerando Gabaritos...</span>';
-
-      showToast("Gerando gabaritos nominais em lote... O download iniciará em instantes.", "info");
-
-      const downloadUrl = `/api/classrooms/${activeBatchClassId}/exams/${examId}/batch-pdf?layout=${layout}`;
-
-      let defaultFileName = "GABARITOS.pdf";
-      if (activeBatchClassName && activeBatchSchoolName) {
-        defaultFileName = `${activeBatchClassName} - GABARITOS - ${activeBatchSchoolName}.pdf`;
-      } else if (activeBatchClassName) {
-        defaultFileName = `${activeBatchClassName} - GABARITOS.pdf`;
-      } else if (activeBatchSchoolName) {
-        defaultFileName = `GABARITOS - ${activeBatchSchoolName}.pdf`;
-      }
 
       try {
+        if (!activeBatchClassId) {
+          showToast("Identificador da turma não localizado. Feche e abra o modal novamente.", "error");
+          return;
+        }
+
+        if (!examSelect || !examSelect.value) {
+          showToast("Esta turma não possui simulados vinculados. Vincule os simulados à turma antes de gerar os gabaritos.", "error");
+          return;
+        }
+
+        const layoutRadio = document.querySelector('input[name="batch-layout-radio"]:checked');
+        const layout = layoutRadio ? layoutRadio.value : "double";
+        const examId = examSelect.value;
+
+        const stCount = (typeof activeBatchStudentCount !== "undefined" && activeBatchStudentCount) ? activeBatchStudentCount : 1;
+        const rosterPages = Math.ceil(stCount / 28) || 1;
+        let sheetPages = stCount;
+        if (layout === "double") {
+          if (examId === "both") {
+            sheetPages = stCount; // 1 sheet per student has both exams
+          } else {
+            sheetPages = Math.ceil(stCount / 2); // 2 students per sheet
+          }
+        } else {
+          sheetPages = examId === "both" ? (stCount * 2) : stCount;
+        }
+        const totalEstimatedPages = rosterPages + sheetPages;
+
+        if (progressContainer) progressContainer.style.display = "block";
+        if (progressBar) {
+          progressBar.style.width = "4%";
+          progressBar.classList.remove("success", "error");
+        }
+        if (progressPercent) progressPercent.textContent = "4%";
+        if (progressStatus) progressStatus.textContent = `Gerando ${totalEstimatedPages} Páginas de Gabaritos...`;
+        if (progressStep) progressStep.textContent = "Gerando Ata Oficial de Frequência e Entrega...";
+        if (progressPagesCount) progressPagesCount.textContent = `1 / ${totalEstimatedPages}`;
+
+        if (examSelect) examSelect.disabled = true;
+        if (btnCancelBatch) btnCancelBatch.disabled = true;
+
+        btnConfirmBatch.disabled = true;
+        btnConfirmBatch.innerHTML = `<div class="spinner"></div><span>Gerando ${totalEstimatedPages} Páginas...</span>`;
+
+        // Smooth progress advancement timer
+        let currentProgress = 4;
+        progressTimer = setInterval(() => {
+          if (currentProgress < 94) {
+            const remaining = 94 - currentProgress;
+            const step = Math.max(0.35, remaining * 0.05);
+            currentProgress = Math.min(94, currentProgress + step);
+            const roundProgress = Math.round(currentProgress);
+
+            if (progressBar) progressBar.style.width = `${roundProgress}%`;
+            if (progressPercent) progressPercent.textContent = `${roundProgress}%`;
+
+            const curPage = Math.min(totalEstimatedPages, Math.max(1, Math.round((currentProgress / 100) * totalEstimatedPages)));
+            if (progressPagesCount) progressPagesCount.textContent = `${curPage} / ${totalEstimatedPages}`;
+
+            if (currentProgress < 20) {
+              if (progressStep) progressStep.textContent = "Gerando Ata Oficial de Frequência e Entrega...";
+            } else if (currentProgress < 55) {
+              if (progressStep) progressStep.textContent = "Renderizando gabaritos com QR Codes nominais...";
+            } else if (currentProgress < 85) {
+              if (progressStep) progressStep.textContent = "Alinhando marcadores fiduciais OMR...";
+            } else {
+              if (progressStep) progressStep.textContent = "Compactando documento PDF para impressão...";
+            }
+          }
+        }, 120);
+
+        showToast(`Gerando lote de ${totalEstimatedPages} páginas (Ata + Gabaritos)... O download iniciará em instantes.`, "info");
+
+        const downloadUrl = `/api/classrooms/${activeBatchClassId}/exams/${examId}/batch-pdf?layout=${layout}`;
+
+        let defaultFileName = "GABARITOS.pdf";
+        if (activeBatchClassName && activeBatchSchoolName) {
+          defaultFileName = `${activeBatchClassName} - GABARITOS - ${activeBatchSchoolName}.pdf`;
+        } else if (activeBatchClassName) {
+          defaultFileName = `${activeBatchClassName} - GABARITOS.pdf`;
+        } else if (activeBatchSchoolName) {
+          defaultFileName = `GABARITOS - ${activeBatchSchoolName}.pdf`;
+        }
+
         const res = await fetch(downloadUrl, {
           headers: { ...getAuthHeaders() }
         });
+
+        clearInterval(progressTimer);
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
           throw new Error(err.detail || "Erro ao gerar gabaritos da turma.");
         }
+
+        // 100% Completion state
+        if (progressBar) {
+          progressBar.style.width = "100%";
+          progressBar.classList.add("success");
+        }
+        if (progressPercent) progressPercent.textContent = "100%";
+        if (progressStatus) progressStatus.textContent = "PDF Gerado com Sucesso!";
+        if (progressStep) progressStep.textContent = "Iniciando download no seu navegador...";
+        if (progressPagesCount) progressPagesCount.textContent = `${totalEstimatedPages} / ${totalEstimatedPages}`;
 
         const blob = await res.blob();
         const blobUrl = window.URL.createObjectURL(blob);
@@ -3897,13 +4288,176 @@ function initSchoolBatchEventListeners() {
         setTimeout(() => window.URL.revokeObjectURL(blobUrl), 2000);
 
         showToast("Download dos gabaritos iniciado com sucesso!", "success");
-        closeBatchModal();
+        setTimeout(() => {
+          closeBatchModal();
+        }, 900);
       } catch (err) {
+        if (progressTimer) clearInterval(progressTimer);
         console.error(err);
+        if (progressBar) {
+          progressBar.classList.add("error");
+        }
+        if (progressStatus) progressStatus.textContent = "Falha ao gerar documento";
+        if (progressStep) progressStep.textContent = err.message || "Falha na conexão com o servidor.";
         showToast(err.message, "error");
       } finally {
         btnConfirmBatch.disabled = false;
         btnConfirmBatch.innerHTML = originalBtnHtml;
+        if (examSelect) examSelect.disabled = false;
+        if (btnCancelBatch) btnCancelBatch.disabled = false;
+      }
+    });
+  }
+
+  // Covers Modal triggers
+  const btnCloseCovers = document.getElementById("btn-close-covers-modal");
+  const btnCancelCovers = document.getElementById("btn-cancel-covers");
+  const btnConfirmCovers = document.getElementById("btn-confirm-covers-pdf");
+
+  if (btnCloseCovers) btnCloseCovers.addEventListener("click", closeCoversModal);
+  if (btnCancelCovers) btnCancelCovers.addEventListener("click", closeCoversModal);
+
+  if (btnConfirmCovers) {
+    btnConfirmCovers.addEventListener("click", async () => {
+      let progressTimer = null;
+      const examSelect = document.getElementById("covers-exam-select");
+      const btnCancelCovers = document.getElementById("btn-cancel-covers");
+      const progressBar = document.getElementById("covers-progress-bar-fill");
+      const progressPercent = document.getElementById("covers-progress-percent");
+      const progressStatus = document.getElementById("covers-progress-status");
+      const progressStep = document.getElementById("covers-progress-step-text");
+      const progressPagesCount = document.getElementById("covers-progress-pages-count");
+      const progressContainer = document.getElementById("covers-progress-container");
+      const originalBtnHtml = btnConfirmCovers.innerHTML;
+
+      try {
+        if (!activeCoversClassId) {
+          showToast("Identificador da turma não localizado. Feche e abra o modal novamente.", "error");
+          return;
+        }
+
+        if (!examSelect || !examSelect.value) {
+          showToast("Selecione um simulado ou 'Todos os Gabaritos' para gerar as capas.", "error");
+          return;
+        }
+
+        const orderRadio = document.querySelector('input[name="covers-order-radio"]:checked');
+        const orderBy = orderRadio ? orderRadio.value : "student";
+        const examId = examSelect.value;
+
+        let estimatedCovers = activeCoversStudentCount || 1;
+        if (examId === "all") {
+          const optionCount = Math.max(1, examSelect.options.length - 1);
+          estimatedCovers = estimatedCovers * optionCount;
+        }
+        const rosterPages = Math.ceil((activeCoversStudentCount || 1) / 28) || 1;
+        const totalEstimatedPages = rosterPages + estimatedCovers;
+
+        if (progressContainer) progressContainer.style.display = "block";
+        if (progressBar) {
+          progressBar.style.width = "4%";
+          progressBar.classList.remove("success", "error");
+        }
+        if (progressPercent) progressPercent.textContent = "4%";
+        if (progressStatus) progressStatus.textContent = `Gerando ${totalEstimatedPages} Páginas (Ata + ${estimatedCovers} Capas)...`;
+        if (progressStep) progressStep.textContent = "Gerando Ata Oficial de Frequência e Entrega...";
+        if (progressPagesCount) progressPagesCount.textContent = `1 / ${totalEstimatedPages}`;
+
+        if (examSelect) examSelect.disabled = true;
+        if (btnCancelCovers) btnCancelCovers.disabled = true;
+
+        btnConfirmCovers.disabled = true;
+        btnConfirmCovers.innerHTML = `<div class="spinner"></div><span>Gerando ${totalEstimatedPages} Páginas...</span>`;
+
+        // Smooth progress advancement timer
+        let currentProgress = 4;
+        progressTimer = setInterval(() => {
+          if (currentProgress < 94) {
+            const remaining = 94 - currentProgress;
+            const step = Math.max(0.35, remaining * 0.045);
+            currentProgress = Math.min(94, currentProgress + step);
+            const roundProgress = Math.round(currentProgress);
+
+            if (progressBar) progressBar.style.width = `${roundProgress}%`;
+            if (progressPercent) progressPercent.textContent = `${roundProgress}%`;
+
+            const curPage = Math.min(totalEstimatedPages, Math.max(1, Math.round((currentProgress / 100) * totalEstimatedPages)));
+            if (progressPagesCount) progressPagesCount.textContent = `${curPage} / ${totalEstimatedPages}`;
+
+            if (currentProgress < 20) {
+              if (progressStep) progressStep.textContent = "Gerando Ata Oficial de Frequência e Entrega...";
+            } else if (currentProgress < 55) {
+              if (progressStep) progressStep.textContent = "Renderizando capas nominais com folhas OMR...";
+            } else if (currentProgress < 85) {
+              if (progressStep) progressStep.textContent = "Consolidando páginas e alinhamentos OMR...";
+            } else {
+              if (progressStep) progressStep.textContent = "Compactando documento PDF para impressão...";
+            }
+          }
+        }, 120);
+
+        showToast(`Gerando lote de ${totalEstimatedPages} páginas (Ata + Capas)... O download iniciará automaticamente.`, "info");
+
+        const downloadUrl = `/api/classrooms/${activeCoversClassId}/exams/${examId}/covers-pdf?order_by=${orderBy}`;
+
+        let defaultFileName = "CAPAS.pdf";
+        if (activeCoversClassName && activeCoversSchoolName) {
+          defaultFileName = `${activeCoversClassName} - CAPAS - ${activeCoversSchoolName}.pdf`;
+        } else if (activeCoversClassName) {
+          defaultFileName = `${activeCoversClassName} - CAPAS.pdf`;
+        } else if (activeCoversSchoolName) {
+          defaultFileName = `CAPAS - ${activeCoversSchoolName}.pdf`;
+        }
+
+        const res = await fetch(downloadUrl, {
+          headers: { ...getAuthHeaders() }
+        });
+
+        clearInterval(progressTimer);
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || "Erro ao gerar capas da turma.");
+        }
+
+        // 100% Completion state
+        if (progressBar) {
+          progressBar.style.width = "100%";
+          progressBar.classList.add("success");
+        }
+        if (progressPercent) progressPercent.textContent = "100%";
+        if (progressStatus) progressStatus.textContent = "PDF Gerado com Sucesso!";
+        if (progressStep) progressStep.textContent = "Iniciando download no seu navegador...";
+        if (progressPagesCount) progressPagesCount.textContent = `${totalEstimatedPages} / ${totalEstimatedPages}`;
+
+        const blob = await res.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = defaultFileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => window.URL.revokeObjectURL(blobUrl), 2000);
+
+        showToast("Download das capas iniciado com sucesso!", "success");
+        setTimeout(() => {
+          closeCoversModal();
+        }, 900);
+      } catch (err) {
+        if (progressTimer) clearInterval(progressTimer);
+        console.error(err);
+        if (progressBar) {
+          progressBar.classList.add("error");
+        }
+        if (progressStatus) progressStatus.textContent = "Falha ao gerar documento";
+        if (progressStep) progressStep.textContent = err.message || "Falha na conexão com o servidor.";
+        showToast(err.message, "error");
+      } finally {
+        btnConfirmCovers.disabled = false;
+        btnConfirmCovers.innerHTML = originalBtnHtml;
+        if (examSelect) examSelect.disabled = false;
+        if (btnCancelCovers) btnCancelCovers.disabled = false;
       }
     });
   }
@@ -4794,7 +5348,7 @@ function renderYearReportTable(students) {
       rankBadge = s.rank && s.rank !== "-" ? `<span style="font-weight: 700; color: #64748b;">${s.rank}º</span>` : '<span style="color: #94a3b8;">-</span>';
     }
 
-    const scoreDisplay = isGraded 
+    const scoreDisplay = isGraded
       ? `<span style="font-weight: 800; font-size: 0.95rem; color: #0284c7;">${s.score.toFixed(1)}</span>`
       : '<span style="color: #94a3b8;">-</span>';
 
@@ -4828,7 +5382,7 @@ function filterYearReportTable() {
     renderYearReportTable(currentYearReportStudents);
     return;
   }
-  const filtered = currentYearReportStudents.filter(s => 
+  const filtered = currentYearReportStudents.filter(s =>
     (s.name && s.name.toLowerCase().includes(q)) ||
     (s.school_name && s.school_name.toLowerCase().includes(q)) ||
     (s.classroom_name && s.classroom_name.toLowerCase().includes(q))
@@ -5010,7 +5564,7 @@ async function handleLogoUpload(file) {
       body: formData
     });
     if (!res.ok) throw new Error("Erro no upload do arquivo do Brasão");
-    
+
     const ts = new Date().getTime();
     const logoUrl = `/api/settings/logo?t=${ts}`;
     const modalLogoImg = document.getElementById("settings-logo-img");
@@ -5079,6 +5633,11 @@ window.updateYearReportExamsDropdown = updateYearReportExamsDropdown;
 window.toggleExportDropdown = toggleExportDropdown;
 window.clearSchoolsSearch = clearSchoolsSearch;
 window.clearExamsSearch = clearExamsSearch;
+window.downloadSchoolEnvelopeLabels = downloadSchoolEnvelopeLabels;
+window.switchTab = switchTab;
+window.resetCreateForm = resetCreateForm;
+window.setExamGradeFilter = setExamGradeFilter;
+if (typeof unlinkExamFromClassroom === "function") window.unlinkExamFromClassroom = unlinkExamFromClassroom;
 
 // Real-time search listeners for Schools & Classrooms
 const schoolsSearchInput = document.getElementById("schools-search-input");
@@ -5185,12 +5744,12 @@ function updateNavUserBadge(rawUser) {
   if (!rawUser) return;
   const user = rawUser.user ? rawUser.user : rawUser;
   currentUserProfile = user;
-  
+
   const avatarEl = document.getElementById("nav-user-avatar");
   const nameEl = document.getElementById("nav-user-name");
   const roleEl = document.getElementById("nav-user-role");
   const legacyBadge = document.getElementById("nav-user-badge");
-  
+
   const displayName = user.name || user.username || "admin";
   if (nameEl) nameEl.textContent = displayName;
   if (legacyBadge) legacyBadge.textContent = displayName;
@@ -5315,7 +5874,7 @@ function restoreActiveTab(user) {
   try {
     const raw = localStorage.getItem("omr_active_subpage");
     if (raw) subpage = JSON.parse(raw);
-  } catch (e) {}
+  } catch (e) { }
 
   if (subpage && subpage.type === "classroom-report" && subpage.classId) {
     switchTab("schools-tab");
@@ -5324,7 +5883,7 @@ function restoreActiveTab(user) {
         try {
           const res = await fetch("/api/schools");
           if (res.ok) schoolsList = await res.json();
-        } catch (e) {}
+        } catch (e) { }
       }
       openClassroomReportPage(subpage.classId, subpage.className, subpage.schoolName);
     }, 120);
@@ -5334,7 +5893,7 @@ function restoreActiveTab(user) {
   let savedTab = null;
   try {
     savedTab = localStorage.getItem("omr_active_tab");
-  } catch (e) {}
+  } catch (e) { }
 
   const validTabs = ["dashboard-tab", "scanner-tab", "exams-tab", "schools-tab", "create-tab"];
   if (user && user.role === "admin") {
@@ -5404,7 +5963,7 @@ async function handleLoginSubmit(e) {
   const rememberInput = document.getElementById("login-remember");
   const errorBox = document.getElementById("login-error-box") || document.getElementById("login-error");
   const errorMsg = document.getElementById("login-error-msg") || errorBox;
-  const submitBtn = document.getElementById("login-submit-btn");
+  const submitBtn = document.getElementById("btn-login-submit") || document.getElementById("login-submit-btn");
 
   const username = usernameInput ? usernameInput.value.trim() : "";
   const password = passwordInput ? passwordInput.value : "";
@@ -5490,7 +6049,7 @@ async function handleLogout() {
   try {
     localStorage.removeItem("omr_active_tab");
     localStorage.removeItem("omr_active_subpage");
-  } catch (e) {}
+  } catch (e) { }
   const loginScreen = document.getElementById("login-screen");
   if (loginScreen) {
     loginScreen.style.display = "flex";
@@ -5544,7 +6103,7 @@ async function loadDashboardData(examId = null) {
       try {
         const errJson = await res.json();
         if (errJson && errJson.detail) detail = " (" + errJson.detail + ")";
-      } catch (_) {}
+      } catch (_) { }
       throw new Error("Falha ao obter os dados consolidados" + detail);
     }
     const data = await res.json();
@@ -6063,12 +6622,12 @@ function renderUsersTable(users, searchTerm = "") {
       roleBadge = `<span class="role-badge role-badge-prof">✏️ Professor</span>`;
     }
 
-    const statusBadge = u.is_active 
+    const statusBadge = u.is_active
       ? `<span class="status-badge status-badge-active">Ativo</span>`
       : `<span class="status-badge status-badge-inactive">Inativo</span>`;
 
     const toggleTitle = u.is_active ? "Desativar acesso deste usuário" : "Ativar acesso deste usuário";
-    const toggleIcon = u.is_active 
+    const toggleIcon = u.is_active
       ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>`
       : `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
 
@@ -6993,6 +7552,8 @@ window.checkPWAInstallPromptAfterLogin = checkPWAInstallPromptAfterLogin;
 window.showPWAInstallModal = showPWAInstallModal;
 window.dismissPWAInstallModal = dismissPWAInstallModal;
 window.triggerPWAInstallation = triggerPWAInstallation;
+window.openCoversModal = openCoversModal;
+window.closeCoversModal = closeCoversModal;
 
 
 

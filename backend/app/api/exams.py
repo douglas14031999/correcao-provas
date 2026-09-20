@@ -38,6 +38,10 @@ class CreateExamRequest(BaseModel):
     answer_key: Dict[str, str] = Field(default_factory=dict)
     weights: Optional[Dict[str, float]] = Field(default_factory=dict)
     header_color: Optional[str] = Field("#244061", example="#244061")
+    cover_model: Optional[str] = Field("opcao_4_azul_nautico_lagoa", example="opcao_4_azul_nautico_lagoa")
+    cover_title: Optional[str] = Field("PROVA CANOA", example="PROVA CANOA")
+    cover_subtitle: Optional[str] = Field("", example="")
+    cover_instructions: Optional[str] = Field("", example="")
 
 @router.post("/upload-logo")
 async def upload_logo_file(file: UploadFile = File(...), authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)):
@@ -79,11 +83,12 @@ def create_exam(req: CreateExamRequest, authorization: Optional[str] = Header(No
     if not logo_path and os.path.exists(DEFAULT_LOGO_PATH):
         logo_path = DEFAULT_LOGO_PATH
 
-    # Generate default answer key if empty
-    ans_key = req.answer_key
-    if not ans_key:
-        opts = ["A", "B", "C", "D", "E"][:req.num_alternatives]
-        ans_key = {str(i): opts[(i - 1) % len(opts)] for i in range(1, req.num_questions + 1)}
+    # Filter and validate answer key strictly up to req.num_questions
+    opts = ["A", "B", "C", "D", "E"][:req.num_alternatives]
+    ans_key = {}
+    for i in range(1, req.num_questions + 1):
+        k = str(i)
+        ans_key[k] = req.answer_key.get(k) or opts[(i - 1) % len(opts)]
         
     pdf_path = os.path.join(STORAGE_DIR, "sheets", f"exam_{exam_id}.pdf")
     pdf_bytes, template_data = generate_answer_sheet_pdf(
@@ -116,11 +121,57 @@ def create_exam(req: CreateExamRequest, authorization: Optional[str] = Header(No
         "answer_key": ans_key,
         "weights": req.weights or {},
         "sheet_template": template_data,
-        "header_color": req.header_color or "#244061"
+        "header_color": req.header_color or "#244061",
+        "cover_model": req.cover_model or "opcao_4_azul_nautico_lagoa",
+        "cover_title": req.cover_title or "PROVA CANOA",
+        "cover_subtitle": req.cover_subtitle or "",
+        "cover_instructions": req.cover_instructions or ""
     }
     
     saved = save_exam(exam_data)
     return saved
+
+@router.get("/cover-models")
+def get_available_cover_models():
+    """Returns the list of certified cover templates with OMR alignment metadata."""
+    return [
+        {
+            "id": "opcao_4_azul_nautico_lagoa",
+            "name": "Opção 4: Lagoa Serena & Náutico Real (Oficial 2026)",
+            "theme": "Azul Marinho & Náutico",
+            "accent_color": "#2563eb",
+            "header_bg": "#1e3a8a",
+            "description": "Design oficial da Prefeitura de Lagoa da Canoa com arte de canoa náutica e ondas serenas.",
+            "html_file": "opcao_4_azul_nautico_lagoa.html"
+        },
+        {
+            "id": "opcao_1_montanhas_canoa",
+            "name": "Opção 1: Montanhas de Canoa (Ouro & Verde)",
+            "theme": "Verde & Dourado",
+            "accent_color": "#0e2a47",
+            "header_bg": "#0e2a47",
+            "description": "Estilo clássico e elegante com silhuetas de serras e tons dourados de Lagoa da Canoa.",
+            "html_file": "opcao_1_montanhas_canoa.html"
+        },
+        {
+            "id": "opcao_2_rio_verde_petroleo",
+            "name": "Opção 2: Rio São Francisco (Verde Petróleo)",
+            "theme": "Verde Petróleo & Esmeralda",
+            "accent_color": "#0b5d5c",
+            "header_bg": "#0b5d5c",
+            "description": "Gradientes fluviais inspirados nas águas do Velho Chico e ribeirinhos.",
+            "html_file": "opcao_2_rio_verde_petroleo.html"
+        },
+        {
+            "id": "opcao_3_por_do_sol_solar",
+            "name": "Opção 3: Pôr do Sol Solar do Agreste",
+            "theme": "Solar Laranja & Âmbar",
+            "accent_color": "#c2410c",
+            "header_bg": "#c2410c",
+            "description": "Tons quentes de pôr do sol alagoano com arte vetorial de alto contraste.",
+            "html_file": "opcao_3_por_do_sol_solar.html"
+        }
+    ]
 
 @router.get("")
 def get_all_exams():
@@ -171,10 +222,11 @@ def update_existing_exam(exam_id: str, req: CreateExamRequest, authorization: Op
     if not logo_path and os.path.exists(DEFAULT_LOGO_PATH):
         logo_path = DEFAULT_LOGO_PATH
 
-    ans_key = req.answer_key
-    if not ans_key:
-        opts = ["A", "B", "C", "D", "E"][:req.num_alternatives]
-        ans_key = {str(i): opts[(i - 1) % len(opts)] for i in range(1, req.num_questions + 1)}
+    opts = ["A", "B", "C", "D", "E"][:req.num_alternatives]
+    ans_key = {}
+    for i in range(1, req.num_questions + 1):
+        k = str(i)
+        ans_key[k] = req.answer_key.get(k) or existing.get("answer_key", {}).get(k) or opts[(i - 1) % len(opts)]
         
     # Regenerate sheet PDF
     pdf_path = os.path.join(STORAGE_DIR, "sheets", f"exam_{exam_id}.pdf")
@@ -208,7 +260,11 @@ def update_existing_exam(exam_id: str, req: CreateExamRequest, authorization: Op
         "answer_key": ans_key,
         "weights": req.weights or {},
         "sheet_template": template_data,
-        "header_color": req.header_color or existing.get("header_color", "#244061")
+        "header_color": req.header_color or existing.get("header_color", "#244061"),
+        "cover_model": req.cover_model or existing.get("cover_model", "opcao_4_azul_nautico_lagoa"),
+        "cover_title": req.cover_title or existing.get("cover_title", "PROVA CANOA"),
+        "cover_subtitle": req.cover_subtitle if req.cover_subtitle is not None else existing.get("cover_subtitle", ""),
+        "cover_instructions": req.cover_instructions if req.cover_instructions is not None else existing.get("cover_instructions", "")
     }
     
     res = update_exam(exam_id, updated_data)

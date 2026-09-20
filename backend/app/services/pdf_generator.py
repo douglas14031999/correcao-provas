@@ -415,10 +415,43 @@ def render_sheet_unit(
         "bubbles": bubbles_canonical_map
     }
 
-def get_exam_template_for_layout(exam: dict, is_compact: bool = False) -> dict:
+def get_cover_template(exam_id: str = "", num_questions: int = 22) -> dict:
+    """Returns the canonical cover template (Opção 4 / Capa da Prova Canoa 2026)."""
+    cover_bubbles = {}
+    for q in range(1, num_questions + 1):
+        q_str = str(q)
+        cover_bubbles[q_str] = {}
+        is_col2 = (q >= 13)
+        row_idx = (q - 13) if is_col2 else (q - 1)
+        approx_y = 225 + row_idx * 53
+        base_x_list = [956, 1076, 1196, 1316] if is_col2 else [291, 407, 527, 647]
+        for opt_idx, opt_letter in enumerate(["A", "B", "C", "D"]):
+            cover_bubbles[q_str][opt_letter] = {
+                "x": base_x_list[opt_idx],
+                "y": approx_y,
+                "radius": 18
+            }
+    return {
+        "exam_id": exam_id,
+        "is_compact": True,
+        "is_cover": True,
+        "canonical_width": 1654,
+        "canonical_height": 1169,
+        "marker_centers": {"0": (100, 83), "1": (1553, 83), "2": (1553, 1085), "3": (100, 1085)},
+        "num_questions": num_questions,
+        "num_alternatives": 4,
+        "bubbles": cover_bubbles,
+        "name": "capa_prova_canoa"
+    }
+
+_EXAM_TEMPLATE_CACHE: dict = {}
+
+def get_exam_template_for_layout(exam: dict, is_compact: bool = False, is_cover: bool = False) -> dict:
     """
-    Returns or dynamically generates the accurate canonical template (single or compact)
-    for the specified exam.
+    Returns or dynamically generates the accurate canonical template (single, compact or cover).
+    When is_cover=True (QR at bottom), returns the cover template.
+    When is_cover=False (QR at top), returns the official gabarito template.
+    Uses in-memory cache to eliminate repetitive ReportLab rendering overhead.
     """
     if isinstance(exam, str):
         from app.services.database import get_exam
@@ -426,14 +459,29 @@ def get_exam_template_for_layout(exam: dict, is_compact: bool = False) -> dict:
     elif not isinstance(exam, dict):
         exam = {}
 
+    exam_id = str(exam.get("id", ""))
+    num_q = int(exam.get("num_questions", 20) or 20)
+    num_alt = int(exam.get("num_alternatives", 4) or 4)
+    cache_key = (exam_id, is_compact, is_cover, num_q, num_alt)
+
+    if cache_key in _EXAM_TEMPLATE_CACHE:
+        return _EXAM_TEMPLATE_CACHE[cache_key]
+
+    if is_cover:
+        tpl = get_cover_template(exam_id, num_q)
+        _EXAM_TEMPLATE_CACHE[cache_key] = tpl
+        return tpl
+
     stored_template = exam.get("sheet_template") or {}
     if isinstance(stored_template, str):
         try:
             stored_template = json.loads(stored_template)
         except Exception:
             stored_template = {}
+
     req_h = CANONICAL_HEIGHT_HALF if is_compact else CANONICAL_HEIGHT
-    if isinstance(stored_template, dict) and stored_template.get("canonical_height") == req_h and stored_template.get("bubbles"):
+    if isinstance(stored_template, dict) and stored_template.get("canonical_height") == req_h and stored_template.get("bubbles") and not stored_template.get("is_cover"):
+        _EXAM_TEMPLATE_CACHE[cache_key] = stored_template
         return stored_template
 
     if is_compact and exam.get("sheet_template_compact"):
@@ -444,6 +492,7 @@ def get_exam_template_for_layout(exam: dict, is_compact: bool = False) -> dict:
             except Exception:
                 tpl_compact = {}
         if isinstance(tpl_compact, dict) and tpl_compact.get("bubbles"):
+            _EXAM_TEMPLATE_CACHE[cache_key] = tpl_compact
             return tpl_compact
 
     buffer = io.BytesIO()
@@ -461,12 +510,13 @@ def get_exam_template_for_layout(exam: dict, is_compact: bool = False) -> dict:
         student_name=exam.get("student_name", ""),
         classroom=exam.get("classroom", ""),
         shift=exam.get("shift", "( ) MANHÃ    ( ) TARDE"),
-        num_questions=exam.get("num_questions", 20),
-        num_alternatives=exam.get("num_alternatives", 4),
+        num_questions=num_q,
+        num_alternatives=num_alt,
         logo_path=exam.get("logo_path"),
         is_compact=is_compact,
         header_color=exam.get("header_color", "#244061")
     )
+    _EXAM_TEMPLATE_CACHE[cache_key] = template
     return template
 
 def generate_answer_sheet_pdf(

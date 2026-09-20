@@ -8,24 +8,41 @@ CANONICAL_WIDTH = 1654
 CANONICAL_HEIGHT = 2338
 CANONICAL_HEIGHT_HALF = 1169
 
+_CACHED_ARUCO_DETECTOR = None
+_CACHED_ARUCO_MODE = None
+
 def get_aruco_detector():
-    """Initializes ArUco detector compatible with OpenCV versions."""
+    """Initializes and caches ArUco detector singleton."""
+    global _CACHED_ARUCO_DETECTOR, _CACHED_ARUCO_MODE
+    if _CACHED_ARUCO_DETECTOR is not None:
+        return _CACHED_ARUCO_DETECTOR, _CACHED_ARUCO_MODE
     try:
         dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
         parameters = cv2.aruco.DetectorParameters()
         detector = cv2.aruco.ArucoDetector(dictionary, parameters)
-        return detector, "new"
+        _CACHED_ARUCO_DETECTOR, _CACHED_ARUCO_MODE = detector, "new"
     except AttributeError:
         dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_50)
         parameters = cv2.aruco.DetectorParameters_create()
-        return (dictionary, parameters), "legacy"
+        _CACHED_ARUCO_DETECTOR, _CACHED_ARUCO_MODE = (dictionary, parameters), "legacy"
+    return _CACHED_ARUCO_DETECTOR, _CACHED_ARUCO_MODE
 
 def detect_aruco_markers(image: np.ndarray) -> Dict[int, np.ndarray]:
     """
     Detects ArUco markers 0, 1, 2, 3 in the image.
+    Scales large photos to max 1200px for 5x faster processing,
+    then re-maps center coordinates back with sub-pixel precision.
     Returns dict {marker_id: center_point_float32}
     """
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
+    h, w = image.shape[:2]
+    max_d = max(h, w)
+    scale = 1200.0 / max_d if max_d > 1200 else 1.0
+    if scale < 1.0:
+        proc_img = cv2.resize(image, (0, 0), fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+    else:
+        proc_img = image
+
+    gray = cv2.cvtColor(proc_img, cv2.COLOR_BGR2GRAY) if len(proc_img.shape) == 3 else proc_img
     detector_obj, mode = get_aruco_detector()
     
     if mode == "new":
@@ -35,14 +52,13 @@ def detect_aruco_markers(image: np.ndarray) -> Dict[int, np.ndarray]:
         corners, ids, _ = cv2.aruco.detectMarkers(gray, dictionary, parameters=parameters)
         
     markers = {}
+    inv_scale = 1.0 / scale
     if ids is not None and len(ids) > 0:
         ids = ids.flatten()
         for i, marker_id in enumerate(ids):
             if marker_id in [0, 1, 2, 3]:
-                # Center of the marker is the mean of its 4 corners
-                c = corners[i][0]
-                center = np.mean(c, axis=0)
-                markers[int(marker_id)] = center
+                c = corners[i][0] * inv_scale
+                markers[int(marker_id)] = np.mean(c, axis=0)
                 
     # If some markers were missed, try CLAHE contrast enhancement
     if len(markers) < 4:
@@ -57,9 +73,8 @@ def detect_aruco_markers(image: np.ndarray) -> Dict[int, np.ndarray]:
             ids2 = ids2.flatten()
             for i, marker_id in enumerate(ids2):
                 if marker_id in [0, 1, 2, 3] and marker_id not in markers:
-                    c = corners2[i][0]
-                    center = np.mean(c, axis=0)
-                    markers[int(marker_id)] = center
+                    c = corners2[i][0] * inv_scale
+                    markers[int(marker_id)] = np.mean(c, axis=0)
                     
     return markers
 
@@ -115,52 +130,88 @@ def _parse_qr_payload(raw: str) -> Tuple[Optional[str], Optional[str]]:
         exam_id = raw
     return exam_id, student_id
 
-def read_qr_metadata(image: np.ndarray) -> Tuple[Optional[str], Optional[str]]:
+def read_qr_metadata(image: np.ndarray, return_position: bool = False) -> Any:
     """
     Attempts to decode QR code to identify exam_id and optional student_id.
-    Uses ultra-fast staged detection optimized for both printed paper and mobile phone screen photos:
-    1. Candidate ROIs:
-       - Tight canonical QR card: x: 68%..98%, y: 1%..28% (fastest & highly isolated from header text)
-       - Wide top-right quadrant: x: 48%..100%, y: 0%..45% (fallback for unwarped or non-standard angles)
-    2. Per ROI strategies:
-       - Strategy A: Direct Raw BGR & Gray with PyZBar (instant on paper, ~2ms)
-       - Strategy B: Anti-Moiré Adaptive Filter (Gaussian C + MedianBlur 3px & 5px).
-         Crucial for mobile phones photographing computer screens: eliminates LCD subpixel scanline stripes.
-       - Strategy C: CLAHE contrast enhancement for shadowy paper scans
-       - Strategy D: 2x Upscale with Anti-Moiré for small or low-res crops
-       - Strategy E: OpenCV QRCodeDetector fallback
+    Uses ultra-fast targeted scans on canonical positions (Top: Gabarito, Bottom: Capa)
+    first in sub-5ms, with full fallbacks only if targeted search misses.
     """
     if image is None:
-        return None, None
+        return (None, None, None) if return_position else (None, None)
 
     h, w = image.shape[:2]
-    # Candidate ROIs
-    rois = [
-        image[int(h * 0.01) : int(h * 0.28), int(w * 0.68) : int(w * 0.98)],
-        image[0 : max(10, int(h * 0.45)), max(0, int(w * 0.48)) : w]
-    ]
 
     try:
         from pyzbar.pyzbar import decode as pyzbar_decode, ZBarSymbol
     except ImportError:
         pyzbar_decode = None
 
-    for roi in rois:
+    # Step 1: Ultra-fast targeted scans on known official positions
+    if pyzbar_decode is not None:
+        targeted_boxes = [
+            ("top", 0, int(h * 0.25), int(w * 0.68), w),
+            ("bottom", int(h * 0.75), h, int(w * 0.68), w)
+        ]
+        for tag, y1, y2, x1, x2 in targeted_boxes:
+            patch = image[y1:y2, x1:x2]
+            if patch.size == 0:
+                continue
+            gray_patch = cv2.cvtColor(patch, cv2.COLOR_BGR2GRAY) if len(patch.shape) == 3 else patch
+            # Direct raw pyzbar
+            try:
+                for item in pyzbar_decode(gray_patch, symbols=[ZBarSymbol.QRCODE]):
+                    if item.data:
+                        raw_str = item.data.decode("utf-8", errors="ignore").strip()
+                        eid, sid = _parse_qr_payload(raw_str)
+                        if eid or sid:
+                            return (eid, sid, tag) if return_position else (eid, sid)
+            except Exception:
+                pass
+            # Fast Anti-Moiré on small targeted patch
+            try:
+                adapt_patch = cv2.adaptiveThreshold(gray_patch, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 19, 5)
+                med_patch = cv2.medianBlur(adapt_patch, 5)
+                for item in pyzbar_decode(med_patch, symbols=[ZBarSymbol.QRCODE]):
+                    if item.data:
+                        raw_str = item.data.decode("utf-8", errors="ignore").strip()
+                        eid, sid = _parse_qr_payload(raw_str)
+                        if eid or sid:
+                            return (eid, sid, tag) if return_position else (eid, sid)
+            except Exception:
+                pass
+
+    # Step 2: Fallback broader scans if sheet was rotated, skewed or non-canonical
+    rois = [
+        ("top", int(h * 0.01), int(h * 0.32), int(w * 0.60), w),
+        ("bottom", int(h * 0.50), h, int(w * 0.50), w),
+        ("top_wide", 0, max(10, int(h * 0.45)), max(0, int(w * 0.45)), w),
+        ("bottom_wide", int(h * 0.45), h, max(0, int(w * 0.45)), w),
+        ("full", 0, h, 0, w)
+    ]
+
+    def _determine_pos(tag_name: str, y_offset: int, item_top: float, s_roi: float) -> str:
+        if "bottom" in tag_name:
+            return "bottom"
+        if "top" in tag_name:
+            return "top"
+        real_y = y_offset + (item_top / s_roi if s_roi > 0 else item_top)
+        return "bottom" if real_y >= h * 0.45 else "top"
+
+    for (tag, y1, y2, x1, x2) in rois:
+        roi = image[y1:y2, x1:x2]
         if roi.size == 0:
             continue
 
-        # Fast downscale if candidate ROI is excessively large (> 600px width or height)
-        # Keeps QR resolution high (20+ px per module) but reduces decode work by 4x
         if max(roi.shape[:2]) > 600:
             scale_roi = 500.0 / max(roi.shape[:2])
             roi_proc = cv2.resize(roi, (0, 0), fx=scale_roi, fy=scale_roi, interpolation=cv2.INTER_AREA)
         else:
+            scale_roi = 1.0
             roi_proc = roi
 
         gray_roi = cv2.cvtColor(roi_proc, cv2.COLOR_BGR2GRAY) if len(roi_proc.shape) == 3 else roi_proc
 
         if pyzbar_decode is not None:
-            # Strategy A: Direct Raw BGR & Gray (instant on paper, ~2ms)
             for cand in (roi_proc, gray_roi):
                 try:
                     for item in pyzbar_decode(cand, symbols=[ZBarSymbol.QRCODE]):
@@ -169,12 +220,12 @@ def read_qr_metadata(image: np.ndarray) -> Tuple[Optional[str], Optional[str]]:
                             if raw_str:
                                 eid, sid = _parse_qr_payload(raw_str)
                                 if eid or sid:
-                                    return eid, sid
+                                    top_val = item.rect.top if hasattr(item, "rect") else 0
+                                    pos = _determine_pos(tag, y1, top_val, scale_roi)
+                                    return (eid, sid, pos) if return_position else (eid, sid)
                 except Exception:
                     pass
 
-            # Strategy B: Anti-Moiré Filter (Gaussian AdaptiveThreshold + MedianBlur)
-            # Solves LCD monitor moiré/subpixel scanline interference (~6ms)
             for (bs, c_val, med_k) in [(19, 5, 5), (17, 4, 3)]:
                 try:
                     adapt = cv2.adaptiveThreshold(gray_roi, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, bs, c_val)
@@ -185,11 +236,12 @@ def read_qr_metadata(image: np.ndarray) -> Tuple[Optional[str], Optional[str]]:
                             if raw_str:
                                 eid, sid = _parse_qr_payload(raw_str)
                                 if eid or sid:
-                                    return eid, sid
+                                    top_val = item.rect.top if hasattr(item, "rect") else 0
+                                    pos = _determine_pos(tag, y1, top_val, scale_roi)
+                                    return (eid, sid, pos) if return_position else (eid, sid)
                 except Exception:
                     pass
 
-            # Strategy C: CLAHE contrast enhancement (for shadowy paper scans)
             try:
                 clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8)).apply(gray_roi)
                 for item in pyzbar_decode(clahe, symbols=[ZBarSymbol.QRCODE]):
@@ -198,38 +250,25 @@ def read_qr_metadata(image: np.ndarray) -> Tuple[Optional[str], Optional[str]]:
                         if raw_str:
                             eid, sid = _parse_qr_payload(raw_str)
                             if eid or sid:
-                                return eid, sid
+                                top_val = item.rect.top if hasattr(item, "rect") else 0
+                                pos = _determine_pos(tag, y1, top_val, scale_roi)
+                                return (eid, sid, pos) if return_position else (eid, sid)
             except Exception:
                 pass
 
-            # Strategy D: 2x Upscale only if ROI is very small (< 180px)
-            if min(gray_roi.shape[:2]) < 180:
-                try:
-                    up2x = cv2.resize(gray_roi, (0, 0), fx=2.0, fy=2.0, interpolation=cv2.INTER_CUBIC)
-                    adapt_up = cv2.adaptiveThreshold(up2x, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 19, 5)
-                    med_up = cv2.medianBlur(adapt_up, 5)
-                    for item in pyzbar_decode(med_up, symbols=[ZBarSymbol.QRCODE]):
-                        if item.data:
-                            raw_str = item.data.decode("utf-8", errors="ignore").strip()
-                            if raw_str:
-                                eid, sid = _parse_qr_payload(raw_str)
-                                if eid or sid:
-                                    return eid, sid
-                except Exception:
-                    pass
-
-        # Strategy E: OpenCV QRCodeDetector fallback
         try:
             det = cv2.QRCodeDetector()
-            data, _, _ = det.detectAndDecode(roi_proc)
+            data, points, _ = det.detectAndDecode(roi_proc)
             if data and data.strip():
                 eid, sid = _parse_qr_payload(data)
                 if eid or sid:
-                    return eid, sid
+                    top_val = np.mean(points[0, :, 1]) if points is not None else 0
+                    pos = _determine_pos(tag, y1, top_val, scale_roi)
+                    return (eid, sid, pos) if return_position else (eid, sid)
         except Exception:
             pass
 
-    return None, None
+    return (None, None, None) if return_position else (None, None)
 
 def read_qr_exam_id(image: np.ndarray) -> Optional[str]:
     """Attempts to decode QR code to identify exam_id."""
@@ -255,7 +294,7 @@ def analyze_bubbles(warped_image: np.ndarray, template: Dict[str, Any]) -> Tuple
         gray, 255, 
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
         cv2.THRESH_BINARY_INV, 
-        blockSize=31, 
+        blockSize=71, 
         C=16
     )
     binary = cv2.bitwise_and(binary_otsu, binary_adapt)
@@ -347,58 +386,70 @@ def generate_overlay_visualization(
     template: Dict[str, Any],
     detected_answers: Dict[str, str],
     answer_key: Dict[str, str],
-    output_path: str
+    output_path: str,
+    max_questions: Optional[int] = None
 ) -> str:
     """
     Draws visual X-Ray inspection overlay:
+    - Pre-resizes directly to web width (900px) first, saving 75% CPU and memory.
+    - Strictly limits drawing up to max_questions to prevent ghost markings on unused columns.
     - Green circle for correct answers
     - Red circle on wrong bubble with green circle on correct bubble
-    - Yellow for blank or double marks
+    - Amber for double marks
     """
-    overlay = warped_image.copy()
-    bubbles_map = template["bubbles"]
+    h, w = warped_image.shape[:2]
+    web_w = 900
+    scale = web_w / float(w)
+    web_h = int(h * scale)
+    web_preview = cv2.resize(warped_image, (web_w, web_h), interpolation=cv2.INTER_AREA)
+    overlay = web_preview.copy()
+    bubbles_map = template.get("bubbles", {})
     
     for q_str, options in bubbles_map.items():
+        try:
+            q_num = int(q_str)
+        except (ValueError, TypeError):
+            q_num = 0
+
+        # Skip any question beyond the exam's actual question count
+        if max_questions is not None and q_num > max_questions:
+            continue
+
         detected = detected_answers.get(q_str, "BLANK")
         correct = answer_key.get(q_str, "").upper()
+
+        # If student marked nothing and there is no official answer key, skip
+        if detected == "BLANK" and not correct:
+            continue
         
         is_correct = (detected == correct and correct != "")
         
         for opt_letter, coords in options.items():
-            cx = int(coords["x"])
-            cy = int(coords["y"])
-            r = int(coords["radius"])
+            cx = int(coords["x"] * scale)
+            cy = int(coords["y"] * scale)
+            r = max(2, int(coords["radius"] * scale))
             
             # If student marked this option
             if detected == opt_letter:
                 if is_correct:
-                    # Correct -> Vibrant Green thick circle & fill
-                    cv2.circle(overlay, (cx, cy), r + 4, (34, 197, 94), 4) # Green
+                    # Correct -> Vibrant Green thick circle
+                    cv2.circle(overlay, (cx, cy), r + 2, (34, 197, 94), 3) # Green
                 else:
                     # Wrong -> Crimson Red thick circle
-                    cv2.circle(overlay, (cx, cy), r + 4, (30, 30, 220), 4) # Red
+                    cv2.circle(overlay, (cx, cy), r + 2, (30, 30, 220), 3) # Red
             
             # Show correct answer if student missed it or left blank
             if not is_correct and correct == opt_letter:
-                # Dotted/thin green circle indicating the answer that should have been marked
-                cv2.circle(overlay, (cx, cy), r + 6, (34, 197, 94), 2)
+                cv2.circle(overlay, (cx, cy), r + 3, (34, 197, 94), 2)
                 
             # If double marked
             if detected == "DOUBLE" and opt_letter in options:
-                # Mark potential options in Amber
-                cv2.circle(overlay, (cx, cy), r + 3, (0, 190, 245), 2)
+                cv2.circle(overlay, (cx, cy), r + 2, (0, 190, 245), 2)
 
     # Blend overlay with original for a smooth aesthetic
     alpha = 0.85
-    cv2.addWeighted(overlay, alpha, warped_image, 1 - alpha, 0, overlay)
-
-    # Resize to web-friendly resolution (e.g. max width 900)
-    h, w = overlay.shape[:2]
-    web_w = 900
-    web_h = int(h * (web_w / w))
-    web_preview = cv2.resize(overlay, (web_w, web_h), interpolation=cv2.INTER_AREA)
-    
-    cv2_safe_imwrite(output_path, web_preview, 85)
+    cv2.addWeighted(overlay, alpha, web_preview, 1 - alpha, 0, overlay)
+    cv2_safe_imwrite(output_path, overlay, 80)
     return output_path
 
 def grade_submission(
@@ -454,14 +505,14 @@ def grade_submission(
     warped, _ = warp_sheet(image, markers, template)
     
     # Try reading QR: first on warped sheet (tight canonical ROI), then fallback to raw input image
-    detected_qr_exam_id, detected_qr_student_id = read_qr_metadata(warped)
+    detected_qr_exam_id, detected_qr_student_id, qr_pos = read_qr_metadata(warped, return_position=True)
     if not detected_qr_exam_id and not detected_qr_student_id:
         # Fallback to raw image: downscale first if oversized (> 1280px) to prevent multi-second stalls
         raw_to_scan = image
         if max(image.shape[:2]) > 1280:
             scale_raw = 1280.0 / max(image.shape[:2])
             raw_to_scan = cv2.resize(image, (0, 0), fx=scale_raw, fy=scale_raw, interpolation=cv2.INTER_AREA)
-        detected_qr_exam_id, detected_qr_student_id = read_qr_metadata(raw_to_scan)
+        detected_qr_exam_id, detected_qr_student_id, qr_pos = read_qr_metadata(raw_to_scan, return_position=True)
 
     # If QR code identified an exam, dynamically switch to it in-place in a single pass
     if detected_qr_exam_id:
@@ -470,9 +521,19 @@ def grade_submission(
             detected_exam = get_exam(detected_qr_exam_id)
             if detected_exam:
                 exam = detected_exam
-                template = get_exam_template_for_layout(exam, is_compact=is_compact)
         except Exception:
             pass
+
+    # CONDICIONAL: quando QR estiver embaixo ('bottom') é Capa da Prova; se estiver em cima ('top') é Gabarito Oficial
+    is_cover = bool(qr_pos == "bottom")
+    from app.services.pdf_generator import get_exam_template_for_layout
+    template = get_exam_template_for_layout(exam, is_compact=is_compact, is_cover=is_cover)
+
+    # Re-warp only if target dimensions differ from current warped image
+    target_w = template.get("canonical_width", CANONICAL_WIDTH)
+    target_h = template.get("canonical_height", CANONICAL_HEIGHT_HALF if is_compact else CANONICAL_HEIGHT)
+    if warped.shape[1] != target_w or warped.shape[0] != target_h:
+        warped, _ = warp_sheet(image, markers, template)
     
     student_id = detected_qr_student_id
     classroom_id = None
@@ -503,8 +564,39 @@ def grade_submission(
         classroom_name = exam.get("classroom") or ""
     if student_name in [None, "", "Aluno"] and exam.get("student_name"):
         student_name = exam.get("student_name")
-    
-    detected_answers, fill_ratios = analyze_bubbles(warped, template)
+
+    # Analyze bubbles: when QR position explicitly defines layout, use that template deterministically
+    if qr_pos in ("bottom", "top"):
+        detected_answers, fill_ratios = analyze_bubbles(warped, template)
+    else:
+        # Fallback only when QR code was completely undetected
+        from app.services.pdf_generator import get_cover_template
+        candidates = [template]
+        cover_tpl = get_cover_template(exam.get("id", ""), exam.get("num_questions", 22))
+        candidates.append(cover_tpl)
+
+        best_detected = None
+        best_ratios = None
+        best_score_metric = -1.0
+        best_template = template
+
+        for cand_tpl in candidates:
+            if not cand_tpl or not cand_tpl.get("bubbles"):
+                continue
+            det_ans, f_ratios = analyze_bubbles(warped, cand_tpl)
+            non_blanks = sum(1 for a in det_ans.values() if a != "BLANK")
+            avg_top_ratio = float(np.mean([max(opts.values()) for opts in f_ratios.values()])) if f_ratios else 0.0
+            cand_metric = non_blanks * 10.0 + avg_top_ratio
+            
+            if cand_metric > best_score_metric:
+                best_score_metric = cand_metric
+                best_detected = det_ans
+                best_ratios = f_ratios
+                best_template = cand_tpl
+
+        detected_answers = best_detected or {}
+        fill_ratios = best_ratios or {}
+        template = best_template
     
     answer_key = exam.get("answer_key", {})
     weights = exam.get("weights", {})
@@ -558,7 +650,8 @@ def grade_submission(
     overlay_filename = f"overlay_{submission_id}.jpg"
     overlay_rel_url = f"/storage/overlays/{overlay_filename}"
     overlay_disk_path = os.path.join(storage_dir, "overlays", overlay_filename)
-    generate_overlay_visualization(warped, template, detected_answers, answer_key, overlay_disk_path)
+    max_q = int(exam.get("num_questions") or len(template.get("bubbles", {})))
+    generate_overlay_visualization(warped, template, detected_answers, answer_key, overlay_disk_path, max_questions=max_q)
     
     # Save original warped scanned image
     scanned_filename = f"scanned_{submission_id}.jpg"
@@ -590,6 +683,8 @@ def grade_submission(
         "overlay_image_url": overlay_rel_url,
         "detected_qr_exam_id": detected_qr_exam_id,
         "detected_qr_student_id": detected_qr_student_id,
-        "layout_detected": "2_por_folha" if is_compact else "pagina_inteira",
+        "sheet_type": "capa_prova" if is_cover else "gabarito_oficial",
+        "qr_position": qr_pos,
+        "layout_detected": "capa_prova" if is_cover else ("2_por_folha" if is_compact else "pagina_inteira"),
         "is_compact": is_compact
     }
