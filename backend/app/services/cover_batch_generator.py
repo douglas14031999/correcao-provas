@@ -390,6 +390,15 @@ def generate_classroom_covers_reportlab(
 
             caderno_label = f"CAD-{ex_id[:4].upper()}" if len(ex_id) > 2 else f"CAD-0{ex_id}"
 
+            model_id = (ex.get("cover_model") or "opcao_1_montanhas_canoa").strip()
+            theme_colors = {
+                "opcao_1_montanhas_canoa": "#0e2a47",
+                "opcao_2_rio_verde_petroleo": "#0b5d5c",
+                "opcao_3_por_do_sol_solar": "#c2410c",
+                "opcao_4_azul_nautico_lagoa": "#1e3a8a"
+            }
+            caderno_color = theme_colors.get(model_id, "#0e2a47")
+
             generate_exam_cover(
                 output_pdf_path=page_pdf_path,
                 year="2026",
@@ -403,7 +412,7 @@ def generate_classroom_covers_reportlab(
                 num_alternatives=num_alt,
                 student_name=st_name,
                 tracking_code=f"CANOA-{ex_id[:4]}-{st_id[:4]}",
-                caderno_accent_color="#1e3a8a"
+                caderno_accent_color=caderno_color
             )
 
             cover_doc = fitz.open(page_pdf_path)
@@ -541,6 +550,9 @@ html, body {
             cmd = [
                 chrome_bin,
                 "--headless=new",
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
                 "--disable-gpu",
                 "--no-pdf-header-footer",
                 "--disable-extensions",
@@ -552,7 +564,12 @@ html, body {
                 f"--print-to-pdf={chunk_pdf_file}",
                 os.path.abspath(chunk_html_file)
             ]
-            subprocess.run(cmd, check=True, capture_output=True, timeout=120)
+            try:
+                subprocess.run(cmd, check=True, capture_output=True, timeout=120)
+            except Exception:
+                # Se falhar com --headless=new, tenta com --headless tradicional
+                cmd[1] = "--headless"
+                subprocess.run(cmd, check=True, capture_output=True, timeout=120)
 
             if os.path.exists(chunk_pdf_file):
                 chunk_doc = fitz.open(chunk_pdf_file)
