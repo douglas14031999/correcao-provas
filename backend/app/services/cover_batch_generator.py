@@ -6,9 +6,19 @@ import base64
 import tempfile
 import subprocess
 import shutil
-import qrcode
+try:
+    import qrcode
+    HAVE_QRCODE = True
+except ImportError:
+    qrcode = None
+    HAVE_QRCODE = False
+
 from typing import List, Dict, Any, Optional
-import pymupdf as fitz
+
+try:
+    import fitz
+except ImportError:
+    import pymupdf as fitz
 
 SHEETS_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
@@ -39,18 +49,40 @@ import functools
 
 def make_qr_base64(data: str) -> str:
     """Generates crisp QR code PNG as base64 string with optimized dimensions."""
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_M,
-        box_size=5,
-        border=1,
-    )
-    qr.add_data(data)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-    buffered = io.BytesIO()
-    img.save(buffered, format="PNG")
-    return base64.b64encode(buffered.getvalue()).decode("utf-8")
+    if HAVE_QRCODE and qrcode is not None:
+        try:
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_M,
+                box_size=5,
+                border=1,
+            )
+            qr.add_data(data)
+            qr.make(fit=True)
+            img = qr.make_image(fill_color="black", back_color="white")
+            buffered = io.BytesIO()
+            img.save(buffered, format="PNG")
+            return base64.b64encode(buffered.getvalue()).decode("utf-8")
+        except Exception:
+            pass
+
+    # Zero-dependency fallback using ReportLab built-in QrCodeWidget & renderPM
+    try:
+        from reportlab.graphics.barcode.qr import QrCodeWidget
+        from reportlab.graphics.shapes import Drawing
+        from reportlab.graphics import renderPM
+
+        d = Drawing(120, 120)
+        qr = QrCodeWidget(data)
+        qr.barWidth = 120
+        qr.barHeight = 120
+        qr.barBorder = 1
+        d.add(qr)
+        buf = io.BytesIO()
+        renderPM.drawToFile(d, buf, fmt="PNG")
+        return base64.b64encode(buf.getvalue()).decode("utf-8")
+    except Exception:
+        return "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
 
 @functools.lru_cache(maxsize=32)
 def build_table_html(num_questions: int = 22, num_alternatives: int = 4, header_bg: str = "#1e3a8a") -> str:

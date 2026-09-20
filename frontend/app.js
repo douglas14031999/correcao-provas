@@ -5990,7 +5990,14 @@ async function handleLoginSubmit(e) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password, remember_me: true })
     });
-    const data = await res.json();
+    let data = {};
+    try {
+      data = await res.json();
+    } catch (_) {
+      if (!res.ok) {
+        throw new Error(`Servidor indisponível (${res.status} ${res.statusText || 'Erro no serviço'}). O serviço backend pode estar reiniciando ou com erro.`);
+      }
+    }
 
     if (!res.ok) {
       throw new Error(data.detail || "Credenciais inválidas. Verifique o usuário e a senha.");
