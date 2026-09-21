@@ -183,10 +183,12 @@ def export_school_report(
 def export_print_run_report(
     format: str = Query("pdf", description="Formato: pdf, xlsx, docx"),
     school_id: Optional[str] = Query(None, description="Filtrar por ID da Escola"),
-    exam_id: Optional[str] = Query(None, description="Filtrar por ID do Simulado/Avaliação")
+    exam_id: Optional[str] = Query(None, description="Filtrar por ID do Simulado/Avaliação"),
+    mode: str = Query("provas", description="Modo: 'provas' (quantitativo de provas) ou 'folhas' (quantitativo detalhado de folhas)"),
+    duplex: bool = Query(True, description="Se True, impressão frente e verso (2 páginas por folha)")
 ):
     """R7: Relatório Oficial de Tiragem e Impressão de Provas (Geral por Série, Escola/Série/Gabarito e Turmas). Formatos: PDF, XLSX, DOCX."""
-    data = generate_print_run_report_data(school_id=school_id, exam_id=exam_id)
+    data = generate_print_run_report_data(school_id=school_id, exam_id=exam_id, mode=mode, duplex=duplex)
     if not data:
         raise HTTPException(
             status_code=404,
@@ -194,8 +196,12 @@ def export_print_run_report(
         )
 
     base_name = "Relatorio_Tiragem_Impressao_Provas"
+    if mode == "folhas":
+        duplex_suffix = "Duplex" if duplex else "Simplex"
+        base_name = f"Relatorio_Tiragem_Folhas_Detalhadas_{duplex_suffix}"
     if school_id and data.metadata.school_name and data.metadata.school_name != "REDE MUNICIPAL DE ENSINO":
         base_name += f"_{data.metadata.school_name}"
 
     return export_report_response(data, format, base_name)
+
 

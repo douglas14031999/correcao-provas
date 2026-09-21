@@ -42,6 +42,7 @@ class CreateExamRequest(BaseModel):
     cover_title: Optional[str] = Field("PROVA CANOA", example="PROVA CANOA")
     cover_subtitle: Optional[str] = Field("", example="")
     cover_instructions: Optional[str] = Field("", example="")
+    page_count: Optional[int] = Field(1, ge=1, le=100, example=1)
 
 @router.post("/upload-logo")
 async def upload_logo_file(file: UploadFile = File(...), authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)):
@@ -125,7 +126,8 @@ def create_exam(req: CreateExamRequest, authorization: Optional[str] = Header(No
         "cover_model": req.cover_model or "opcao_4_azul_nautico_lagoa",
         "cover_title": req.cover_title or "PROVA CANOA",
         "cover_subtitle": req.cover_subtitle or "",
-        "cover_instructions": req.cover_instructions or ""
+        "cover_instructions": req.cover_instructions or "",
+        "page_count": req.page_count or 1
     }
     
     saved = save_exam(exam_data)
@@ -264,7 +266,8 @@ def update_existing_exam(exam_id: str, req: CreateExamRequest, authorization: Op
         "cover_model": req.cover_model or existing.get("cover_model", "opcao_4_azul_nautico_lagoa"),
         "cover_title": req.cover_title or existing.get("cover_title", "PROVA CANOA"),
         "cover_subtitle": req.cover_subtitle if req.cover_subtitle is not None else existing.get("cover_subtitle", ""),
-        "cover_instructions": req.cover_instructions if req.cover_instructions is not None else existing.get("cover_instructions", "")
+        "cover_instructions": req.cover_instructions if req.cover_instructions is not None else existing.get("cover_instructions", ""),
+        "page_count": req.page_count if req.page_count is not None else existing.get("page_count", 1)
     }
     
     res = update_exam(exam_id, updated_data)

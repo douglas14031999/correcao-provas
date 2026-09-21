@@ -1488,8 +1488,12 @@
             </div>
 
             <!-- Exam Parameters -->
-            <div class="form-section-title">Questões</div>
+            <div class="form-section-title">Parâmetros da Avaliação & Questões</div>
             <div class="form-row">
+              <div class="form-group">
+                <label for="exam-page-count-input" title="Número total de páginas do caderno de prova para cálculo de tiragem e folhas">Páginas da Prova:</label>
+                <input type="number" id="exam-page-count-input" class="form-input" value="1" min="1" max="100" placeholder="Ex: 4" title="Quantas páginas tem o caderno de prova impresso">
+              </div>
               <div class="form-group">
                 <label for="exam-num-q-input">Qtd. Questões:</label>
                 <input type="number" id="exam-num-q-input" class="form-input" value="20" min="5" max="100" required>
@@ -2847,6 +2851,73 @@
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5">
                   <polyline points="20 6 9 17 4 12"/>
                 </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ETAPA 3: OPÇÕES DA TIRAGEM (Visível quando Tiragem de Provas estiver selecionada) -->
+        <div class="export-form-section" id="export-print-run-options-section" style="display: none; margin-top: 1rem;">
+          <h4 class="export-step-title" style="margin-bottom: 0.55rem;">3. Tipo de Quantitativo da Tiragem</h4>
+          <div class="export-report-types-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+            <!-- Modo 1: Apenas Provas -->
+            <div class="export-report-card active" id="card-print-run-provas" onclick="selectPrintRunMode('provas')">
+              <div class="export-card-icon" style="background: rgba(37, 99, 235, 0.1); color: #2563eb;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                </svg>
+              </div>
+              <div class="export-card-body">
+                <div class="export-card-title">Quantitativo de Provas</div>
+                <div class="export-card-desc">Total de cadernos/avaliações por turma, escola e rede</div>
+              </div>
+              <div class="export-radio-indicator">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Modo 2: Detalhamento de Folhas -->
+            <div class="export-report-card" id="card-print-run-folhas" onclick="selectPrintRunMode('folhas')">
+              <div class="export-card-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+              </div>
+              <div class="export-card-body">
+                <div class="export-card-title">Detalhamento de Folhas</div>
+                <div class="export-card-desc">Cálculo de folhas de papel a imprimir e resmas estimadas</div>
+              </div>
+              <div class="export-radio-indicator">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Opção Frente/Verso (Duplex) vs Só Frente (Simplex) -->
+          <div id="print-run-duplex-wrapper" style="display: none; margin-top: 0.75rem; padding: 0.75rem 1rem; background: var(--bg-tertiary, #f8fafc); border: 1.5px solid var(--border-color, #e2e8f0); border-radius: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+              <div>
+                <strong style="font-size: 0.85rem; color: var(--text-primary, #0f172a);">Modo de Impressão das Folhas:</strong>
+                <div style="font-size: 0.75rem; color: var(--text-muted, #64748b);">Escolha se as folhas serão impressas frente e verso ou só frente</div>
+              </div>
+              <div style="display: flex; gap: 0.75rem;">
+                <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.82rem; cursor: pointer; font-weight: 500;">
+                  <input type="radio" id="print-run-duplex-yes" name="print-run-duplex-radio" value="true" checked onchange="togglePrintRunDuplex(true)">
+                  <span>Frente e Verso (2 págs/folha)</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.82rem; cursor: pointer; font-weight: 500;">
+                  <input type="radio" id="print-run-duplex-no" name="print-run-duplex-radio" value="false" onchange="togglePrintRunDuplex(false)">
+                  <span>Só Frente (1 pág/folha)</span>
+                </label>
               </div>
             </div>
           </div>

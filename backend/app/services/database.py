@@ -215,7 +215,8 @@ def init_db():
                 cover_model TEXT DEFAULT 'opcao_4_azul_nautico_lagoa',
                 cover_title TEXT DEFAULT 'PROVA CANOA',
                 cover_subtitle TEXT DEFAULT '',
-                cover_instructions TEXT DEFAULT ''
+                cover_instructions TEXT DEFAULT '',
+                page_count INTEGER DEFAULT 1
             );
 
             CREATE TABLE IF NOT EXISTS submissions (
@@ -353,7 +354,8 @@ def init_db():
             ("cover_model", "TEXT DEFAULT 'opcao_4_azul_nautico_lagoa'"),
             ("cover_title", "TEXT DEFAULT 'PROVA CANOA'"),
             ("cover_subtitle", "TEXT DEFAULT ''"),
-            ("cover_instructions", "TEXT DEFAULT ''")
+            ("cover_instructions", "TEXT DEFAULT ''"),
+            ("page_count", "INTEGER DEFAULT 1")
         ]
         for col_name, col_type in new_cols:
             if col_name not in existing_cols:
@@ -536,9 +538,9 @@ def save_exam(exam_data: Dict[str, Any]) -> Dict[str, Any]:
             id, title, institution, num_questions, num_alternatives, points_per_question,
             answer_key, weights, sheet_template, subtitle, school_name, classroom,
             student_name, shift, logo_path, created_at, header_color,
-            cover_model, cover_title, cover_subtitle, cover_instructions
+            cover_model, cover_title, cover_subtitle, cover_instructions, page_count
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         exam_data["id"],
         exam_data["title"],
@@ -560,7 +562,8 @@ def save_exam(exam_data: Dict[str, Any]) -> Dict[str, Any]:
         exam_data.get("cover_model", "opcao_4_azul_nautico_lagoa"),
         exam_data.get("cover_title", "PROVA CANOA"),
         exam_data.get("cover_subtitle", ""),
-        exam_data.get("cover_instructions", "")
+        exam_data.get("cover_instructions", ""),
+        int(exam_data.get("page_count") or 1)
     ))
     conn.commit()
     conn.close()
@@ -584,6 +587,7 @@ def get_exam(exam_id: str) -> Optional[Dict[str, Any]]:
         data["cover_model"] = "opcao_4_azul_nautico_lagoa"
     if not data.get("cover_title"):
         data["cover_title"] = "PROVA CANOA"
+    data["page_count"] = int(data.get("page_count") or 1)
     return data
 
 def list_exams() -> List[Dict[str, Any]]:
@@ -604,6 +608,7 @@ def list_exams() -> List[Dict[str, Any]]:
             item["cover_model"] = "opcao_4_azul_nautico_lagoa"
         if not item.get("cover_title"):
             item["cover_title"] = "PROVA CANOA"
+        item["page_count"] = int(item.get("page_count") or 1)
         result.append(item)
     return result
 
@@ -615,7 +620,8 @@ def update_exam(exam_id: str, exam_data: Dict[str, Any]) -> Optional[Dict[str, A
         SET title = ?, subtitle = ?, school_name = ?, classroom = ?, student_name = ?,
             shift = ?, logo_path = ?, num_questions = ?, num_alternatives = ?,
             points_per_question = ?, answer_key = ?, weights = ?, sheet_template = ?,
-            header_color = ?, cover_model = ?, cover_title = ?, cover_subtitle = ?, cover_instructions = ?
+            header_color = ?, cover_model = ?, cover_title = ?, cover_subtitle = ?, cover_instructions = ?,
+            page_count = ?
         WHERE id = ?
     """, (
         exam_data["title"],
@@ -636,6 +642,7 @@ def update_exam(exam_id: str, exam_data: Dict[str, Any]) -> Optional[Dict[str, A
         exam_data.get("cover_title", "PROVA CANOA"),
         exam_data.get("cover_subtitle", ""),
         exam_data.get("cover_instructions", ""),
+        int(exam_data.get("page_count") or 1),
         exam_id
     ))
     updated = cursor.rowcount > 0
@@ -2334,7 +2341,8 @@ def get_print_run_data(school_id: Optional[str] = None, exam_id: Optional[str] =
             s.id as school_id, s.name as school_name,
             c.id as classroom_id, c.name as classroom_name, c.grade_year, c.shift,
             (SELECT COUNT(*) FROM students st WHERE st.classroom_id = c.id) as student_count,
-            e.id as exam_id, e.title as exam_title, e.subtitle as exam_subtitle
+            e.id as exam_id, e.title as exam_title, e.subtitle as exam_subtitle,
+            COALESCE(e.page_count, 1) as page_count
         FROM classrooms c
         JOIN schools s ON c.school_id = s.id
         JOIN classroom_exams ce ON ce.classroom_id = c.id

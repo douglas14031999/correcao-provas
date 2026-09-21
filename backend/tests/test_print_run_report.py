@@ -48,6 +48,23 @@ class TestPrintRunReport(unittest.TestCase):
         sec3 = report.sections[2]
         self.assertIn("LOGÍSTICA DETALHADA POR TURMA", sec3.title)
 
+    def test_generate_print_run_sheets_mode(self):
+        """Verifica o relatório de tiragem no modo detalhado de folhas (duplex e simplex)."""
+        report_duplex = generate_print_run_report_data(mode="folhas", duplex=True)
+        if report_duplex:
+            self.assertIn("Folhas", report_duplex.title)
+            self.assertIn("Frente e Verso", report_duplex.title)
+            self.assertEqual(len(report_duplex.sections), 3)
+            # Confere se a coluna de total_sheets está presente
+            col_keys = [c.key for c in report_duplex.sections[0].columns]
+            self.assertIn("total_sheets", col_keys)
+
+        report_simplex = generate_print_run_report_data(mode="folhas", duplex=False)
+        if report_simplex:
+            self.assertIn("Só Frente", report_simplex.title)
+            col_keys = [c.key for c in report_simplex.sections[0].columns]
+            self.assertIn("total_sheets", col_keys)
+
     def test_print_run_formats_generation(self):
         """Testa a geração dos arquivos físicos em PDF, XLSX e DOCX."""
         report = generate_print_run_report_data()
@@ -70,7 +87,7 @@ class TestPrintRunReport(unittest.TestCase):
         self.assertEqual(docx_bytes[:2], b"PK")
 
     def test_api_print_run_endpoints(self):
-        """Testa o endpoint da API para os 3 formatos: PDF, XLSX e DOCX."""
+        """Testa o endpoint da API para os 3 formatos: PDF, XLSX e DOCX em modo normal e folhas."""
         # PDF
         resp_pdf = client.get("/api/reports/print-run?format=pdf")
         if resp_pdf.status_code == 200:
@@ -78,17 +95,25 @@ class TestPrintRunReport(unittest.TestCase):
             self.assertIn("Relatorio_Tiragem_Impressao_Provas", resp_pdf.headers["content-disposition"])
             self.assertTrue(resp_pdf.content.startswith(b"%PDF"))
 
+        # PDF - Modo Folhas
+        resp_folhas = client.get("/api/reports/print-run?format=pdf&mode=folhas&duplex=true")
+        if resp_folhas.status_code == 200:
+            self.assertEqual(resp_folhas.headers["content-type"], "application/pdf")
+            self.assertIn("Relatorio_Tiragem_Folhas_Detalhadas", resp_folhas.headers["content-disposition"])
+            self.assertTrue(resp_folhas.content.startswith(b"%PDF"))
+
         # XLSX
-        resp_xlsx = client.get("/api/reports/print-run?format=xlsx")
+        resp_xlsx = client.get("/api/reports/print-run?format=xlsx&mode=folhas")
         if resp_xlsx.status_code == 200:
             self.assertIn("spreadsheetml", resp_xlsx.headers["content-type"])
             self.assertEqual(resp_xlsx.content[:2], b"PK")
 
         # DOCX
-        resp_docx = client.get("/api/reports/print-run?format=docx")
+        resp_docx = client.get("/api/reports/print-run?format=docx&mode=folhas")
         if resp_docx.status_code == 200:
             self.assertIn("wordprocessingml", resp_docx.headers["content-type"])
             self.assertEqual(resp_docx.content[:2], b"PK")
 
 if __name__ == "__main__":
     unittest.main()
+

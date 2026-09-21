@@ -1827,6 +1827,8 @@ function resetCreateForm() {
   if (examCoverTitleInput) examCoverTitleInput.value = "PROVA CANOA";
   if (examCoverSubtitleInput) examCoverSubtitleInput.value = "";
   if (examCoverInstructionsInput) examCoverInstructionsInput.value = "";
+  const pageCountInput = document.getElementById("exam-page-count-input");
+  if (pageCountInput) pageCountInput.value = 1;
 
   initAnswerKeyMatrix();
   setSheetColor("#244061");
@@ -1854,6 +1856,9 @@ async function startEditingExam(examId) {
 
     const ptsInput = document.getElementById("exam-points-input");
     if (ptsInput) ptsInput.value = exam.points_per_question || 1.0;
+
+    const pageCountInput = document.getElementById("exam-page-count-input");
+    if (pageCountInput) pageCountInput.value = exam.page_count || 1;
 
     // Fill cover fields
     if (examCoverModelSelect) examCoverModelSelect.value = exam.cover_model || "opcao_4_azul_nautico_lagoa";
@@ -2024,6 +2029,7 @@ createExamForm.addEventListener("submit", async (e) => {
   const numQuestions = parseInt(numQuestionsInput.value);
   const numAlternatives = parseInt(numOptionsSelect.value);
   const points = parseFloat(document.getElementById("exam-points-input").value) || 1.0;
+  const pageCount = parseInt(document.getElementById("exam-page-count-input")?.value) || 1;
 
   saveExamBtn.disabled = true;
   saveExamBtn.innerHTML = '<div class="spinner"></div><span>Salvando...</span>';
@@ -2044,7 +2050,8 @@ createExamForm.addEventListener("submit", async (e) => {
       cover_model: document.getElementById("exam-cover-model-select")?.value || "opcao_4_azul_nautico_lagoa",
       cover_title: (document.getElementById("exam-cover-title-input")?.value || "").trim() || "PROVA CANOA",
       cover_subtitle: (document.getElementById("exam-cover-subtitle-input")?.value || "").trim(),
-      cover_instructions: (document.getElementById("exam-cover-instructions-input")?.value || "").trim()
+      cover_instructions: (document.getElementById("exam-cover-instructions-input")?.value || "").trim(),
+      page_count: pageCount
     };
 
     let res;
@@ -4943,16 +4950,57 @@ function exportSchoolReport(format = "pdf") {
   downloadReport(`/api/reports/school/${activeExportSchoolId}?format=${format}`, `Relatorio_Escola_${schName}.${format}`);
 }
 
-function exportPrintRunReport(format = "pdf", schoolId = null) {
+function exportPrintRunReport(format = "pdf", schoolId = null, mode = "provas", duplex = true) {
   closeAllExportDropdowns();
-  let url = `/api/reports/print-run?format=${format}`;
-  let baseFilename = "Relatorio_Tiragem_Impressao_Provas";
+  let url = `/api/reports/print-run?format=${format}&mode=${encodeURIComponent(mode)}&duplex=${duplex}`;
+  let baseFilename = mode === "folhas" ? "Relatorio_Tiragem_Folhas_Detalhadas" : "Relatorio_Tiragem_Impressao_Provas";
   if (schoolId) {
     url += `&school_id=${schoolId}`;
     const schName = getActiveSchoolNameClean(schoolId);
     baseFilename += `_${schName}`;
   }
   downloadReport(url, `${baseFilename}.${format}`);
+}
+
+let selectedPrintRunMode = "provas"; // "provas" | "folhas"
+let selectedPrintRunDuplex = true;
+
+function selectPrintRunMode(mode) {
+  selectedPrintRunMode = mode;
+  const cardProvas = document.getElementById("card-print-run-provas");
+  const cardFolhas = document.getElementById("card-print-run-folhas");
+  const duplexWrapper = document.getElementById("print-run-duplex-wrapper");
+
+  if (cardProvas) {
+    if (mode === "provas") cardProvas.classList.add("active");
+    else cardProvas.classList.remove("active");
+  }
+  if (cardFolhas) {
+    if (mode === "folhas") cardFolhas.classList.add("active");
+    else cardFolhas.classList.remove("active");
+  }
+  if (duplexWrapper) {
+    duplexWrapper.style.display = mode === "folhas" ? "block" : "none";
+  }
+}
+
+function togglePrintRunDuplex(isDuplex) {
+  selectedPrintRunDuplex = !!isDuplex;
+  const rYes = document.getElementById("print-run-duplex-yes");
+  const rNo = document.getElementById("print-run-duplex-no");
+  if (rYes) rYes.checked = selectedPrintRunDuplex;
+  if (rNo) rNo.checked = !selectedPrintRunDuplex;
+}
+
+function updatePrintRunModalVisibility() {
+  const isPrintRun = (selectedExportModalReport === "print_run" || selectedExportModalReport === "print_run_school");
+  const printRunSec = document.getElementById("export-print-run-options-section");
+  if (printRunSec) {
+    printRunSec.style.display = isPrintRun ? "block" : "none";
+  }
+  if (isPrintRun) {
+    selectPrintRunMode(selectedPrintRunMode);
+  }
 }
 
 const EXPORT_REPORT_DEFINITIONS = {
@@ -5080,6 +5128,7 @@ function openExportReportModal(context, preferredReport, preferredFormat, target
 
   renderExportReportTypes(context);
   selectExportModalFormat(selectedExportModalFormat);
+  updatePrintRunModalVisibility();
 
   const modal = document.getElementById("modal-export-report");
   if (modal) {
@@ -5132,6 +5181,7 @@ function selectExportModalReport(reportId) {
       card.classList.remove("active");
     }
   });
+  updatePrintRunModalVisibility();
 }
 
 function selectExportModalFormat(format) {
@@ -5173,9 +5223,9 @@ function executeModalReportExport() {
   } else if (r === "school_performance") {
     exportSchoolReport(fmt);
   } else if (r === "print_run_school") {
-    exportPrintRunReport(fmt, activeExportSchoolId);
+    exportPrintRunReport(fmt, activeExportSchoolId, selectedPrintRunMode, selectedPrintRunDuplex);
   } else if (r === "print_run") {
-    exportPrintRunReport(fmt);
+    exportPrintRunReport(fmt, null, selectedPrintRunMode, selectedPrintRunDuplex);
   } else if (r === "network_overview") {
     exportNetworkReport(fmt);
   } else if (r === "year_performance") {
@@ -5650,6 +5700,9 @@ window.selectExportModalReport = selectExportModalReport;
 window.selectExportModalFormat = selectExportModalFormat;
 window.executeModalReportExport = executeModalReportExport;
 window.exportPrintRunReport = exportPrintRunReport;
+window.selectPrintRunMode = selectPrintRunMode;
+window.togglePrintRunDuplex = togglePrintRunDuplex;
+window.updatePrintRunModalVisibility = updatePrintRunModalVisibility;
 window.updateYearReportExamsDropdown = updateYearReportExamsDropdown;
 window.toggleExportDropdown = toggleExportDropdown;
 window.clearSchoolsSearch = clearSchoolsSearch;

@@ -1,6 +1,7 @@
 from typing import Optional, Dict, Any, List
 import os
 import re
+import math
 from collections import defaultdict
 from datetime import datetime
 
@@ -509,11 +510,25 @@ def shorten_exam_name(title: str) -> str:
     cleaned = re.sub(r'^(PROVA\s+[A-Z0-9\s]+[–\-\:]\s*|SIMULADO\s+[A-Z0-9\s]*[–\-\:]\s*)', '', title, flags=re.IGNORECASE).strip()
     return cleaned or title
 
-def generate_print_run_report_data(school_id: Optional[str] = None, exam_id: Optional[str] = None) -> Optional[ReportData]:
-    """Generates the Print Run / Copies Logistics Report for municipal exam printing."""
+def generate_print_run_report_data(
+    school_id: Optional[str] = None,
+    exam_id: Optional[str] = None,
+    mode: str = "provas",
+    duplex: bool = True
+) -> Optional[ReportData]:
+    """Generates the Print Run / Copies Logistics Report for municipal exam printing.
+    
+    Supports:
+    - mode="provas": Quantitativo de cadernos/provas por aluno.
+    - mode="folhas": Quantitativo detalhado de folhas de papel A4 a serem impressas,
+                     considerando páginas por prova e opção Frente/Verso (duplex).
+    """
     raw_data = get_print_run_data(school_id=school_id, exam_id=exam_id)
     if not raw_data:
         return None
+
+    is_sheets_mode = (mode == "folhas")
+    duplex_label = "Frente e Verso (Duplex)" if duplex else "Só Frente (Simplex)"
 
     # Resolve School info if single school
     selected_school_name = ""
@@ -522,19 +537,24 @@ def generate_print_run_report_data(school_id: Optional[str] = None, exam_id: Opt
         if sch:
             selected_school_name = sch["name"]
 
+    meta_title = "Planejamento de Tiragem e Impressão de Provas"
+    if is_sheets_mode:
+        meta_title += f" — Quantitativo Detalhado de Folhas ({duplex_label})"
+
     meta = get_base_metadata(
         school_name=selected_school_name or "REDE MUNICIPAL DE ENSINO",
-        exam_title="Planejamento de Tiragem e Impressão de Provas"
+        exam_title=meta_title
     )
 
     # 1. Structure data by Classroom, Grade and School
     classrooms_dict = {}
     distinct_schools = set()
     total_copies_all = 0
+    total_sheets_all = 0
 
     # Intermediate buckets
-    by_grade = defaultdict(lambda: {"students": 0, "classrooms": set(), "exams": defaultdict(int)})
-    by_school_grade = defaultdict(lambda: defaultdict(lambda: {"students": 0, "classrooms": set(), "exams": defaultdict(int)}))
+    by_grade = defaultdict(lambda: {"students": 0, "classrooms": set(), "exams": defaultdict(lambda: {"copies": 0, "pages": 1, "sheets_per_exam": 1, "sheets": 0})})
+    by_school_grade = defaultdict(lambda: defaultdict(lambda: {"students": 0, "classrooms": set(), "exams": defaultdict(lambda: {"copies": 0, "pages": 1, "sheets_per_exam": 1, "sheets": 0})}))
 
     # First pass: map distinct classrooms and their student counts
     for r in raw_data:
@@ -546,6 +566,14 @@ def generate_print_run_report_data(school_id: Optional[str] = None, exam_id: Opt
         e_title = r["exam_title"]
         clean_g = extract_clean_grade(r["grade_year"], c_name)
         short_e = shorten_exam_name(e_title)
+        p_count = max(1, int(r.get("page_count") or 1))
+
+        if duplex:
+            sheets_per_copy = max(1, math.ceil(p_count / 2))
+        else:
+            sheets_per_copy = max(1, p_count)
+
+        row_sheets = st_count * sheets_per_copy
 
         distinct_schools.add(s_name)
 
@@ -562,12 +590,24 @@ def generate_print_run_report_data(school_id: Optional[str] = None, exam_id: Opt
         classrooms_dict[c_id]["exams"].append({
             "title": short_e,
             "full_title": e_title,
-            "copies": st_count
+            "copies": st_count,
+            "pages": p_count,
+            "sheets_per_exam": sheets_per_copy,
+            "sheets": row_sheets
         })
 
-        by_grade[clean_g]["exams"][short_e] += st_count
-        by_school_grade[s_name][clean_g]["exams"][short_e] += st_count
+        by_grade[clean_g]["exams"][short_e]["copies"] += st_count
+        by_grade[clean_g]["exams"][short_e]["pages"] = p_count
+        by_grade[clean_g]["exams"][short_e]["sheets_per_exam"] = sheets_per_copy
+        by_grade[clean_g]["exams"][short_e]["sheets"] += row_sheets
+
+        by_school_grade[s_name][clean_g]["exams"][short_e]["copies"] += st_count
+        by_school_grade[s_name][clean_g]["exams"][short_e]["pages"] = p_count
+        by_school_grade[s_name][clean_g]["exams"][short_e]["sheets_per_exam"] = sheets_per_copy
+        by_school_grade[s_name][clean_g]["exams"][short_e]["sheets"] += row_sheets
+
         total_copies_all += st_count
+        total_sheets_all += row_sheets
 
     # Calculate real non-duplicated student counts
     for c_id, c_data in classrooms_dict.items():
@@ -593,121 +633,191 @@ def generate_print_run_report_data(school_id: Optional[str] = None, exam_id: Opt
 
     # -------------------------------------------------------------------------
     # Section 1: CONSOLIDADO GERAL DA REDE POR ANO / SÉRIE ESCOLAR
-    # Clean 1-row-per-grade view with exam breakdown and total
     # -------------------------------------------------------------------------
-    sec1_columns = [
-        ReportTableColumn(key="grade_year", header="Ano / Série Escolar", width_ratio=2.2, align="center"),
-        ReportTableColumn(key="student_count", header="Qtd. Alunos", width_ratio=1.5, align="center", is_numeric=True),
-        ReportTableColumn(key="exams_breakdown", header="Detalhamento das Avaliações (Cadernos)", width_ratio=5.5, align="left"),
-        ReportTableColumn(key="total_copies", header="Total de Provas", width_ratio=2.0, align="center", is_numeric=True)
-    ]
+    if is_sheets_mode:
+        sec1_columns = [
+            ReportTableColumn(key="grade_year", header="Ano / Série Escolar", width_ratio=2.0, align="center"),
+            ReportTableColumn(key="student_count", header="Qtd. Alunos", width_ratio=1.3, align="center", is_numeric=True),
+            ReportTableColumn(key="exams_breakdown", header=f"Detalhamento das Provas e Folhas ({duplex_label})", width_ratio=5.2, align="left"),
+            ReportTableColumn(key="total_copies", header="Total Provas", width_ratio=1.5, align="center", is_numeric=True),
+            ReportTableColumn(key="total_sheets", header="Total Folhas", width_ratio=1.8, align="center", is_numeric=True)
+        ]
+    else:
+        sec1_columns = [
+            ReportTableColumn(key="grade_year", header="Ano / Série Escolar", width_ratio=2.2, align="center"),
+            ReportTableColumn(key="student_count", header="Qtd. Alunos", width_ratio=1.5, align="center", is_numeric=True),
+            ReportTableColumn(key="exams_breakdown", header="Detalhamento das Avaliações (Cadernos)", width_ratio=5.5, align="left"),
+            ReportTableColumn(key="total_copies", header="Total de Provas", width_ratio=2.0, align="center", is_numeric=True)
+        ]
+
     sec1_rows = []
     for g in sorted_grades:
         g_info = by_grade[g]
         exams_items = g_info["exams"]
-        breakdown_parts = [f"{ex_name}: {count} cópias" for ex_name, count in sorted(exams_items.items())]
-        grade_total_copies = sum(exams_items.values())
 
-        sec1_rows.append({
-            "grade_year": g,
-            "student_count": g_info["students"],
-            "exams_breakdown": "  •  ".join(breakdown_parts),
-            "total_copies": grade_total_copies
-        })
+        if is_sheets_mode:
+            breakdown_parts = [
+                f"{ex_name}: {info['copies']} prov. × {info['pages']} pág. ({info['sheets_per_exam']} fl{'s' if info['sheets_per_exam'] > 1 else ''}) = {info['sheets']} fls"
+                for ex_name, info in sorted(exams_items.items())
+            ]
+            grade_total_copies = sum(info["copies"] for info in exams_items.values())
+            grade_total_sheets = sum(info["sheets"] for info in exams_items.values())
+            sec1_rows.append({
+                "grade_year": g,
+                "student_count": g_info["students"],
+                "exams_breakdown": "  •  ".join(breakdown_parts),
+                "total_copies": grade_total_copies,
+                "total_sheets": grade_total_sheets
+            })
+        else:
+            breakdown_parts = [f"{ex_name}: {info['copies']} cópias" for ex_name, info in sorted(exams_items.items())]
+            grade_total_copies = sum(info["copies"] for info in exams_items.values())
+            sec1_rows.append({
+                "grade_year": g,
+                "student_count": g_info["students"],
+                "exams_breakdown": "  •  ".join(breakdown_parts),
+                "total_copies": grade_total_copies
+            })
 
-    sec1_rows.append({
+    total_row_sec1 = {
         "grade_year": "TOTAL GERAL DA REDE",
         "student_count": total_enrolled,
-        "exams_breakdown": "Consolidado de todas as séries e simulados da rede municipal",
+        "exams_breakdown": "Consolidado de todas as séries e avaliações da rede municipal",
         "total_copies": total_copies_all
-    })
+    }
+    if is_sheets_mode:
+        total_row_sec1["total_sheets"] = total_sheets_all
+    sec1_rows.append(total_row_sec1)
 
+    sec1_subtitle = "Quantitativo total de folhas de papel a serem impressas por série/ano" if is_sheets_mode else "Quantitativo total de cadernos de avaliação a serem impressos por série/ano"
     sec1 = ReportTableSection(
         title="1. CONSOLIDADO GERAL DA REDE POR ANO / SÉRIE ESCOLAR",
         columns=sec1_columns,
         rows=sec1_rows,
-        subtitle="Quantitativo total de cadernos de avaliação a serem impressos por série/ano"
+        subtitle=sec1_subtitle
     )
 
     # -------------------------------------------------------------------------
     # Section 2: QUANTITATIVO POR ESCOLA E ANO ESCOLAR
-    # Grouped cleanly by school without exhausting repetitive school names
     # -------------------------------------------------------------------------
-    sec2_columns = [
-        ReportTableColumn(key="school_name", header="Unidade Escolar", width_ratio=3.8, align="left"),
-        ReportTableColumn(key="grade_year", header="Ano / Série", width_ratio=1.8, align="center"),
-        ReportTableColumn(key="student_count", header="Alunos", width_ratio=1.4, align="center", is_numeric=True),
-        ReportTableColumn(key="exams_breakdown", header="Detalhamento das Provas e Cópias", width_ratio=4.5, align="left"),
-        ReportTableColumn(key="total_copies", header="Total Cópias", width_ratio=1.8, align="center", is_numeric=True)
-    ]
+    if is_sheets_mode:
+        sec2_columns = [
+            ReportTableColumn(key="school_name", header="Unidade Escolar", width_ratio=3.2, align="left"),
+            ReportTableColumn(key="grade_year", header="Ano / Série", width_ratio=1.6, align="center"),
+            ReportTableColumn(key="student_count", header="Alunos", width_ratio=1.2, align="center", is_numeric=True),
+            ReportTableColumn(key="exams_breakdown", header=f"Detalhamento de Folhas ({duplex_label})", width_ratio=4.5, align="left"),
+            ReportTableColumn(key="total_copies", header="Provas", width_ratio=1.4, align="center", is_numeric=True),
+            ReportTableColumn(key="total_sheets", header="Total Folhas", width_ratio=1.8, align="center", is_numeric=True)
+        ]
+    else:
+        sec2_columns = [
+            ReportTableColumn(key="school_name", header="Unidade Escolar", width_ratio=3.8, align="left"),
+            ReportTableColumn(key="grade_year", header="Ano / Série", width_ratio=1.8, align="center"),
+            ReportTableColumn(key="student_count", header="Alunos", width_ratio=1.4, align="center", is_numeric=True),
+            ReportTableColumn(key="exams_breakdown", header="Detalhamento das Provas e Cópias", width_ratio=4.5, align="left"),
+            ReportTableColumn(key="total_copies", header="Total Cópias", width_ratio=1.8, align="center", is_numeric=True)
+        ]
+
     sec2_rows = []
     for s_name in sorted(by_school_grade.keys()):
         school_grades = by_school_grade[s_name]
         sorted_school_g = sorted(school_grades.keys(), key=grade_sort_key)
         school_total_copies = 0
+        school_total_sheets = 0
         school_total_students = 0
 
         for idx, g in enumerate(sorted_school_g):
             sg_info = school_grades[g]
             sg_exams = sg_info["exams"]
-            g_copies = sum(sg_exams.values())
+            g_copies = sum(info["copies"] for info in sg_exams.values())
+            g_sheets = sum(info["sheets"] for info in sg_exams.values())
             school_total_copies += g_copies
+            school_total_sheets += g_sheets
             school_total_students += sg_info["students"]
 
-            breakdown_parts = [f"{ex_name}: {count}" for ex_name, count in sorted(sg_exams.items())]
-
-            # Only show school name on first row of this school to keep table visually clean
             display_school = s_name if idx == 0 else ""
 
-            sec2_rows.append({
-                "school_name": display_school,
-                "grade_year": g,
-                "student_count": sg_info["students"],
-                "exams_breakdown": "  •  ".join(breakdown_parts),
-                "total_copies": g_copies
-            })
+            if is_sheets_mode:
+                breakdown_parts = [
+                    f"{ex_name}: {info['copies']}p ({info['sheets']} fls)"
+                    for ex_name, info in sorted(sg_exams.items())
+                ]
+                sec2_rows.append({
+                    "school_name": display_school,
+                    "grade_year": g,
+                    "student_count": sg_info["students"],
+                    "exams_breakdown": "  •  ".join(breakdown_parts),
+                    "total_copies": g_copies,
+                    "total_sheets": g_sheets
+                })
+            else:
+                breakdown_parts = [f"{ex_name}: {info['copies']}" for ex_name, info in sorted(sg_exams.items())]
+                sec2_rows.append({
+                    "school_name": display_school,
+                    "grade_year": g,
+                    "student_count": sg_info["students"],
+                    "exams_breakdown": "  •  ".join(breakdown_parts),
+                    "total_copies": g_copies
+                })
 
-        # Add subtotal for schools with more than 1 grade
+        # Subtotal per school
         if len(sorted_school_g) > 1:
-            sec2_rows.append({
+            subtotal_row = {
                 "school_name": f"SUBTOTAL {s_name}",
                 "grade_year": f"{len(sorted_school_g)} séries",
                 "student_count": school_total_students,
                 "exams_breakdown": "Total consolidado desta unidade escolar",
                 "total_copies": school_total_copies
-            })
+            }
+            if is_sheets_mode:
+                subtotal_row["total_sheets"] = school_total_sheets
+            sec2_rows.append(subtotal_row)
 
-    sec2_rows.append({
+    total_row_sec2 = {
         "school_name": "TOTAL GERAL DE TODAS AS ESCOLAS",
         "grade_year": "-",
         "student_count": total_enrolled,
         "exams_breakdown": "Consolidado geral da rede municipal de ensino",
         "total_copies": total_copies_all
-    })
+    }
+    if is_sheets_mode:
+        total_row_sec2["total_sheets"] = total_sheets_all
+    sec2_rows.append(total_row_sec2)
 
+    sec2_subtitle = "Divisão de folhas e cadernos de avaliação por escola e por ano escolar" if is_sheets_mode else "Divisão de cópias e cadernos de avaliação por escola e por ano escolar"
     sec2 = ReportTableSection(
         title="2. QUANTITATIVO POR ESCOLA E ANO ESCOLAR",
         columns=sec2_columns,
         rows=sec2_rows,
-        subtitle="Divisão de cópias e cadernos de avaliação por escola e por ano escolar"
+        subtitle=sec2_subtitle
     )
 
     # -------------------------------------------------------------------------
     # Section 3: LOGÍSTICA DETALHADA POR TURMA (ORGANIZAÇÃO DE ENVELOPES)
-    # Exactly 1 row per classroom with all envelope contents aggregated
     # -------------------------------------------------------------------------
-    sec3_columns = [
-        ReportTableColumn(key="school_name", header="Escola", width_ratio=3.2, align="left"),
-        ReportTableColumn(key="classroom_name", header="Turma", width_ratio=2.4, align="left"),
-        ReportTableColumn(key="shift", header="Turno", width_ratio=1.4, align="center"),
-        ReportTableColumn(key="grade_year", header="Série", width_ratio=1.6, align="center"),
-        ReportTableColumn(key="student_count", header="Alunos", width_ratio=1.2, align="center", is_numeric=True),
-        ReportTableColumn(key="envelope_content", header="Conteúdo do Envelope (Cadernos)", width_ratio=4.4, align="left"),
-        ReportTableColumn(key="total_envelope", header="Total Envelope", width_ratio=1.8, align="center", is_numeric=True)
-    ]
+    if is_sheets_mode:
+        sec3_columns = [
+            ReportTableColumn(key="school_name", header="Escola", width_ratio=3.0, align="left"),
+            ReportTableColumn(key="classroom_name", header="Turma", width_ratio=2.2, align="left"),
+            ReportTableColumn(key="shift", header="Turno", width_ratio=1.3, align="center"),
+            ReportTableColumn(key="grade_year", header="Série", width_ratio=1.4, align="center"),
+            ReportTableColumn(key="student_count", header="Alunos", width_ratio=1.1, align="center", is_numeric=True),
+            ReportTableColumn(key="envelope_content", header=f"Conteúdo do Envelope ({duplex_label})", width_ratio=4.5, align="left"),
+            ReportTableColumn(key="total_envelope", header="Provas", width_ratio=1.3, align="center", is_numeric=True),
+            ReportTableColumn(key="total_sheets", header="Total Folhas", width_ratio=1.7, align="center", is_numeric=True)
+        ]
+    else:
+        sec3_columns = [
+            ReportTableColumn(key="school_name", header="Escola", width_ratio=3.2, align="left"),
+            ReportTableColumn(key="classroom_name", header="Turma", width_ratio=2.4, align="left"),
+            ReportTableColumn(key="shift", header="Turno", width_ratio=1.4, align="center"),
+            ReportTableColumn(key="grade_year", header="Série", width_ratio=1.6, align="center"),
+            ReportTableColumn(key="student_count", header="Alunos", width_ratio=1.2, align="center", is_numeric=True),
+            ReportTableColumn(key="envelope_content", header="Conteúdo do Envelope (Cadernos)", width_ratio=4.4, align="left"),
+            ReportTableColumn(key="total_envelope", header="Total Envelope", width_ratio=1.8, align="center", is_numeric=True)
+        ]
+
     sec3_rows = []
-    
-    # Sort classrooms by school name then classroom name
     sorted_classrooms = sorted(
         classrooms_dict.values(),
         key=lambda c: (c["school_name"], grade_sort_key(c["grade_year"]), c["classroom_name"])
@@ -715,20 +825,37 @@ def generate_print_run_report_data(school_id: Optional[str] = None, exam_id: Opt
 
     for c in sorted_classrooms:
         st_count = c["student_count"]
-        parts = [f"{st_count}x {ex['title']}" for ex in c["exams"]]
         total_env = st_count * len(c["exams"])
 
-        sec3_rows.append({
-            "school_name": c["school_name"],
-            "classroom_name": c["classroom_name"],
-            "shift": c["shift"],
-            "grade_year": c["grade_year"],
-            "student_count": st_count,
-            "envelope_content": "  •  ".join(parts),
-            "total_envelope": total_env
-        })
+        if is_sheets_mode:
+            parts = [
+                f"{st_count}x {ex['title']} ({ex['sheets']} fls)"
+                for ex in c["exams"]
+            ]
+            class_total_sheets = sum(ex["sheets"] for ex in c["exams"])
+            sec3_rows.append({
+                "school_name": c["school_name"],
+                "classroom_name": c["classroom_name"],
+                "shift": c["shift"],
+                "grade_year": c["grade_year"],
+                "student_count": st_count,
+                "envelope_content": "  •  ".join(parts),
+                "total_envelope": total_env,
+                "total_sheets": class_total_sheets
+            })
+        else:
+            parts = [f"{st_count}x {ex['title']}" for ex in c["exams"]]
+            sec3_rows.append({
+                "school_name": c["school_name"],
+                "classroom_name": c["classroom_name"],
+                "shift": c["shift"],
+                "grade_year": c["grade_year"],
+                "student_count": st_count,
+                "envelope_content": "  •  ".join(parts),
+                "total_envelope": total_env
+            })
 
-    sec3_rows.append({
+    total_row_sec3 = {
         "school_name": "TOTAL GERAL DE ENVELOPES",
         "classroom_name": f"{len(classrooms_dict)} turmas",
         "shift": "-",
@@ -736,23 +863,38 @@ def generate_print_run_report_data(school_id: Optional[str] = None, exam_id: Opt
         "student_count": total_enrolled,
         "envelope_content": "Total de cadernos organizados para envelopamento",
         "total_envelope": total_copies_all
-    })
+    }
+    if is_sheets_mode:
+        total_row_sec3["total_sheets"] = total_sheets_all
+    sec3_rows.append(total_row_sec3)
 
     sec3 = ReportTableSection(
         title="3. LOGÍSTICA DETALHADA POR TURMA (ORGANIZAÇÃO DE ENVELOPES)",
         columns=sec3_columns,
         rows=sec3_rows,
-        subtitle="Quantitativo exato de provas por envelope de turma para aplicação em sala"
+        subtitle="Quantitativo exato de provas e folhas por envelope de turma para aplicação em sala"
     )
 
-    summary_cards = [
-        {"label": "Escolas Atendidas", "value": len(distinct_schools)},
-        {"label": "Turmas Vinculadas", "value": len(classrooms_dict)},
-        {"label": "Alunos Matriculados", "value": total_enrolled},
-        {"label": "Total Geral de Cópias", "value": total_copies_all}
-    ]
+    if is_sheets_mode:
+        estimated_reams = math.ceil(total_sheets_all / 500)
+        summary_cards = [
+            {"label": "Escolas Atendidas", "value": len(distinct_schools)},
+            {"label": "Turmas Vinculadas", "value": len(classrooms_dict)},
+            {"label": "Total de Provas", "value": f"{total_copies_all:,}".replace(",", ".")},
+            {"label": "Total de Folhas", "value": f"{total_sheets_all:,}".replace(",", ".")},
+            {"label": "Resmas A4 (~500 fls)", "value": f"{estimated_reams} ({duplex_label})"}
+        ]
+    else:
+        summary_cards = [
+            {"label": "Escolas Atendidas", "value": len(distinct_schools)},
+            {"label": "Turmas Vinculadas", "value": len(classrooms_dict)},
+            {"label": "Alunos Matriculados", "value": total_enrolled},
+            {"label": "Total Geral de Cópias", "value": total_copies_all}
+        ]
 
     title_text = "Relatório Oficial de Tiragem e Impressão de Provas"
+    if is_sheets_mode:
+        title_text += f" — Detalhamento de Folhas ({duplex_label})"
     if selected_school_name:
         title_text += f" — {selected_school_name}"
 
