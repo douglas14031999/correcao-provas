@@ -312,6 +312,7 @@ def init_db():
         cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS cover_title TEXT DEFAULT 'PROVA CANOA';")
         cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS cover_subtitle TEXT DEFAULT '';")
         cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS cover_instructions TEXT DEFAULT '';")
+        cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS page_count INTEGER DEFAULT 1;")
     else:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS exams (
@@ -335,7 +336,8 @@ def init_db():
                 cover_model TEXT DEFAULT 'opcao_4_azul_nautico_lagoa',
                 cover_title TEXT DEFAULT 'PROVA CANOA',
                 cover_subtitle TEXT DEFAULT '',
-                cover_instructions TEXT DEFAULT ''
+                cover_instructions TEXT DEFAULT '',
+                page_count INTEGER DEFAULT 1
             )
         """)
         
@@ -533,7 +535,7 @@ def save_exam(exam_data: Dict[str, Any]) -> Dict[str, Any]:
     conn = get_connection()
     cursor = conn.cursor()
     
-    cursor.execute("""
+    insert_sql = """
         INSERT INTO exams (
             id, title, institution, num_questions, num_alternatives, points_per_question,
             answer_key, weights, sheet_template, subtitle, school_name, classroom,
@@ -541,7 +543,8 @@ def save_exam(exam_data: Dict[str, Any]) -> Dict[str, Any]:
             cover_model, cover_title, cover_subtitle, cover_instructions, page_count
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
+    """
+    insert_params = (
         exam_data["id"],
         exam_data["title"],
         exam_data.get("institution", "Prefeitura Municipal de Lagoa da Canoa"),
@@ -564,7 +567,26 @@ def save_exam(exam_data: Dict[str, Any]) -> Dict[str, Any]:
         exam_data.get("cover_subtitle", ""),
         exam_data.get("cover_instructions", ""),
         int(exam_data.get("page_count") or 1)
-    ))
+    )
+
+    try:
+        cursor.execute(insert_sql, insert_params)
+    except Exception as e:
+        # Se a coluna page_count ainda não existir na tabela exams no PostgreSQL/SQLite da VPS
+        err_str = str(e).lower()
+        if "page_count" in err_str or "column" in err_str or "coluna" in err_str:
+            try:
+                if is_postgres():
+                    cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS page_count INTEGER DEFAULT 1;")
+                else:
+                    cursor.execute("ALTER TABLE exams ADD COLUMN page_count INTEGER DEFAULT 1;")
+                conn.commit()
+                cursor.execute(insert_sql, insert_params)
+            except Exception:
+                raise e
+        else:
+            raise e
+
     conn.commit()
     conn.close()
     return exam_data
@@ -615,7 +637,7 @@ def list_exams() -> List[Dict[str, Any]]:
 def update_exam(exam_id: str, exam_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""
+    update_sql = """
         UPDATE exams
         SET title = ?, subtitle = ?, school_name = ?, classroom = ?, student_name = ?,
             shift = ?, logo_path = ?, num_questions = ?, num_alternatives = ?,
@@ -623,7 +645,8 @@ def update_exam(exam_id: str, exam_data: Dict[str, Any]) -> Optional[Dict[str, A
             header_color = ?, cover_model = ?, cover_title = ?, cover_subtitle = ?, cover_instructions = ?,
             page_count = ?
         WHERE id = ?
-    """, (
+    """
+    update_params = (
         exam_data["title"],
         exam_data.get("subtitle", "2º ANO DO ENSINO FUNDAMENTAL"),
         exam_data.get("school_name", ""),
@@ -644,7 +667,25 @@ def update_exam(exam_id: str, exam_data: Dict[str, Any]) -> Optional[Dict[str, A
         exam_data.get("cover_instructions", ""),
         int(exam_data.get("page_count") or 1),
         exam_id
-    ))
+    )
+
+    try:
+        cursor.execute(update_sql, update_params)
+    except Exception as e:
+        err_str = str(e).lower()
+        if "page_count" in err_str or "column" in err_str or "coluna" in err_str:
+            try:
+                if is_postgres():
+                    cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS page_count INTEGER DEFAULT 1;")
+                else:
+                    cursor.execute("ALTER TABLE exams ADD COLUMN page_count INTEGER DEFAULT 1;")
+                conn.commit()
+                cursor.execute(update_sql, update_params)
+            except Exception:
+                raise e
+        else:
+            raise e
+
     updated = cursor.rowcount > 0
     conn.commit()
     conn.close()
