@@ -6858,25 +6858,53 @@ body.mobile-landscape-camera-active .landscape-camera-hud {
 /* ==========================================================================
    DEDICATED MOBILE OPTIMIZATIONS (SMARTPHONES <= 768px)
    Exclusively applies to mobile viewports; preserves desktop layout 100%.
+   Zero horizontal overflow guarantee (no unwanted horizontal scrolling).
    ========================================================================== */
 @media (max-width: 768px) {
-  /* 1. General Mobile Enhancements */
+  /* 1. Global Viewport Containment - Eliminates all horizontal scroll */
+  html, body {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    position: relative;
+  }
+
+  .main-container {
+    max-width: 100% !important;
+    width: 100% !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  .tab-content {
+    max-width: 100% !important;
+    width: 100% !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
   .search-kbd-hint {
     display: none !important;
   }
 
   /* 2. Top Header & Actions - Turmas */
   .schools-header-bar {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.85rem;
-    margin-bottom: 1.15rem;
-    padding-bottom: 0.85rem;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+    margin-bottom: 1rem !important;
+    padding-bottom: 0.75rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   .schools-header-bar > div:first-child {
-    width: 100%;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   .schools-actions {
@@ -6884,244 +6912,315 @@ body.mobile-landscape-camera-active .landscape-camera-hud {
     flex-wrap: nowrap !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch;
-    gap: 0.5rem;
-    margin: 0 -0.5rem;
-    padding: 0.15rem 0.5rem 0.5rem 0.5rem;
-    scrollbar-width: none;
+    gap: 0.5rem !important;
+    margin: 0 !important;
+    padding: 0.2rem 0.2rem 0.5rem 0.2rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
   }
 
   .schools-actions::-webkit-scrollbar {
-    display: none;
+    display: none !important;
   }
 
   .schools-actions .btn {
     flex-shrink: 0 !important;
     white-space: nowrap !important;
-    height: 38px;
-    padding: 0 0.9rem;
-    font-size: 0.8rem;
-    border-radius: 9999px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    height: 38px !important;
+    padding: 0 0.9rem !important;
+    font-size: 0.8rem !important;
+    border-radius: 9999px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
   }
 
   .schools-search-toolbar {
-    margin-bottom: 1rem;
+    margin-bottom: 1rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .schools-search-toolbar .search-box-wrap {
-    max-width: 100%;
-    width: 100%;
+    max-width: 100% !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   /* 3. School Cards Header on Mobile */
+  .schools-grid {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
   .school-card {
-    border-radius: 12px;
-    overflow: hidden;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   .school-card-header {
-    padding: 0.9rem 1rem;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.75rem;
+    padding: 0.85rem 0.95rem !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .school-header-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 0.5rem;
-    width: 100%;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .school-name {
-    font-size: 0.98rem;
-    line-height: 1.35;
-    word-break: break-word;
+    font-size: 0.95rem !important;
+    line-height: 1.35 !important;
+    word-break: break-word !important;
   }
 
   .school-meta-pill {
-    font-size: 0.72rem;
-    padding: 0.2rem 0.55rem;
-    flex-shrink: 0;
-    white-space: nowrap;
+    font-size: 0.72rem !important;
+    padding: 0.2rem 0.55rem !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
   }
 
   .school-header-actions {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 0.5rem;
-    width: 100%;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.45rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .school-header-actions .btn {
-    width: 100%;
-    height: 36px;
-    font-size: 0.76rem;
-    font-weight: 600;
-    padding: 0 0.5rem;
-    justify-content: center;
-    border-radius: 8px;
+    flex: 1 1 calc(50% - 0.25rem) !important;
+    min-width: 0 !important;
+    height: 36px !important;
+    font-size: 0.76rem !important;
+    font-weight: 600 !important;
+    padding: 0 0.4rem !important;
+    justify-content: center !important;
+    border-radius: 8px !important;
+    box-sizing: border-box !important;
+    white-space: nowrap !important;
   }
 
   .school-card-body {
-    padding: 0.75rem;
+    padding: 0.75rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   /* 4. Classroom Rows on Mobile */
+  .classroom-list {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
   .classroom-row {
     display: flex !important;
-    flex-direction: column;
-    gap: 0.75rem;
-    padding: 0.85rem;
-    border-radius: 12px;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
+    flex-direction: column !important;
+    gap: 0.65rem !important;
+    padding: 0.85rem !important;
+    border-radius: 12px !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   .cl-col-main {
-    width: 100%;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   .cl-name {
-    font-size: 0.95rem;
-    line-height: 1.3;
-    white-space: normal;
-    word-break: break-word;
+    font-size: 0.95rem !important;
+    line-height: 1.3 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
   }
 
   .cl-tags-wrap {
-    margin-top: 0.35rem;
-    gap: 0.35rem;
+    margin-top: 0.35rem !important;
+    gap: 0.35rem !important;
+    flex-wrap: wrap !important;
   }
 
   .cl-col-exams {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.35rem !important;
+    box-sizing: border-box !important;
   }
 
   .cl-exam-chip {
-    white-space: normal;
-    line-height: 1.35;
-    padding: 4px 8px;
-    font-size: 0.72rem;
-    border-radius: 6px;
-    display: inline-block;
+    white-space: normal !important;
+    line-height: 1.35 !important;
+    padding: 4px 8px !important;
+    font-size: 0.72rem !important;
+    border-radius: 6px !important;
+    display: inline-block !important;
+    word-break: break-word !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .cl-col-students {
-    width: 100%;
+    width: 100% !important;
+    max-width: 100% !important;
     justify-content: flex-start !important;
+    box-sizing: border-box !important;
   }
 
   .cl-student-toggle-btn {
-    width: 100%;
-    justify-content: space-between;
-    height: 34px;
-    padding: 0 0.85rem;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 0.78rem;
-    font-weight: 600;
+    width: 100% !important;
+    max-width: 100% !important;
+    justify-content: space-between !important;
+    height: 34px !important;
+    padding: 0 0.85rem !important;
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    font-size: 0.78rem !important;
+    font-weight: 600 !important;
+    box-sizing: border-box !important;
   }
 
   /* Classroom Action Grid: Gabaritos e Capas na linha 1; Etiqueta, Relatório e Mais na linha 2 */
   .classroom-row .cl-col-actions {
-    display: grid !important;
-    grid-template-columns: 1fr calc(1fr - 44px) 38px !important;
-    gap: 0.45rem;
-    width: 100%;
-    margin-top: 0.25rem;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.45rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    margin-top: 0.25rem !important;
   }
 
-  .classroom-row .cl-col-actions > button:nth-child(1) {
-    grid-column: 1 / 2;
-    width: 100%;
-    height: 38px;
-    font-size: 0.78rem;
-  }
-
+  .classroom-row .cl-col-actions > button:nth-child(1),
   .classroom-row .cl-col-actions > button:nth-child(2) {
-    grid-column: 2 / 4;
-    width: 100%;
-    height: 38px;
-    font-size: 0.78rem;
+    flex: 1 1 calc(50% - 0.25rem) !important;
+    min-width: 0 !important;
+    height: 38px !important;
+    font-size: 0.78rem !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
   }
 
-  .classroom-row .cl-col-actions > button:nth-child(3) {
-    grid-column: 1 / 2;
-    width: 100%;
-    height: 38px;
-    font-size: 0.76rem;
-  }
-
+  .classroom-row .cl-col-actions > button:nth-child(3),
   .classroom-row .cl-col-actions > button:nth-child(4) {
-    grid-column: 2 / 3;
-    width: 100%;
-    height: 38px;
-    font-size: 0.76rem;
+    flex: 1 1 calc(38% - 0.25rem) !important;
+    min-width: 0 !important;
+    height: 38px !important;
+    font-size: 0.76rem !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
   }
 
   .classroom-row .cl-col-actions > .cl-more-wrapper {
-    grid-column: 3 / 4;
-    width: 100%;
-    height: 38px;
-    display: flex;
+    flex: 0 0 38px !important;
+    height: 38px !important;
+    display: flex !important;
+    box-sizing: border-box !important;
   }
 
   .classroom-row .cl-col-actions > .cl-more-wrapper .cl-action-btn-more {
-    width: 100%;
-    height: 38px;
-    border-radius: 6px;
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 6px !important;
+    box-sizing: border-box !important;
   }
 
   /* 5. Simulados Tab on Mobile */
   .exams-header-bar {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.75rem;
-    margin-bottom: 0.85rem;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+    margin-bottom: 0.85rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   .exams-header-title-wrap {
-    width: 100%;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   .exams-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    width: 100%;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   .exams-header-actions .search-box-wrap {
     flex: 1 !important;
     width: auto !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   #go-to-create-btn {
-    flex-shrink: 0;
-    height: 38px;
-    padding: 0 0.85rem;
-    font-size: 0.8rem;
+    flex-shrink: 0 !important;
+    height: 38px !important;
+    padding: 0 0.85rem !important;
+    font-size: 0.8rem !important;
   }
 
   .exams-filters-toolbar {
+    display: flex !important;
     flex-direction: column !important;
     align-items: stretch !important;
     gap: 0.65rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   .exams-filters-toolbar > div:first-child {
-    width: 100%;
-    flex-direction: column;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
     align-items: flex-start !important;
     gap: 0.35rem !important;
+    box-sizing: border-box !important;
   }
 
   #exams-grade-pills {
@@ -7129,120 +7228,146 @@ body.mobile-landscape-camera-active .landscape-camera-hud {
     flex-wrap: nowrap !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch;
-    width: 100%;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
     gap: 0.4rem !important;
-    padding-bottom: 5px;
-    scrollbar-width: none;
+    padding-bottom: 5px !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
   }
 
   #exams-grade-pills::-webkit-scrollbar {
-    display: none;
+    display: none !important;
   }
 
   #exams-grade-pills .grade-pill-btn {
     flex-shrink: 0 !important;
     white-space: nowrap !important;
-    padding: 0.35rem 0.75rem;
-    font-size: 0.78rem;
-    border-radius: 9999px;
+    padding: 0.35rem 0.75rem !important;
+    font-size: 0.78rem !important;
+    border-radius: 9999px !important;
   }
 
   .exams-filters-toolbar > div:last-child {
-    width: 100%;
-    justify-content: space-between;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    box-sizing: border-box !important;
   }
 
   #exams-sort-select {
-    flex: 1;
-    max-width: 220px;
+    flex: 1 !important;
+    max-width: 220px !important;
   }
 
-  /* 6. Exam Row Card on Mobile (2x2 Grid) */
+  /* 6. Exam Row Card on Mobile */
   .exam-row {
     display: flex !important;
-    flex-direction: column;
-    gap: 0.75rem;
-    padding: 0.9rem;
-    border-radius: 12px;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
+    flex-direction: column !important;
+    gap: 0.65rem !important;
+    padding: 0.85rem !important;
+    border-radius: 12px !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   .exam-row .cl-col-main {
-    width: 100%;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   .exam-row .cl-name {
-    font-size: 0.95rem;
-    line-height: 1.35;
-    white-space: normal;
-    word-break: break-word;
+    font-size: 0.95rem !important;
+    line-height: 1.35 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
   }
 
   .exam-row .cl-tags-wrap {
-    margin-top: 0.35rem;
-    gap: 0.35rem;
+    margin-top: 0.35rem !important;
+    gap: 0.35rem !important;
+    flex-wrap: wrap !important;
   }
 
   .exam-row .cl-col-exams {
-    width: 100%;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.35rem !important;
+    box-sizing: border-box !important;
   }
 
   .exam-row .cl-col-students {
-    width: 100%;
-    display: flex;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
     justify-content: flex-start !important;
+    box-sizing: border-box !important;
   }
 
   .exam-row .cl-no-exams {
-    font-size: 0.78rem;
-    color: #64748b;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    background: #f8fafc;
-    padding: 0.25rem 0.65rem;
-    border-radius: 6px;
-    border: 1px dashed #cbd5e1;
+    font-size: 0.78rem !important;
+    color: #64748b !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+    background: #f8fafc !important;
+    padding: 0.25rem 0.65rem !important;
+    border-radius: 6px !important;
+    border: 1px dashed #cbd5e1 !important;
   }
 
   .exam-row .cl-student-toggle-btn {
-    height: 30px;
-    font-size: 0.76rem;
+    height: 30px !important;
+    font-size: 0.76rem !important;
   }
 
   .exam-row .cl-col-actions {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 0.5rem;
-    width: 100%;
-    margin-top: 0.25rem;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.45rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    margin-top: 0.25rem !important;
   }
 
   .exam-row .cl-col-actions .cl-action-btn {
-    width: 100%;
-    height: 38px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    justify-content: center;
-    border-radius: 8px;
+    flex: 1 1 calc(50% - 0.25rem) !important;
+    min-width: 0 !important;
+    height: 38px !important;
+    font-size: 0.8rem !important;
+    font-weight: 600 !important;
+    justify-content: center !important;
+    border-radius: 8px !important;
+    box-sizing: border-box !important;
   }
 }
 
 @media (max-width: 380px) {
-  .classroom-row .cl-col-actions {
-    grid-template-columns: 1fr calc(1fr - 38px) 34px !important;
-    gap: 0.35rem;
-  }
-  .classroom-row .cl-col-actions .cl-action-btn,
+  .classroom-row .cl-col-actions > button:nth-child(1),
+  .classroom-row .cl-col-actions > button:nth-child(2),
+  .classroom-row .cl-col-actions > button:nth-child(3),
+  .classroom-row .cl-col-actions > button:nth-child(4),
   .exam-row .cl-col-actions .cl-action-btn {
     font-size: 0.72rem !important;
-    padding: 0 0.3rem !important;
+    padding: 0 0.25rem !important;
   }
 }
+
 
 
 
