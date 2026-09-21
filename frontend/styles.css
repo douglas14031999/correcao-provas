@@ -6855,6 +6855,396 @@ body.mobile-landscape-camera-active .landscape-camera-hud {
   color: var(--text-secondary, #64748b);
 }
 
+/* ==========================================================================
+   DEDICATED MOBILE OPTIMIZATIONS (SMARTPHONES <= 768px)
+   Exclusively applies to mobile viewports; preserves desktop layout 100%.
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* 1. General Mobile Enhancements */
+  .search-kbd-hint {
+    display: none !important;
+  }
+
+  /* 2. Top Header & Actions - Turmas */
+  .schools-header-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.85rem;
+    margin-bottom: 1.15rem;
+    padding-bottom: 0.85rem;
+  }
+
+  .schools-header-bar > div:first-child {
+    width: 100%;
+  }
+
+  .schools-actions {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    gap: 0.5rem;
+    margin: 0 -0.5rem;
+    padding: 0.15rem 0.5rem 0.5rem 0.5rem;
+    scrollbar-width: none;
+  }
+
+  .schools-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .schools-actions .btn {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    height: 38px;
+    padding: 0 0.9rem;
+    font-size: 0.8rem;
+    border-radius: 9999px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+
+  .schools-search-toolbar {
+    margin-bottom: 1rem;
+  }
+
+  .schools-search-toolbar .search-box-wrap {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  /* 3. School Cards Header on Mobile */
+  .school-card {
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .school-card-header {
+    padding: 0.9rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .school-header-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .school-name {
+    font-size: 0.98rem;
+    line-height: 1.35;
+    word-break: break-word;
+  }
+
+  .school-meta-pill {
+    font-size: 0.72rem;
+    padding: 0.2rem 0.55rem;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .school-header-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .school-header-actions .btn {
+    width: 100%;
+    height: 36px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    padding: 0 0.5rem;
+    justify-content: center;
+    border-radius: 8px;
+  }
+
+  .school-card-body {
+    padding: 0.75rem;
+  }
+
+  /* 4. Classroom Rows on Mobile */
+  .classroom-row {
+    display: flex !important;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.85rem;
+    border-radius: 12px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+  }
+
+  .cl-col-main {
+    width: 100%;
+  }
+
+  .cl-name {
+    font-size: 0.95rem;
+    line-height: 1.3;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .cl-tags-wrap {
+    margin-top: 0.35rem;
+    gap: 0.35rem;
+  }
+
+  .cl-col-exams {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .cl-exam-chip {
+    white-space: normal;
+    line-height: 1.35;
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    border-radius: 6px;
+    display: inline-block;
+  }
+
+  .cl-col-students {
+    width: 100%;
+    justify-content: flex-start !important;
+  }
+
+  .cl-student-toggle-btn {
+    width: 100%;
+    justify-content: space-between;
+    height: 34px;
+    padding: 0 0.85rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  /* Classroom Action Grid: Gabaritos e Capas na linha 1; Etiqueta, Relatório e Mais na linha 2 */
+  .classroom-row .cl-col-actions {
+    display: grid !important;
+    grid-template-columns: 1fr calc(1fr - 44px) 38px !important;
+    gap: 0.45rem;
+    width: 100%;
+    margin-top: 0.25rem;
+  }
+
+  .classroom-row .cl-col-actions > button:nth-child(1) {
+    grid-column: 1 / 2;
+    width: 100%;
+    height: 38px;
+    font-size: 0.78rem;
+  }
+
+  .classroom-row .cl-col-actions > button:nth-child(2) {
+    grid-column: 2 / 4;
+    width: 100%;
+    height: 38px;
+    font-size: 0.78rem;
+  }
+
+  .classroom-row .cl-col-actions > button:nth-child(3) {
+    grid-column: 1 / 2;
+    width: 100%;
+    height: 38px;
+    font-size: 0.76rem;
+  }
+
+  .classroom-row .cl-col-actions > button:nth-child(4) {
+    grid-column: 2 / 3;
+    width: 100%;
+    height: 38px;
+    font-size: 0.76rem;
+  }
+
+  .classroom-row .cl-col-actions > .cl-more-wrapper {
+    grid-column: 3 / 4;
+    width: 100%;
+    height: 38px;
+    display: flex;
+  }
+
+  .classroom-row .cl-col-actions > .cl-more-wrapper .cl-action-btn-more {
+    width: 100%;
+    height: 38px;
+    border-radius: 6px;
+  }
+
+  /* 5. Simulados Tab on Mobile */
+  .exams-header-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .exams-header-title-wrap {
+    width: 100%;
+  }
+
+  .exams-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .exams-header-actions .search-box-wrap {
+    flex: 1 !important;
+    width: auto !important;
+  }
+
+  #go-to-create-btn {
+    flex-shrink: 0;
+    height: 38px;
+    padding: 0 0.85rem;
+    font-size: 0.8rem;
+  }
+
+  .exams-filters-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.65rem !important;
+  }
+
+  .exams-filters-toolbar > div:first-child {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0.35rem !important;
+  }
+
+  #exams-grade-pills {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    gap: 0.4rem !important;
+    padding-bottom: 5px;
+    scrollbar-width: none;
+  }
+
+  #exams-grade-pills::-webkit-scrollbar {
+    display: none;
+  }
+
+  #exams-grade-pills .grade-pill-btn {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.78rem;
+    border-radius: 9999px;
+  }
+
+  .exams-filters-toolbar > div:last-child {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  #exams-sort-select {
+    flex: 1;
+    max-width: 220px;
+  }
+
+  /* 6. Exam Row Card on Mobile (2x2 Grid) */
+  .exam-row {
+    display: flex !important;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.9rem;
+    border-radius: 12px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+  }
+
+  .exam-row .cl-col-main {
+    width: 100%;
+  }
+
+  .exam-row .cl-name {
+    font-size: 0.95rem;
+    line-height: 1.35;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .exam-row .cl-tags-wrap {
+    margin-top: 0.35rem;
+    gap: 0.35rem;
+  }
+
+  .exam-row .cl-col-exams {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .exam-row .cl-col-students {
+    width: 100%;
+    display: flex;
+    justify-content: flex-start !important;
+  }
+
+  .exam-row .cl-no-exams {
+    font-size: 0.78rem;
+    color: #64748b;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: #f8fafc;
+    padding: 0.25rem 0.65rem;
+    border-radius: 6px;
+    border: 1px dashed #cbd5e1;
+  }
+
+  .exam-row .cl-student-toggle-btn {
+    height: 30px;
+    font-size: 0.76rem;
+  }
+
+  .exam-row .cl-col-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem;
+    width: 100%;
+    margin-top: 0.25rem;
+  }
+
+  .exam-row .cl-col-actions .cl-action-btn {
+    width: 100%;
+    height: 38px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    justify-content: center;
+    border-radius: 8px;
+  }
+}
+
+@media (max-width: 380px) {
+  .classroom-row .cl-col-actions {
+    grid-template-columns: 1fr calc(1fr - 38px) 34px !important;
+    gap: 0.35rem;
+  }
+  .classroom-row .cl-col-actions .cl-action-btn,
+  .exam-row .cl-col-actions .cl-action-btn {
+    font-size: 0.72rem !important;
+    padding: 0 0.3rem !important;
+  }
+}
+
+
 
 
 
