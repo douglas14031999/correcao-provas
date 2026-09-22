@@ -1,6 +1,8 @@
 import os
 import csv
 import io
+import re
+import tempfile
 import zipfile
 import urllib.parse
 import logging
@@ -8,10 +10,12 @@ import unicodedata
 from typing import Optional, List
 from pydantic import BaseModel
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Response, Query, Header
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
+from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 
 from app.services.database import (
+    get_connection,
     get_or_create_school,
     get_school,
     delete_school,
@@ -144,94 +148,163 @@ async def download_school_exam_package_zip(
     if not school:
         raise HTTPException(status_code=404, detail="Escola não encontrada.")
 
-    schools_tree = await run_in_threadpool(list_schools_tree)
-    target_sch = next((s for s in schools_tree if str(s["id"]) == str(school_id)), None)
-    classrooms_list = target_sch.get("classrooms", []) if target_sch else []
+    # 1. Obter turmas da escola com fallback direto ao banco para máxima resiliência e velocidade
+    classrooms_list = []
+    target_sch = None
+    try:
+        schools_tree = await run_in_threadpool(list_schools_tree)
+        target_sch = next((s for s in schools_tree if str(s["id"]) == str(school_id)), None)
+        if target_sch:
+            classrooms_list = target_sch.get("classrooms", [])
+    except Exception as e:
+        logging.getLogger("uvicorn").warning(f"Erro ao buscar list_schools_tree para escola {school_id}: {e}")
+
+    if not classrooms_list:
+        def fetch_school_classrooms_direct():
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM classrooms WHERE school_id = ? ORDER BY name ASC", (school_id,))
+            cls_rows = [dict(r) for r in cur.fetchall()]
+            for c_row in cls_rows:
+                cur.execute("SELECT COUNT(*) as total FROM students WHERE classroom_id = ?", (c_row["id"],))
+                cnt = cur.fetchone()["total"]
+                c_row["student_count"] = cnt
+                c_row["students_count"] = cnt
+                cur.execute("""
+                    SELECT e.id, e.title, e.num_questions
+                    FROM classroom_exams ce
+                    JOIN exams e ON ce.exam_id = e.id
+                    WHERE ce.classroom_id = ?
+                    ORDER BY ce.created_at ASC
+                """, (c_row["id"],))
+                c_row["linked_exams"] = [dict(r) for r in cur.fetchall()]
+            conn.close()
+            return cls_rows
+
+        try:
+            classrooms_list = await run_in_threadpool(fetch_school_classrooms_direct)
+        except Exception as e_direct:
+            logging.getLogger("uvicorn").error(f"Erro no fallback direto de turmas para escola {school_id}: {e_direct}")
+
     if not classrooms_list:
         raise HTTPException(status_code=400, detail="Esta escola não possui turmas cadastradas para geração do pacote.")
 
     school_name = (school.get("name") or "Escola").strip()
     safe_school_name = sanitize_header_filename(school_name)
 
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-        # 1. Arquivo Único: Etiquetas de Envelope de todas as turmas da escola
+    # 2. Cria arquivo temporário em disco para o ZIP (evita estouro de memória RAM no VPS com múltiplas turmas)
+    temp_zip = tempfile.NamedTemporaryFile(delete=False, suffix=".zip", prefix="school_package_")
+    temp_zip_path = temp_zip.name
+    temp_zip.close()
+
+    try:
+        with zipfile.ZipFile(temp_zip_path, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+            # 2.1 Arquivo Único: Etiquetas de Envelope de todas as turmas da escola
+            try:
+                labels_pdf = await run_in_threadpool(
+                    generate_envelope_labels_pdf,
+                    school=target_sch or school,
+                    classrooms=classrooms_list
+                )
+                zf.writestr(f"Etiquetas de Envelope - {school_name}.pdf", labels_pdf)
+            except Exception as e:
+                logging.getLogger("uvicorn").error(f"Erro ao gerar etiquetas no pacote da escola {school_id}: {e}")
+
+            # 2.2 Arquivos Individuais por Turma (Ata de Frequência e Capas Nominais)
+            for cl_summary in classrooms_list:
+                cl_id = cl_summary.get("id")
+                if not cl_id:
+                    continue
+
+                try:
+                    cl_details = await run_in_threadpool(get_classroom_with_details, cl_id)
+                    if not cl_details:
+                        continue
+
+                    raw_cl_name = (cl_details.get("name") or "Turma").strip()
+                    safe_cl_name = re.sub(r'[\\/*?:"<>|]', '-', raw_cl_name).strip() or "Turma"
+                    folder_name = safe_cl_name
+
+                    students = cl_details.get("students", [])
+                    linked_exams = cl_details.get("linked_exams", [])
+
+                    full_exams = []
+                    for le in linked_exams:
+                        try:
+                            fe = await run_in_threadpool(get_exam, le["id"])
+                            if fe:
+                                full_exams.append(fe)
+                        except Exception as ex_fe:
+                            logging.getLogger("uvicorn").warning(f"Erro ao buscar exame {le.get('id')}: {ex_fe}")
+
+                    # Ata de Frequência da Turma
+                    if students:
+                        try:
+                            ata_pdf = await run_in_threadpool(
+                                generate_classroom_attendance_roster_pdf,
+                                classroom=cl_details,
+                                students=students,
+                                exams=full_exams
+                            )
+                            zf.writestr(f"{folder_name}/Ata de Frequência - {safe_cl_name}.pdf", ata_pdf)
+                        except Exception as e:
+                            logging.getLogger("uvicorn").error(f"Erro ao gerar ata da turma {raw_cl_name}: {e}")
+
+                    # Capas Nominais da Turma
+                    if students and full_exams:
+                        try:
+                            effective_model = None
+                            if model_id and isinstance(model_id, str):
+                                s_mod = model_id.strip()
+                                if s_mod not in ["auto", "", "undefined", "null"]:
+                                    effective_model = s_mod
+
+                            covers_pdf = await run_in_threadpool(
+                                generate_classroom_covers_pdf,
+                                classroom=cl_details,
+                                students=students,
+                                exams=full_exams,
+                                order_by="student",
+                                model_id=effective_model,
+                                include_attendance_roster=False
+                            )
+                            if covers_pdf:
+                                zf.writestr(f"{folder_name}/Capas de Prova - {safe_cl_name}.pdf", covers_pdf)
+                        except Exception as e:
+                            logging.getLogger("uvicorn").error(f"Erro ao gerar capas da turma {raw_cl_name}: {e}")
+
+                except Exception as e_cl:
+                    logging.getLogger("uvicorn").error(f"Erro ao processar turma {cl_id} no pacote: {e_cl}")
+
+        def cleanup_temp_zip():
+            try:
+                if os.path.exists(temp_zip_path):
+                    os.remove(temp_zip_path)
+            except Exception:
+                pass
+
+        raw_filename = f"Pacote Completo - {school_name}.zip"
+        safe_name = f"Pacote_Completo_{safe_school_name}.zip"
+        encoded_filename = urllib.parse.quote(raw_filename)
+
+        return FileResponse(
+            path=temp_zip_path,
+            media_type="application/zip",
+            filename=safe_name,
+            background=BackgroundTask(cleanup_temp_zip),
+            headers={
+                "Content-Disposition": f'attachment; filename="{safe_name}"; filename*=UTF-8\'\'{encoded_filename}'
+            }
+        )
+
+    except Exception as e_fatal:
         try:
-            labels_pdf = await run_in_threadpool(
-                generate_envelope_labels_pdf,
-                school=target_sch or school,
-                classrooms=classrooms_list
-            )
-            zf.writestr(f"Etiquetas de Envelope - {school_name}.pdf", labels_pdf)
-        except Exception as e:
-            logging.getLogger("uvicorn").error(f"Erro ao gerar etiquetas no pacote da escola {school_id}: {e}")
-
-        # 2. Arquivos Individuais por Turma (Ata de Frequência e Capas Nominais)
-        for cl_summary in classrooms_list:
-            cl_id = cl_summary.get("id")
-            if not cl_id:
-                continue
-
-            cl_details = await run_in_threadpool(get_classroom_with_details, cl_id)
-            if not cl_details:
-                continue
-
-            cl_name = (cl_details.get("name") or "Turma").strip()
-            folder_name = cl_name
-
-            students = cl_details.get("students", [])
-            linked_exams = cl_details.get("linked_exams", [])
-
-            full_exams = []
-            for le in linked_exams:
-                fe = await run_in_threadpool(get_exam, le["id"])
-                if fe:
-                    full_exams.append(fe)
-
-            # 2a. Ata de Frequência da Turma
-            if students:
-                try:
-                    ata_pdf = await run_in_threadpool(
-                        generate_classroom_attendance_roster_pdf,
-                        classroom=cl_details,
-                        students=students,
-                        exams=full_exams
-                    )
-                    zf.writestr(f"{folder_name}/Ata de Frequência - {cl_name}.pdf", ata_pdf)
-                except Exception as e:
-                    logging.getLogger("uvicorn").error(f"Erro ao gerar ata da turma {cl_name}: {e}")
-
-            # 2b. Capas Nominais da Turma
-            if students and full_exams:
-                try:
-                    effective_model = model_id.strip() if model_id and model_id.strip() not in ["auto", "", "undefined"] else None
-                    covers_pdf = await run_in_threadpool(
-                        generate_classroom_covers_pdf,
-                        classroom=cl_details,
-                        students=students,
-                        exams=full_exams,
-                        order_by="student",
-                        model_id=effective_model,
-                        include_attendance_roster=False
-                    )
-                    zf.writestr(f"{folder_name}/Capas de Prova - {cl_name}.pdf", covers_pdf)
-                except Exception as e:
-                    logging.getLogger("uvicorn").error(f"Erro ao gerar capas da turma {cl_name}: {e}")
-
-    zip_bytes = zip_buffer.getvalue()
-    zip_buffer.close()
-
-    raw_filename = f"Pacote Completo - {school_name}.zip"
-    safe_name = f"Pacote_Completo_{safe_school_name}.zip"
-    encoded_filename = urllib.parse.quote(raw_filename)
-
-    return Response(
-        content=zip_bytes,
-        media_type="application/zip",
-        headers={
-            "Content-Disposition": f'attachment; filename="{safe_name}"; filename*=UTF-8\'\'{encoded_filename}'
-        }
-    )
+            if os.path.exists(temp_zip_path):
+                os.remove(temp_zip_path)
+        except Exception:
+            pass
+        logging.getLogger("uvicorn").error(f"Erro fatal na compilação do pacote da escola {school_id}: {e_fatal}")
+        raise HTTPException(status_code=500, detail=f"Erro ao compilar pacote compactado: {str(e_fatal)}")
 
 @router.get("/classrooms/{classroom_id}/attendance-roster-pdf")
 async def download_classroom_attendance_roster_endpoint(classroom_id: str):

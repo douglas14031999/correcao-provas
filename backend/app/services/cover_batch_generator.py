@@ -456,7 +456,7 @@ def generate_classroom_covers_pdf(
     exams: List[Dict[str, Any]],
     order_by: str = "student",
     model_id: Optional[str] = None,
-    chunk_size: int = 15,
+    chunk_size: int = 30,
     include_attendance_roster: bool = True
 ) -> bytes:
     """
@@ -596,6 +596,8 @@ html, body {
                 "--disable-software-rasterizer",
                 "--no-zygote",
                 "--no-first-run",
+                "--js-flags=--max-old-space-size=256",
+                "--disable-features=Translate,OptimizationHints,MediaRouter",
                 f"--user-data-dir={user_data_dir}",
                 f"--crash-dumps-dir={crash_dumps_dir}",
                 "--no-pdf-header-footer",
@@ -655,6 +657,19 @@ html, body {
                 chunk_doc = fitz.open(chunk_pdf_file)
                 merged_pdf.insert_pdf(chunk_doc)
                 chunk_doc.close()
+                try:
+                    os.remove(chunk_pdf_file)
+                except Exception:
+                    pass
+
+            # Liberação imediata de espaço e memória do chunk processado
+            shutil.rmtree(user_data_dir, ignore_errors=True)
+            shutil.rmtree(crash_dumps_dir, ignore_errors=True)
+            if os.path.exists(chunk_html_file):
+                try:
+                    os.remove(chunk_html_file)
+                except Exception:
+                    pass
 
         pdf_bytes = merged_pdf.tobytes()
         return pdf_bytes
