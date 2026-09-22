@@ -827,6 +827,31 @@ def render_attendance_roster_page(
         c.showPage()
 
 
+def generate_classroom_attendance_roster_pdf(
+    classroom: dict,
+    students: list,
+    exams: list,
+    logo_path: Optional[str] = None
+) -> bytes:
+    """
+    Gera um PDF contendo unicamente a Ata Oficial de Presença e Entrega de Gabaritos
+    para a turma informada (paginado com até 28 alunos por folha A4).
+    """
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=(PAGE_WIDTH, PAGE_HEIGHT))
+    render_attendance_roster_page(
+        c=c,
+        classroom=classroom,
+        students=students,
+        exams=exams,
+        logo_path=logo_path
+    )
+    c.save()
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+    return pdf_bytes
+
+
 def generate_batch_classroom_pdf(
     exam: Optional[dict] = None,
     classroom: dict = None,

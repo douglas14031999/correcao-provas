@@ -2370,6 +2370,14 @@ function renderSchoolsGrid(filterTerm = "") {
             <span class="school-meta-pill">${school.classroom_count || 0} turmas • ${school.student_count || 0} alunos</span>
           </div>
           <div class="school-header-actions">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="downloadSchoolPackageZip('${school.id}', '${escapeHtml(school.name || '')}')" title="Baixar Pacote Completo da Escola em .ZIP (Etiquetas, Atas e Capas por Turma)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+              </svg>
+              <span>Baixar Tudo</span>
+            </button>
             <button type="button" class="btn btn-secondary btn-sm" onclick="downloadSchoolEnvelopeLabels('${school.id}')" title="Gerar Etiquetas de Envelope das Turmas (4 por folha A4)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
@@ -2600,6 +2608,65 @@ async function downloadSchoolEnvelopeLabels(schoolId, schoolName = null, classro
   } catch (err) {
     console.error(err);
     showToast(err.message || "Erro ao baixar etiquetas.", "error");
+  }
+}
+
+async function downloadSchoolPackageZip(schoolId, schoolName = null) {
+  if (!schoolId) return;
+
+  if (!schoolName && Array.isArray(schoolsList)) {
+    const s = schoolsList.find(item => item.id === schoolId);
+    if (s) schoolName = s.name;
+  }
+
+  const safeSchoolName = (schoolName || "Escola").replace(/[/\\?%*:|"<>]/g, "_").trim();
+  showToast(`Compilando pacote completo da escola "${safeSchoolName}" (.ZIP)... O download iniciará em instantes.`, "info");
+
+  try {
+    const res = await fetch(`/api/schools/${schoolId}/package-zip`, {
+      headers: { ...getAuthHeaders() }
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const msg = err.detail || "Erro ao gerar pacote compactado da escola.";
+      showToast(msg, res.status === 400 ? "warning" : "error");
+      return;
+    }
+
+    const blob = await res.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+
+    let downloadFileName = `Pacote - ${safeSchoolName}.zip`;
+    const disposition = res.headers.get("Content-Disposition");
+    if (disposition && disposition.includes("filename*=UTF-8''")) {
+      try {
+        const parts = disposition.split("filename*=UTF-8''");
+        if (parts[1]) {
+          downloadFileName = decodeURIComponent(parts[1].split(";")[0].replace(/"/g, "").trim());
+        }
+      } catch (e) {}
+    } else if (disposition && disposition.includes('filename="')) {
+      try {
+        const parts = disposition.split('filename="');
+        if (parts[1]) {
+          downloadFileName = parts[1].split('"')[0].trim();
+        }
+      } catch (e) {}
+    }
+
+    link.download = downloadFileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 2000);
+
+    showToast("Pacote .ZIP com Etiquetas, Atas e Capas baixado com sucesso!", "success");
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || "Erro ao baixar pacote da escola.", "error");
   }
 }
 

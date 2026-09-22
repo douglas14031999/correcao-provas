@@ -1,6 +1,9 @@
 import os
 import csv
 import io
+import zipfile
+import urllib.parse
+import logging
 import unicodedata
 from typing import Optional, List
 from pydantic import BaseModel
@@ -24,7 +27,12 @@ from app.services.database import (
     get_classroom_exams,
     update_classroom
 )
-from app.services.pdf_generator import generate_batch_classroom_pdf, generate_envelope_labels_pdf, DEFAULT_LOGO_PATH
+from app.services.pdf_generator import (
+    generate_batch_classroom_pdf,
+    generate_envelope_labels_pdf,
+    generate_classroom_attendance_roster_pdf,
+    DEFAULT_LOGO_PATH
+)
 from app.services.cover_batch_generator import generate_classroom_covers_pdf
 from app.api.auth import require_roles
 
@@ -109,6 +117,150 @@ def download_school_envelope_labels_pdf(school_id: str, classroom_id: Optional[s
 
     safe_name = sanitize_header_filename(raw_filename[:-4]) + ".pdf"
     import urllib.parse
+    encoded_filename = urllib.parse.quote(raw_filename)
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{safe_name}"; filename*=UTF-8\'\'{encoded_filename}'
+        }
+    )
+
+@router.get("/schools/{school_id}/package-zip")
+@router.get("/schools/{school_id}/download-all-zip")
+async def download_school_exam_package_zip(
+    school_id: str,
+    model_id: Optional[str] = Query(None, description="Modelo visual de capa opcional")
+):
+    """
+    Consolida e faz download de um arquivo .ZIP contendo todo o pacote de aplicação da escola:
+    - Etiquetas de Envelope: Arquivo PDF único consolidando todas as turmas da escola (grade 4x1).
+    - Para cada turma (organizadas em pastas nominais):
+      - Ata de Frequência e Entrega de Gabaritos (.pdf)
+      - Capas Nominais Personalizadas (.pdf)
+    """
+    school = await run_in_threadpool(get_school, school_id)
+    if not school:
+        raise HTTPException(status_code=404, detail="Escola não encontrada.")
+
+    schools_tree = await run_in_threadpool(list_schools_tree)
+    target_sch = next((s for s in schools_tree if str(s["id"]) == str(school_id)), None)
+    classrooms_list = target_sch.get("classrooms", []) if target_sch else []
+    if not classrooms_list:
+        raise HTTPException(status_code=400, detail="Esta escola não possui turmas cadastradas para geração do pacote.")
+
+    school_name = (school.get("name") or "Escola").strip()
+    safe_school_name = sanitize_header_filename(school_name)
+
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        # 1. Arquivo Único: Etiquetas de Envelope de todas as turmas da escola
+        try:
+            labels_pdf = await run_in_threadpool(
+                generate_envelope_labels_pdf,
+                school=target_sch or school,
+                classrooms=classrooms_list
+            )
+            zf.writestr(f"Etiquetas de Envelope - {school_name}.pdf", labels_pdf)
+        except Exception as e:
+            logging.getLogger("uvicorn").error(f"Erro ao gerar etiquetas no pacote da escola {school_id}: {e}")
+
+        # 2. Arquivos Individuais por Turma (Ata de Frequência e Capas Nominais)
+        for cl_summary in classrooms_list:
+            cl_id = cl_summary.get("id")
+            if not cl_id:
+                continue
+
+            cl_details = await run_in_threadpool(get_classroom_with_details, cl_id)
+            if not cl_details:
+                continue
+
+            cl_name = (cl_details.get("name") or "Turma").strip()
+            folder_name = cl_name
+
+            students = cl_details.get("students", [])
+            linked_exams = cl_details.get("linked_exams", [])
+
+            full_exams = []
+            for le in linked_exams:
+                fe = await run_in_threadpool(get_exam, le["id"])
+                if fe:
+                    full_exams.append(fe)
+
+            # 2a. Ata de Frequência da Turma
+            if students:
+                try:
+                    ata_pdf = await run_in_threadpool(
+                        generate_classroom_attendance_roster_pdf,
+                        classroom=cl_details,
+                        students=students,
+                        exams=full_exams
+                    )
+                    zf.writestr(f"{folder_name}/Ata de Frequência - {cl_name}.pdf", ata_pdf)
+                except Exception as e:
+                    logging.getLogger("uvicorn").error(f"Erro ao gerar ata da turma {cl_name}: {e}")
+
+            # 2b. Capas Nominais da Turma
+            if students and full_exams:
+                try:
+                    effective_model = model_id.strip() if model_id and model_id.strip() not in ["auto", "", "undefined"] else None
+                    covers_pdf = await run_in_threadpool(
+                        generate_classroom_covers_pdf,
+                        classroom=cl_details,
+                        students=students,
+                        exams=full_exams,
+                        order_by="student",
+                        model_id=effective_model,
+                        include_attendance_roster=False
+                    )
+                    zf.writestr(f"{folder_name}/Capas de Prova - {cl_name}.pdf", covers_pdf)
+                except Exception as e:
+                    logging.getLogger("uvicorn").error(f"Erro ao gerar capas da turma {cl_name}: {e}")
+
+    zip_bytes = zip_buffer.getvalue()
+    zip_buffer.close()
+
+    raw_filename = f"Pacote Completo - {school_name}.zip"
+    safe_name = f"Pacote_Completo_{safe_school_name}.zip"
+    encoded_filename = urllib.parse.quote(raw_filename)
+
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{safe_name}"; filename*=UTF-8\'\'{encoded_filename}'
+        }
+    )
+
+@router.get("/classrooms/{classroom_id}/attendance-roster-pdf")
+async def download_classroom_attendance_roster_endpoint(classroom_id: str):
+    """Gera o PDF da Ata Oficial de Frequência e Entrega de Gabaritos para uma única turma."""
+    classroom = await run_in_threadpool(get_classroom_with_details, classroom_id)
+    if not classroom:
+        raise HTTPException(status_code=404, detail="Turma não encontrada.")
+
+    students = classroom.get("students", [])
+    if not students:
+        raise HTTPException(status_code=400, detail="Esta turma não possui alunos cadastrados.")
+
+    linked_exams = classroom.get("linked_exams", [])
+    full_exams = []
+    for le in linked_exams:
+        fe = await run_in_threadpool(get_exam, le["id"])
+        if fe:
+            full_exams.append(fe)
+
+    pdf_bytes = await run_in_threadpool(
+        generate_classroom_attendance_roster_pdf,
+        classroom=classroom,
+        students=students,
+        exams=full_exams
+    )
+
+    cl_name = (classroom.get("name") or "Turma").strip()
+    raw_filename = f"Ata de Frequência - {cl_name}.pdf"
+    safe_name = sanitize_header_filename(f"Ata_Frequencia_{cl_name}") + ".pdf"
     encoded_filename = urllib.parse.quote(raw_filename)
 
     return Response(
