@@ -239,23 +239,28 @@ def build_pdf_report(data: ReportData, orientation: str = "portrait") -> bytes:
 
     # 4. SUMMARY STATS CHIPS (If provided)
     if data.summary_cards:
-        cards_data = []
-        card_cols = len(data.summary_cards)
-        w = printable_width / max(1, card_cols)
-        row = []
-        for card in data.summary_cards:
-            lbl = card.get("label", "").upper()
-            val = str(card.get("value", ""))
-            sub = card.get("subtext", "")
-            cell_p = Paragraph(f"<font size=7 color='#64748b'><b>{lbl}</b></font><br/><font size=10 color='#0f172a'><b>{val}</b></font>{f' <font size=6.5 color=#94a3b8>({sub})</font>' if sub else ''}", style_td_center)
-            row.append(cell_p)
-        cards_table = Table([row], colWidths=[w] * card_cols)
+        cards_per_row = 4 if len(data.summary_cards) > 4 else len(data.summary_cards)
+        chunks = [data.summary_cards[i:i + cards_per_row] for i in range(0, len(data.summary_cards), cards_per_row)]
+        cards_table_rows = []
+        col_w = printable_width / cards_per_row
+        for chunk in chunks:
+            row = []
+            for card in chunk:
+                lbl = card.get("label", "").upper()
+                val = str(card.get("value", ""))
+                sub = card.get("subtext", "")
+                cell_p = Paragraph(f"<font size=7 color='#64748b'><b>{lbl}</b></font><br/><font size=10 color='#0f172a'><b>{val}</b></font>{f' <font size=6.5 color=#94a3b8>({sub})</font>' if sub else ''}", style_td_center)
+                row.append(cell_p)
+            while len(row) < cards_per_row:
+                row.append(Paragraph("", style_td_center))
+            cards_table_rows.append(row)
+        cards_table = Table(cards_table_rows, colWidths=[col_w] * cards_per_row)
         cards_table.setStyle(TableStyle([
             ('BOX', (0, 0), (-1, -1), 0.5, HexColor("#e2e8f0")),
             ('INNERGRID', (0, 0), (-1, -1), 0.5, HexColor("#e2e8f0")),
             ('BACKGROUND', (0, 0), (-1, -1), HexColor("#ffffff")),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ]))
         story.append(cards_table)
         story.append(Spacer(1, 3 * mm))

@@ -183,26 +183,29 @@ def build_docx_report(data: ReportData) -> bytes:
 
     # 4. SUMMARY CARDS
     if data.summary_cards:
-        cards_table = doc.add_table(rows=1, cols=len(data.summary_cards))
+        cards_per_row = 4 if len(data.summary_cards) > 4 else len(data.summary_cards)
+        chunks = [data.summary_cards[i:i + cards_per_row] for i in range(0, len(data.summary_cards), cards_per_row)]
+        cards_table = doc.add_table(rows=len(chunks), cols=cards_per_row)
         cards_table.alignment = WD_TABLE_ALIGNMENT.CENTER
-        for idx, card in enumerate(data.summary_cards):
-            c = cards_table.cell(0, idx)
-            set_cell_background(c, "F1F5F9")
-            set_cell_margins(c, top=100, bottom=100, left=120, right=120)
-            p = c.paragraphs[0]
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p.paragraph_format.space_after = Pt(0)
-            r_l = p.add_run(f"{card.get('label', '').upper()}\n")
-            r_l.font.name = "Segoe UI"
-            r_l.font.size = Pt(7)
-            r_l.font.bold = True
-            r_l.font.color.rgb = RGBColor(100, 116, 139)
-            
-            r_v = p.add_run(str(card.get('value', '')))
-            r_v.font.name = "Segoe UI"
-            r_v.font.size = Pt(10)
-            r_v.font.bold = True
-            r_v.font.color.rgb = RGBColor(15, 23, 42)
+        for r_idx, chunk in enumerate(chunks):
+            for c_idx, card in enumerate(chunk):
+                c = cards_table.cell(r_idx, c_idx)
+                set_cell_background(c, "F1F5F9")
+                set_cell_margins(c, top=100, bottom=100, left=120, right=120)
+                p = c.paragraphs[0]
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p.paragraph_format.space_after = Pt(0)
+                r_l = p.add_run(f"{card.get('label', '').upper()}\n")
+                r_l.font.name = "Segoe UI"
+                r_l.font.size = Pt(7)
+                r_l.font.bold = True
+                r_l.font.color.rgb = RGBColor(100, 116, 139)
+
+                r_v = p.add_run(str(card.get('value', '')))
+                r_v.font.name = "Segoe UI"
+                r_v.font.size = Pt(10)
+                r_v.font.bold = True
+                r_v.font.color.rgb = RGBColor(15, 23, 42)
         doc.add_paragraph().paragraph_format.space_after = Pt(4)
 
     # 5. DATA TABLES (Supports single table or multiple sections)

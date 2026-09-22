@@ -157,47 +157,52 @@ def build_xlsx_report(data: ReportData) -> bytes:
 
     # 4. SUMMARY CARDS (KPIs - beautifully distributed across columns without cutoff)
     if data.summary_cards:
-        cards = data.summary_cards
-        n_cards = len(cards)
-        ws.row_dimensions[current_row].height = 26
-        
-        if num_cols == 6 and n_cards == 4:
-            spans = [(1, 1), (2, 3), (4, 5), (6, 6)]
-        elif num_cols == 5 and n_cards == 4:
-            spans = [(1, 2), (3, 3), (4, 4), (5, 5)]
-        elif num_cols == 7 and n_cards == 4:
-            spans = [(1, 2), (3, 4), (5, 6), (7, 7)]
-        else:
-            spans = []
-            base = max(1, num_cols // n_cards)
-            rem = num_cols % n_cards
-            curr = 1
-            for i in range(n_cards):
-                sz = base + (1 if i < rem else 0)
-                end_c = min(num_cols, curr + sz - 1)
-                spans.append((curr, end_c))
-                curr = end_c + 1
+        cards_per_row = min(4, num_cols)
+        card_chunks = [data.summary_cards[i:i + cards_per_row] for i in range(0, len(data.summary_cards), cards_per_row)]
+        for chunk in card_chunks:
+            n_cards = len(chunk)
+            ws.row_dimensions[current_row].height = 24
 
-        for idx, (c_start, c_end) in enumerate(spans):
-            if idx >= len(cards):
-                break
-            card = cards[idx]
-            
-            for c_i in range(c_start, c_end + 1):
-                cell_k = ws.cell(row=current_row, column=c_i)
-                cell_k.fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
-                cell_k.border = thin_border
-                if not cell_k.value:
-                    cell_k.value = ""
-                    
-            if c_end > c_start:
-                ws.merge_cells(start_row=current_row, start_column=c_start, end_row=current_row, end_column=c_end)
-                
-            cell_card = ws.cell(row=current_row, column=c_start, value=f"{card.get('label')}: {card.get('value')}")
-            cell_card.font = font_meta_label
-            cell_card.alignment = Alignment(horizontal="center", vertical="center")
-            
-        current_row += 1
+            if num_cols == 6 and n_cards == 4:
+                spans = [(1, 1), (2, 3), (4, 5), (6, 6)]
+            elif num_cols == 5 and n_cards == 4:
+                spans = [(1, 2), (3, 3), (4, 4), (5, 5)]
+            elif num_cols == 7 and n_cards == 4:
+                spans = [(1, 2), (3, 4), (5, 6), (7, 7)]
+            elif num_cols == 8 and n_cards == 4:
+                spans = [(1, 2), (3, 4), (5, 6), (7, 8)]
+            else:
+                spans = []
+                base = max(1, num_cols // n_cards)
+                rem = num_cols % n_cards
+                curr = 1
+                for i in range(n_cards):
+                    sz = base + (1 if i < rem else 0)
+                    end_c = min(num_cols, curr + sz - 1)
+                    spans.append((curr, end_c))
+                    curr = end_c + 1
+
+            for idx, (c_start, c_end) in enumerate(spans):
+                if idx >= len(chunk):
+                    break
+                card = chunk[idx]
+
+                for c_i in range(c_start, c_end + 1):
+                    cell_k = ws.cell(row=current_row, column=c_i)
+                    cell_k.fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
+                    cell_k.border = thin_border
+                    if not cell_k.value:
+                        cell_k.value = ""
+
+                if c_end > c_start:
+                    ws.merge_cells(start_row=current_row, start_column=c_start, end_row=current_row, end_column=c_end)
+
+                cell_card = ws.cell(row=current_row, column=c_start, value=f"{card.get('label')}: {card.get('value')}")
+                cell_card.font = font_meta_label
+                cell_card.alignment = Alignment(horizontal="center", vertical="center")
+
+            current_row += 1
+
         # Spacer before table
         ws.row_dimensions[current_row].height = 6
         current_row += 1

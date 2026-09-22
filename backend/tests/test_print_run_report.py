@@ -25,7 +25,7 @@ class TestPrintRunReport(unittest.TestCase):
         self.assertIsInstance(data, list)
 
     def test_generate_print_run_report_data(self):
-        """Verifica se o gerador de dados do relatório de tiragem monta as 3 seções."""
+        """Verifica se o gerador de dados do relatório de tiragem monta as 4 seções."""
         report = generate_print_run_report_data()
         if not report:
             # Se o banco de testes não possuir turmas vinculadas a exames, o teste passa graciosamente
@@ -33,7 +33,7 @@ class TestPrintRunReport(unittest.TestCase):
 
         self.assertIn("Tiragem", report.title)
         self.assertIsNotNone(report.sections)
-        self.assertEqual(len(report.sections), 3)
+        self.assertEqual(len(report.sections), 4)
 
         # Seção 1: Geral por Ano
         sec1 = report.sections[0]
@@ -48,13 +48,18 @@ class TestPrintRunReport(unittest.TestCase):
         sec3 = report.sections[2]
         self.assertIn("LOGÍSTICA DETALHADA POR TURMA", sec3.title)
 
+        # Seção 4: Quantitativo Geral de Materiais
+        sec4 = report.sections[3]
+        self.assertIn("QUANTITATIVO GERAL DE MATERIAIS", sec4.title)
+        self.assertTrue(len(sec4.rows) >= 5)
+
     def test_generate_print_run_sheets_mode(self):
         """Verifica o relatório de tiragem no modo detalhado de folhas (duplex e simplex)."""
         report_duplex = generate_print_run_report_data(mode="folhas", duplex=True)
         if report_duplex:
             self.assertIn("Folhas", report_duplex.title)
             self.assertIn("Frente e Verso", report_duplex.title)
-            self.assertEqual(len(report_duplex.sections), 3)
+            self.assertEqual(len(report_duplex.sections), 4)
             # Confere se a coluna de total_sheets está presente
             col_keys = [c.key for c in report_duplex.sections[0].columns]
             self.assertIn("total_sheets", col_keys)
@@ -62,6 +67,7 @@ class TestPrintRunReport(unittest.TestCase):
         report_simplex = generate_print_run_report_data(mode="folhas", duplex=False)
         if report_simplex:
             self.assertIn("Só Frente", report_simplex.title)
+            self.assertEqual(len(report_simplex.sections), 4)
             col_keys = [c.key for c in report_simplex.sections[0].columns]
             self.assertIn("total_sheets", col_keys)
 

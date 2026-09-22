@@ -793,28 +793,47 @@ def generate_print_run_report_data(
     )
 
     # -------------------------------------------------------------------------
+    # Logistics calculations: Atas, Capas, Etiquetas, Envelopes & Suprimentos
+    # -------------------------------------------------------------------------
+    total_envelopes = len(classrooms_dict)
+    total_atas = len(classrooms_dict)
+    total_folhas_atas = sum(max(1, math.ceil(c["student_count"] / 28)) for c in classrooms_dict.values())
+
+    # Opção A: 1 capa nominal de prova por gabarito vinculado ao estudante
+    total_capas = sum(c["student_count"] * len(c["exams"]) for c in classrooms_dict.values())
+    total_folhas_capas = total_capas  # 1 folha A4 por capa nominal
+
+    # Opção A: 1 etiqueta de envelope por turma/pacote (padrão 4 etiquetas por folha A4 adesiva)
+    total_etiquetas = len(classrooms_dict)
+    total_folhas_etiquetas = math.ceil(total_etiquetas / 4)
+
+    # Consolidado total de papel sulfite A4 (Provas + Capas Nominais + Atas)
+    total_folhas_geral = total_sheets_all + total_folhas_capas + total_folhas_atas
+    total_resmas_geral = math.ceil(total_folhas_geral / 500)
+
+    # -------------------------------------------------------------------------
     # Section 3: LOGÍSTICA DETALHADA POR TURMA (ORGANIZAÇÃO DE ENVELOPES)
     # -------------------------------------------------------------------------
     if is_sheets_mode:
+        sec3_columns = [
+            ReportTableColumn(key="school_name", header="Escola", width_ratio=2.8, align="left"),
+            ReportTableColumn(key="classroom_name", header="Turma", width_ratio=2.0, align="left"),
+            ReportTableColumn(key="shift", header="Turno", width_ratio=1.2, align="center"),
+            ReportTableColumn(key="grade_year", header="Série", width_ratio=1.3, align="center"),
+            ReportTableColumn(key="student_count", header="Alunos", width_ratio=1.0, align="center", is_numeric=True),
+            ReportTableColumn(key="envelope_content", header=f"Conteúdo do Envelope (Provas + Capas + Ata + Etiqueta)", width_ratio=5.0, align="left"),
+            ReportTableColumn(key="total_envelope", header="Provas", width_ratio=1.2, align="center", is_numeric=True),
+            ReportTableColumn(key="total_sheets", header="Total Folhas", width_ratio=1.6, align="center", is_numeric=True)
+        ]
+    else:
         sec3_columns = [
             ReportTableColumn(key="school_name", header="Escola", width_ratio=3.0, align="left"),
             ReportTableColumn(key="classroom_name", header="Turma", width_ratio=2.2, align="left"),
             ReportTableColumn(key="shift", header="Turno", width_ratio=1.3, align="center"),
             ReportTableColumn(key="grade_year", header="Série", width_ratio=1.4, align="center"),
             ReportTableColumn(key="student_count", header="Alunos", width_ratio=1.1, align="center", is_numeric=True),
-            ReportTableColumn(key="envelope_content", header=f"Conteúdo do Envelope ({duplex_label})", width_ratio=4.5, align="left"),
-            ReportTableColumn(key="total_envelope", header="Provas", width_ratio=1.3, align="center", is_numeric=True),
-            ReportTableColumn(key="total_sheets", header="Total Folhas", width_ratio=1.7, align="center", is_numeric=True)
-        ]
-    else:
-        sec3_columns = [
-            ReportTableColumn(key="school_name", header="Escola", width_ratio=3.2, align="left"),
-            ReportTableColumn(key="classroom_name", header="Turma", width_ratio=2.4, align="left"),
-            ReportTableColumn(key="shift", header="Turno", width_ratio=1.4, align="center"),
-            ReportTableColumn(key="grade_year", header="Série", width_ratio=1.6, align="center"),
-            ReportTableColumn(key="student_count", header="Alunos", width_ratio=1.2, align="center", is_numeric=True),
-            ReportTableColumn(key="envelope_content", header="Conteúdo do Envelope (Cadernos)", width_ratio=4.4, align="left"),
-            ReportTableColumn(key="total_envelope", header="Total Envelope", width_ratio=1.8, align="center", is_numeric=True)
+            ReportTableColumn(key="envelope_content", header="Conteúdo do Envelope (Provas + Capas + Ata + Etiqueta)", width_ratio=4.8, align="left"),
+            ReportTableColumn(key="total_envelope", header="Provas", width_ratio=1.4, align="center", is_numeric=True)
         ]
 
     sec3_rows = []
@@ -826,70 +845,144 @@ def generate_print_run_report_data(
     for c in sorted_classrooms:
         st_count = c["student_count"]
         total_env = st_count * len(c["exams"])
+        cl_capas = st_count * len(c["exams"])
+        cl_ata_fls = max(1, math.ceil(st_count / 28))
+        class_total_sheets = sum(ex["sheets"] for ex in c["exams"])
 
         if is_sheets_mode:
             parts = [
                 f"{st_count}x {ex['title']} ({ex['sheets']} fls)"
                 for ex in c["exams"]
             ]
-            class_total_sheets = sum(ex["sheets"] for ex in c["exams"])
+            content_desc = "  •  ".join(parts) + f"  |  +{cl_capas} Capas + 1 Ata ({cl_ata_fls} fl) + 1 Etiqueta"
+            total_pack_sheets = class_total_sheets + cl_capas + cl_ata_fls
             sec3_rows.append({
                 "school_name": c["school_name"],
                 "classroom_name": c["classroom_name"],
                 "shift": c["shift"],
                 "grade_year": c["grade_year"],
                 "student_count": st_count,
-                "envelope_content": "  •  ".join(parts),
+                "envelope_content": content_desc,
                 "total_envelope": total_env,
-                "total_sheets": class_total_sheets
+                "total_sheets": total_pack_sheets
             })
         else:
             parts = [f"{st_count}x {ex['title']}" for ex in c["exams"]]
+            content_desc = "  •  ".join(parts) + f"  |  +{cl_capas} Capas + 1 Ata + 1 Etiqueta"
             sec3_rows.append({
                 "school_name": c["school_name"],
                 "classroom_name": c["classroom_name"],
                 "shift": c["shift"],
                 "grade_year": c["grade_year"],
                 "student_count": st_count,
-                "envelope_content": "  •  ".join(parts),
+                "envelope_content": content_desc,
                 "total_envelope": total_env
             })
 
     total_row_sec3 = {
         "school_name": "TOTAL GERAL DE ENVELOPES",
-        "classroom_name": f"{len(classrooms_dict)} turmas",
+        "classroom_name": f"{len(classrooms_dict)} turmas / envelopes",
         "shift": "-",
         "grade_year": "-",
         "student_count": total_enrolled,
-        "envelope_content": "Total de cadernos organizados para envelopamento",
+        "envelope_content": f"{total_copies_all} provas + {total_capas} capas nominais + {total_atas} atas + {total_etiquetas} etiquetas",
         "total_envelope": total_copies_all
     }
     if is_sheets_mode:
-        total_row_sec3["total_sheets"] = total_sheets_all
+        total_row_sec3["total_sheets"] = total_folhas_geral
     sec3_rows.append(total_row_sec3)
 
     sec3 = ReportTableSection(
         title="3. LOGÍSTICA DETALHADA POR TURMA (ORGANIZAÇÃO DE ENVELOPES)",
         columns=sec3_columns,
         rows=sec3_rows,
-        subtitle="Quantitativo exato de provas e folhas por envelope de turma para aplicação em sala"
+        subtitle="Quantitativo exato de provas, capas nominais, ata e etiqueta por envelope de turma para aplicação"
+    )
+
+    # -------------------------------------------------------------------------
+    # Section 4: QUANTITATIVO GERAL DE MATERIAIS E LOGÍSTICA DE APLICAÇÃO
+    # -------------------------------------------------------------------------
+    sec4_columns = [
+        ReportTableColumn(key="item", header="Material / Suprimento", width_ratio=3.0, align="left"),
+        ReportTableColumn(key="descricao", header="Especificação e Finalidade", width_ratio=4.5, align="left"),
+        ReportTableColumn(key="quantitativo", header="Qtd. Unidades", width_ratio=1.8, align="center"),
+        ReportTableColumn(key="total_folhas", header="Consumo de Folhas", width_ratio=2.2, align="center"),
+        ReportTableColumn(key="embalagem", header="Estimativa de Compra / Embalagem", width_ratio=2.5, align="center")
+    ]
+
+    sec4_rows = [
+        {
+            "item": "1. Cadernos de Prova",
+            "descricao": f"Cadernos de avaliação impressos para os estudantes ({duplex_label if is_sheets_mode else 'Cópias individuais'})",
+            "quantitativo": f"{total_copies_all:,} cadernos".replace(",", "."),
+            "total_folhas": f"{total_sheets_all:,} folhas A4 ({duplex_label})".replace(",", ".") if is_sheets_mode else f"{total_copies_all:,} cadernos".replace(",", "."),
+            "embalagem": f"~{math.ceil(total_sheets_all / 500)} resmas A4" if is_sheets_mode else "-"
+        },
+        {
+            "item": "2. Capas Nominais de Prova",
+            "descricao": "1 capa nominal por prova/gabarito vinculado ao aluno (identificação, instruções e gabarito)",
+            "quantitativo": f"{total_capas:,} capas".replace(",", "."),
+            "total_folhas": f"{total_folhas_capas:,} folhas A4 (frente)".replace(",", "."),
+            "embalagem": f"~{math.ceil(total_folhas_capas / 500)} resmas A4"
+        },
+        {
+            "item": "3. Atas de Frequência de Sala",
+            "descricao": f"1 ata nominal de presença por turma vinculada ({len(classrooms_dict)} turmas, até 28 alunos por folha)",
+            "quantitativo": f"{total_atas:,} atas".replace(",", "."),
+            "total_folhas": f"{total_folhas_atas:,} folhas A4 (frente)".replace(",", "."),
+            "embalagem": f"{total_folhas_atas} folhas avulsas" if total_folhas_atas < 250 else f"~{math.ceil(total_folhas_atas / 500)} resma A4"
+        },
+        {
+            "item": "4. Etiquetas Adesivas de Envelope",
+            "descricao": "Rótulo adesivo de identificação externa do envelope (escola, turma, turno, componente)",
+            "quantitativo": f"{total_etiquetas:,} etiquetas".replace(",", "."),
+            "total_folhas": f"{total_folhas_etiquetas:,} folhas adesivas A4".replace(",", "."),
+            "embalagem": "Papel adesivo A4 (layout 4 etiquetas/folha)"
+        },
+        {
+            "item": "5. Envelopes de Sala (Malotes)",
+            "descricao": "Envelopes para acondicionamento, lacre e transporte seguro das provas por turma",
+            "quantitativo": f"{total_envelopes:,} envelopes".replace(",", "."),
+            "total_folhas": "-",
+            "embalagem": f"~{math.ceil(total_envelopes / 50)} pct(s) (pacote c/ 50 un)"
+        },
+        {
+            "item": "TOTAL GERAL DE PAPEL SULFITE A4",
+            "descricao": "Somatório consolidado de papel sulfite A4: Provas + Capas Nominais + Atas de Presença",
+            "quantitativo": f"{total_copies_all + total_capas + total_atas:,} itens impressos".replace(",", "."),
+            "total_folhas": f"{total_folhas_geral:,} FOLHAS A4".replace(",", ".") if is_sheets_mode else f"{total_copies_all + total_capas + total_folhas_atas:,} folhas A4".replace(",", "."),
+            "embalagem": f"{total_resmas_geral:,} RESMAS (500 fls)".replace(",", ".") if is_sheets_mode else f"~{math.ceil((total_copies_all + total_capas + total_folhas_atas) / 500)} resmas"
+        }
+    ]
+
+    sec4 = ReportTableSection(
+        title="4. QUANTITATIVO GERAL DE MATERIAIS E LOGÍSTICA DE APLICAÇÃO",
+        columns=sec4_columns,
+        rows=sec4_rows,
+        subtitle="Quadro consolidado de suprimentos necessários para impressão, montagem de envelopes e aplicação da prova"
     )
 
     if is_sheets_mode:
-        estimated_reams = math.ceil(total_sheets_all / 500)
         summary_cards = [
             {"label": "Escolas Atendidas", "value": len(distinct_schools)},
-            {"label": "Turmas Vinculadas", "value": len(classrooms_dict)},
-            {"label": "Total de Provas", "value": f"{total_copies_all:,}".replace(",", ".")},
-            {"label": "Total de Folhas", "value": f"{total_sheets_all:,}".replace(",", ".")},
-            {"label": "Resmas A4 (~500 fls)", "value": f"{estimated_reams} ({duplex_label})"}
+            {"label": "Turmas / Envelopes", "value": len(classrooms_dict)},
+            {"label": "Alunos Matriculados", "value": f"{total_enrolled:,}".replace(",", ".")},
+            {"label": "Cadernos de Prova", "value": f"{total_copies_all:,}".replace(",", ".")},
+            {"label": "Capas Nominais", "value": f"{total_capas:,}".replace(",", ".")},
+            {"label": "Atas de Frequência", "value": f"{total_atas:,}".replace(",", ".")},
+            {"label": "Total Geral Folhas", "value": f"{total_folhas_geral:,}".replace(",", ".")},
+            {"label": "Resmas A4 Totais", "value": f"{total_resmas_geral} ({duplex_label})"}
         ]
     else:
         summary_cards = [
             {"label": "Escolas Atendidas", "value": len(distinct_schools)},
-            {"label": "Turmas Vinculadas", "value": len(classrooms_dict)},
+            {"label": "Turmas / Envelopes", "value": len(classrooms_dict)},
             {"label": "Alunos Matriculados", "value": total_enrolled},
-            {"label": "Total Geral de Cópias", "value": total_copies_all}
+            {"label": "Cadernos de Prova", "value": total_copies_all},
+            {"label": "Capas Nominais", "value": total_capas},
+            {"label": "Atas de Frequência", "value": total_atas},
+            {"label": "Etiquetas Adesivas", "value": total_etiquetas},
+            {"label": "Total de Envelopes", "value": total_envelopes}
         ]
 
     title_text = "Relatório Oficial de Tiragem e Impressão de Provas"
@@ -904,7 +997,7 @@ def generate_print_run_report_data(
         columns=sec1_columns,
         rows=sec1_rows,
         summary_cards=summary_cards,
-        sections=[sec1, sec2, sec3],
+        sections=[sec1, sec2, sec3, sec4],
         signatures=["Coordenador(a) Geral de Avaliações", "Secretário(a) Municipal de Educação"]
     )
 
