@@ -289,7 +289,7 @@ server {
     listen [::]:80;
     server_name ${DOMAIN};
 
-    client_max_body_size 50M;
+    client_max_body_size 100M;
 
     location / {
         proxy_pass http://127.0.0.1:8080;
@@ -301,6 +301,12 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+
+        # Suporte para downloads de pacotes grandes de turmas e capas em alta definicao
+        proxy_connect_timeout 600s;
+        proxy_send_timeout 600s;
+        proxy_read_timeout 600s;
+        send_timeout 600s;
     }
 }
 EOF
@@ -348,7 +354,7 @@ server {
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
 
-    client_max_body_size 50M;
+    client_max_body_size 100M;
 
     location / {
         proxy_pass http://127.0.0.1:8080;
@@ -360,6 +366,12 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+
+        # Suporte para downloads de pacotes grandes de turmas e capas em alta definicao
+        proxy_connect_timeout 600s;
+        proxy_send_timeout 600s;
+        proxy_read_timeout 600s;
+        send_timeout 600s;
     }
 }
 EOF
