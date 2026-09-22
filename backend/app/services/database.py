@@ -1102,7 +1102,7 @@ def list_schools_tree() -> List[Dict[str, Any]]:
             cl["student_count"] = cnt
             cl["students_count"] = cnt
             cursor.execute("""
-                SELECT e.id, e.title, e.num_questions, e.num_alternatives, e.cover_model, e.cover_title, e.cover_subtitle, e.cover_instructions
+                SELECT e.id, e.title, e.num_questions
                 FROM classroom_exams ce
                 JOIN exams e ON ce.exam_id = e.id
                 WHERE ce.classroom_id = ?
@@ -1126,7 +1126,7 @@ def get_classroom_with_details(classroom_id: str) -> Optional[Dict[str, Any]]:
     cursor.execute("""
         SELECT c.*, s.name as school_name 
         FROM classrooms c 
-        LEFT JOIN schools s ON c.school_id = s.id 
+        JOIN schools s ON c.school_id = s.id 
         WHERE c.id = ?
     """, (classroom_id,))
     row = cursor.fetchone()
@@ -1137,7 +1137,7 @@ def get_classroom_with_details(classroom_id: str) -> Optional[Dict[str, Any]]:
     cursor.execute("SELECT * FROM students WHERE classroom_id = ? ORDER BY name ASC", (classroom_id,))
     data["students"] = [dict(r) for r in cursor.fetchall()]
     cursor.execute("""
-        SELECT e.id, e.title, e.num_questions, e.num_alternatives, e.cover_model, e.cover_title, e.cover_subtitle, e.cover_instructions
+        SELECT e.id, e.title, e.num_questions
         FROM classroom_exams ce
         JOIN exams e ON ce.exam_id = e.id
         WHERE ce.classroom_id = ?
@@ -1151,7 +1151,7 @@ def get_classroom_linked_exams(classroom_id: str) -> List[Dict[str, Any]]:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT e.id, e.title, e.num_questions, e.points_per_question, e.num_alternatives, e.cover_model, e.cover_title, e.cover_subtitle, e.cover_instructions
+        SELECT e.id, e.title, e.num_questions, e.points_per_question
         FROM classroom_exams ce
         JOIN exams e ON ce.exam_id = e.id
         WHERE ce.classroom_id = ?

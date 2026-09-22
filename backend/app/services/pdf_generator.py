@@ -655,17 +655,14 @@ def render_attendance_roster_page(
 
     # Exam title(s)
     if len(exams) >= 2:
-        t1 = (exams[0].get('title') or 'Prova 1').strip()
-        t2 = (exams[1].get('title') or 'Prova 2').strip()
-        exam_titles = f"{t1}  +  {t2}"
+        exam_titles = f"{exams[0].get('title', 'Prova 1')}  +  {exams[1].get('title', 'Prova 2')}"
     elif len(exams) == 1:
-        exam_titles = (exams[0].get('title') or 'Simulado / Avaliação').strip()
+        exam_titles = exams[0].get('title', 'Simulado / Avaliação')
     else:
         exam_titles = "Gabaritos Oficiais"
 
-    # Sort students alphabetically by name safely
-    valid_students = [s for s in students if isinstance(s, dict)]
-    sorted_students = sorted(valid_students, key=lambda s: (s.get("name") or "Aluno").strip().lower())
+    # Sort students alphabetically by name
+    sorted_students = sorted(students, key=lambda s: s.get("name", "").lower())
 
     left_margin = 36.0
     right_margin = PAGE_WIDTH - 36.0
@@ -765,7 +762,7 @@ def render_attendance_roster_page(
         for idx, st in enumerate(chunk):
             curr_y -= row_h
             student_num = start_num + idx
-            st_name = (st.get("name") or "ALUNO").strip().upper()
+            st_name = st.get("name", "").strip().upper()
 
             # Alternating background
             if idx % 2 == 1:

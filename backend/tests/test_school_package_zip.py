@@ -74,14 +74,13 @@ class TestSchoolPackageZip(unittest.TestCase):
         etiquetas_files = [f for f in file_list if "Etiquetas" in f and f.endswith(".pdf")]
         self.assertTrue(len(etiquetas_files) >= 1)
 
-        # 2. Deve conter arquivo único unificado de Ata + Capas para a turma
-        unified_files = [f for f in file_list if "Ata e Capas" in f and f.endswith(".pdf")]
-        self.assertEqual(len(unified_files), 1, "A turma com simulado deve ter exatamente 1 arquivo unificado de Ata e Capas")
+        # 2. Deve conter a Ata de Frequência da turma
+        ata_files = [f for f in file_list if "Ata" in f and f.endswith(".pdf")]
+        self.assertTrue(len(ata_files) >= 1)
 
-        import fitz
-        doc = fitz.open(stream=zf.read(unified_files[0]), filetype="pdf")
-        self.assertGreaterEqual(len(doc), 2, "O arquivo unificado deve conter a Ata de Presença na pág 1 e as Capas em seguida")
-        doc.close()
+        # 3. Deve conter as Capas de Prova da turma
+        capas_files = [f for f in file_list if "Capas" in f and f.endswith(".pdf")]
+        self.assertTrue(len(capas_files) >= 1)
 
     def test_03_classroom_attendance_roster_endpoint(self):
         """Verifica o endpoint avulso de ata da turma."""

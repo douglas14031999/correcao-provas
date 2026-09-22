@@ -33,10 +33,7 @@ from app.services.pdf_generator import (
     generate_classroom_attendance_roster_pdf,
     DEFAULT_LOGO_PATH
 )
-from app.services.cover_batch_generator import (
-    generate_classroom_covers_pdf,
-    generate_classroom_covers_reportlab
-)
+from app.services.cover_batch_generator import generate_classroom_covers_pdf
 from app.api.auth import require_roles
 
 router = APIRouter(tags=["Escolas e Turmas"])
@@ -148,16 +145,8 @@ async def download_school_exam_package_zip(
         raise HTTPException(status_code=404, detail="Escola não encontrada.")
 
     schools_tree = await run_in_threadpool(list_schools_tree)
-    target_sch = next((s for s in schools_tree if str(s["id"]).strip().lower() == str(school_id).strip().lower()), None)
+    target_sch = next((s for s in schools_tree if str(s["id"]) == str(school_id)), None)
     classrooms_list = target_sch.get("classrooms", []) if target_sch else []
-    if not classrooms_list:
-        from app.services.database import get_connection
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM classrooms WHERE school_id = ? ORDER BY name ASC", (school_id,))
-        classrooms_list = [dict(c) for c in cursor.fetchall()]
-        conn.close()
-
     if not classrooms_list:
         raise HTTPException(status_code=400, detail="Esta escola não possui turmas cadastradas para geração do pacote.")
 
@@ -187,15 +176,10 @@ async def download_school_exam_package_zip(
             if not cl_details:
                 continue
 
-            # Garante school_name nos detalhes da turma
-            if not cl_details.get("school_name"):
-                cl_details["school_name"] = school_name
-
             cl_name = (cl_details.get("name") or "Turma").strip()
             folder_name = cl_name
 
-            raw_students = cl_details.get("students", [])
-            valid_students = [s for s in raw_students if isinstance(s, dict) and (s.get("name") or s.get("id"))]
+            students = cl_details.get("students", [])
             linked_exams = cl_details.get("linked_exams", [])
 
             full_exams = []
@@ -204,34 +188,35 @@ async def download_school_exam_package_zip(
                 if fe:
                     full_exams.append(fe)
 
-            # 2. Arquivo Único por Turma: Ata de Frequência + Capas de Prova em um único PDF
-            if valid_students and full_exams:
-                try:
-                    effective_model = str(model_id).strip() if (isinstance(model_id, str) and model_id.strip() not in ["auto", "", "undefined"]) else None
-                    unified_pdf = await run_in_threadpool(
-                        generate_classroom_covers_reportlab,
-                        classroom=cl_details,
-                        students=valid_students,
-                        exams=full_exams,
-                        order_by="student",
-                        model_id=effective_model,
-                        include_attendance_roster=True
-                    )
-                    zf.writestr(f"{folder_name}/Ata e Capas de Prova - {cl_name}.pdf", unified_pdf)
-                except Exception as e:
-                    logging.getLogger("uvicorn").error(f"Erro ao gerar ata e capas da turma {cl_name}: {e}")
-            elif valid_students:
-                # Turma sem simulado vinculado: emite apenas a Ata de Frequência
+            # 2a. Ata de Frequência da Turma
+            if students:
                 try:
                     ata_pdf = await run_in_threadpool(
                         generate_classroom_attendance_roster_pdf,
                         classroom=cl_details,
-                        students=valid_students,
+                        students=students,
                         exams=full_exams
                     )
                     zf.writestr(f"{folder_name}/Ata de Frequência - {cl_name}.pdf", ata_pdf)
                 except Exception as e:
                     logging.getLogger("uvicorn").error(f"Erro ao gerar ata da turma {cl_name}: {e}")
+
+            # 2b. Capas Nominais da Turma
+            if students and full_exams:
+                try:
+                    effective_model = model_id.strip() if model_id and model_id.strip() not in ["auto", "", "undefined"] else None
+                    covers_pdf = await run_in_threadpool(
+                        generate_classroom_covers_pdf,
+                        classroom=cl_details,
+                        students=students,
+                        exams=full_exams,
+                        order_by="student",
+                        model_id=effective_model,
+                        include_attendance_roster=False
+                    )
+                    zf.writestr(f"{folder_name}/Capas de Prova - {cl_name}.pdf", covers_pdf)
+                except Exception as e:
+                    logging.getLogger("uvicorn").error(f"Erro ao gerar capas da turma {cl_name}: {e}")
 
     zip_bytes = zip_buffer.getvalue()
     zip_buffer.close()
@@ -681,17 +666,16 @@ async def download_classroom_covers_pdf(
         else:
             exams_to_render = [exam]
 
-    effective_model = str(model_id).strip() if (isinstance(model_id, str) and model_id.strip() not in ["auto", "", "undefined"]) else None
+    effective_model = model_id.strip() if model_id and model_id.strip() not in ["auto", "", "undefined"] else None
 
     try:
         pdf_bytes = await run_in_threadpool(
-            generate_classroom_covers_reportlab,
+            generate_classroom_covers_pdf,
             classroom=classroom,
             students=students,
             exams=exams_to_render,
             order_by=order_by,
-            model_id=effective_model,
-            include_attendance_roster=True
+            model_id=effective_model
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao gerar capas da turma: {str(e)}")
