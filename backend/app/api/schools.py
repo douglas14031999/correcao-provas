@@ -207,7 +207,7 @@ async def download_school_exam_package_zip(
             # 2. Arquivo Único por Turma: Ata de Frequência + Capas de Prova em um único PDF
             if valid_students and full_exams:
                 try:
-                    effective_model = model_id.strip() if model_id and model_id.strip() not in ["auto", "", "undefined"] else None
+                    effective_model = str(model_id).strip() if (isinstance(model_id, str) and model_id.strip() not in ["auto", "", "undefined"]) else None
                     unified_pdf = await run_in_threadpool(
                         generate_classroom_covers_reportlab,
                         classroom=cl_details,
@@ -681,16 +681,17 @@ async def download_classroom_covers_pdf(
         else:
             exams_to_render = [exam]
 
-    effective_model = model_id.strip() if model_id and model_id.strip() not in ["auto", "", "undefined"] else None
+    effective_model = str(model_id).strip() if (isinstance(model_id, str) and model_id.strip() not in ["auto", "", "undefined"]) else None
 
     try:
         pdf_bytes = await run_in_threadpool(
-            generate_classroom_covers_pdf,
+            generate_classroom_covers_reportlab,
             classroom=classroom,
             students=students,
             exams=exams_to_render,
             order_by=order_by,
-            model_id=effective_model
+            model_id=effective_model,
+            include_attendance_roster=True
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao gerar capas da turma: {str(e)}")

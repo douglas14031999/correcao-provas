@@ -329,38 +329,29 @@ def generate_classroom_covers_reportlab(
     include_attendance_roster: bool = True
 ) -> bytes:
     """
-    Renderizador 100% nativo ReportLab para capas personalizadas com folha OMR integrada.
-    Utilizado quando o servidor não possui navegador Google Chrome/Chromium instalado
-    ou quando a execução do browser em modo headless falha por restrição de ambiente.
-    Garante funcionamento imediato e confiável em qualquer ambiente VPS Linux/Docker.
+    Renderizador 100% nativo ReportLab de altíssima precisão vetorial para capas
+    personalizadas com folha OMR integrada e Marcadores ArUco.
+    Gera o documento completo (Ata de Presença + Capas Nominais) em milissegundos
+    com fidelidade visual absoluta ao modelo definido para cada prova.
     """
     from reportlab.pdfgen import canvas
     from reportlab.lib import pagesizes
     from app.services.pdf_generator import render_attendance_roster_page
-    from app.services.reports.exam_cover_builder import generate_exam_cover
+    from app.services.reports.exam_cover_builder import render_native_cover_page
 
-    merged_pdf = fitz.open()
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=pagesizes.A4)
 
-    # 1. Página 1: Ata Oficial de Presença e Entrega
+    # 1. Página(s) 1: Ata Oficial de Presença e Entrega de Gabaritos
     if include_attendance_roster and students:
         try:
-            buf_roster = io.BytesIO()
-            c_roster = canvas.Canvas(buf_roster, pagesize=pagesizes.A4)
             render_attendance_roster_page(
-                c=c_roster,
+                c=c,
                 classroom=classroom,
                 students=students,
                 exams=exams,
                 logo_path=None
             )
-            c_roster.save()
-            roster_bytes = buf_roster.getvalue()
-            buf_roster.close()
-
-            if roster_bytes:
-                roster_doc = fitz.open(stream=roster_bytes, filetype="pdf")
-                merged_pdf.insert_pdf(roster_doc)
-                roster_doc.close()
         except Exception as e:
             import logging
             logging.getLogger("uvicorn").error(f"Erro ao gerar ata de presença para capas (ReportLab): {e}")
@@ -376,80 +367,20 @@ def generate_classroom_covers_reportlab(
             for ex in exams:
                 pairs.append((ex, st))
 
-    temp_dir = tempfile.mkdtemp(prefix="covers_rl_")
-    try:
-        class_name = (classroom.get("name") or "Turma").strip()
-        school_name = (classroom.get("school_name") or "Escola").strip()
-        grade_stage = classroom.get("grade_year") or "Ensino Fundamental"
-        raw_shift = (classroom.get("shift") or "MATUTINO").strip().upper()
-        shift = "MATUTINO" if ("MANHÃ" in raw_shift or "MATUTINO" in raw_shift) else "VESPERTINO"
+    for ex, st in pairs:
+        effective_model = model_id or ex.get("cover_model") or "opcao_4_azul_nautico_lagoa"
+        render_native_cover_page(
+            c=c,
+            exam=ex,
+            student=st,
+            classroom=classroom,
+            model_override=effective_model
+        )
 
-        for idx, (ex, st) in enumerate(pairs):
-            st_name = (st.get("name") or "ESTUDANTE").strip()
-            st_id = str(st.get("id") or idx + 1)
-            ex_id = str(ex.get("id") or "1")
-            qr_payload = f"E:{ex_id}|S:{st_id}"
-
-            ex_title = (ex.get("cover_title") or ex.get("title") or "PROVA CANOA").upper()
-            discipline = extract_exam_discipline(ex)
-            num_q = max(1, int(ex.get("num_questions") or 22))
-            num_alt = max(2, min(5, int(ex.get("num_alternatives") or 4)))
-
-            page_pdf_path = os.path.join(temp_dir, f"cover_{idx:04d}.pdf")
-
-            if " - " in ex_title:
-                parts = ex_title.split(" - ", 1)
-                title_lines = [parts[0], parts[1]]
-            elif len(ex_title) > 26:
-                words = ex_title.split()
-                mid = len(words) // 2
-                title_lines = [" ".join(words[:mid]), " ".join(words[mid:])]
-            else:
-                title_lines = [ex_title]
-
-            caderno_label = f"CAD-{ex_id[:4].upper()}" if len(ex_id) > 2 else f"CAD-0{ex_id}"
-
-            effective_model = model_id or ex.get("cover_model") or "opcao_4_azul_nautico_lagoa"
-            effective_model = str(effective_model).strip().replace(".html", "")
-
-            theme_colors = {
-                "opcao_1_montanhas_canoa": "#0e2a47",
-                "opcao_2_rio_verde_petroleo": "#0b5d5c",
-                "opcao_3_por_do_sol_solar": "#c2410c",
-                "opcao_4_azul_nautico_lagoa": "#1e3a8a"
-            }
-            caderno_color = theme_colors.get(effective_model, "#1e3a8a")
-
-            generate_exam_cover(
-                output_pdf_path=page_pdf_path,
-                year="2026",
-                main_title_lines=title_lines,
-                header_subtitle=f"{school_name.upper()} • {class_name}",
-                caderno_code=caderno_label,
-                discipline=discipline,
-                grade_stage=f"{grade_stage} • {class_name}",
-                qr_code_text=qr_payload,
-                num_questions=num_q,
-                num_alternatives=num_alt,
-                student_name=st_name,
-                tracking_code=f"CANOA-{ex_id[:4]}-{st_id[:4]}",
-                caderno_accent_color=caderno_color,
-                school_name=school_name,
-                classroom_name=class_name,
-                shift=shift,
-                model_id=effective_model
-            )
-
-            cover_doc = fitz.open(page_pdf_path)
-            merged_pdf.insert_pdf(cover_doc)
-            cover_doc.close()
-
-        out_buf = io.BytesIO()
-        merged_pdf.save(out_buf)
-        merged_pdf.close()
-        return out_buf.getvalue()
-    finally:
-        shutil.rmtree(temp_dir, ignore_errors=True)
+    c.save()
+    pdf_bytes = buf.getvalue()
+    buf.close()
+    return pdf_bytes
 
 def generate_classroom_covers_pdf(
     classroom: Dict[str, Any],
