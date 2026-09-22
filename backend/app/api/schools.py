@@ -201,12 +201,13 @@ async def download_school_exam_package_zip(
                 try:
                     effective_model = model_id.strip() if model_id and model_id.strip() not in ["auto", "", "undefined"] else None
                     unified_pdf = await run_in_threadpool(
-                        generate_classroom_covers_reportlab,
+                        generate_classroom_covers_pdf,
                         classroom=cl_details,
                         students=valid_students,
                         exams=full_exams,
                         order_by="student",
                         model_id=effective_model,
+                        chunk_size=80,
                         include_attendance_roster=True
                     )
                     zf.writestr(f"{folder_name}/Ata e Capas de Prova - {cl_name}.pdf", unified_pdf)

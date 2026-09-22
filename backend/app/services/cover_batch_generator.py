@@ -229,8 +229,8 @@ def render_single_cover_html(
     exam_title = (exam.get("cover_title") or exam.get("title") or "PROVA CANOA").upper()
     discipline = extract_exam_discipline(exam)
     
-    num_questions = int(exam.get("num_questions", 22))
-    num_alternatives = int(exam.get("num_alternatives", 4))
+    num_questions = int(exam.get("num_questions") or 22)
+    num_alternatives = int(exam.get("num_alternatives") or 4)
 
     # Header color per model
     header_colors = {
@@ -456,7 +456,7 @@ def generate_classroom_covers_pdf(
     exams: List[Dict[str, Any]],
     order_by: str = "student",
     model_id: Optional[str] = None,
-    chunk_size: int = 15,
+    chunk_size: int = 80,
     include_attendance_roster: bool = True
 ) -> bytes:
     """
