@@ -2611,6 +2611,17 @@ async function downloadSchoolEnvelopeLabels(schoolId, schoolName = null, classro
   }
 }
 
+let packageZipProgressInterval = null;
+
+function closeSchoolPackageModal() {
+  const modal = document.getElementById("school-package-modal");
+  if (modal) modal.style.display = "none";
+  if (packageZipProgressInterval) {
+    clearInterval(packageZipProgressInterval);
+    packageZipProgressInterval = null;
+  }
+}
+
 async function downloadSchoolPackageZip(schoolId, schoolName = null) {
   if (!schoolId) return;
 
@@ -2620,19 +2631,95 @@ async function downloadSchoolPackageZip(schoolId, schoolName = null) {
   }
 
   const safeSchoolName = (schoolName || "Escola").replace(/[/\\?%*:|"<>]/g, "_").trim();
-  showToast(`Compilando pacote completo da escola "${safeSchoolName}" (.ZIP)... O download iniciará em instantes.`, "info");
+
+  const modal = document.getElementById("school-package-modal");
+  const nameEl = document.getElementById("package-modal-school-name");
+  const statusEl = document.getElementById("package-progress-status");
+  const percentEl = document.getElementById("package-progress-percent");
+  const barEl = document.getElementById("package-progress-bar-fill");
+  const stepEl = document.getElementById("package-progress-step-text");
+  const timeEl = document.getElementById("package-progress-time-estimate");
+
+  if (modal) {
+    if (nameEl) nameEl.textContent = safeSchoolName;
+    if (barEl) {
+      barEl.className = "covers-progress-bar";
+      barEl.style.width = "5%";
+    }
+    if (percentEl) percentEl.textContent = "5%";
+    if (statusEl) statusEl.textContent = "Iniciando compilação do pacote...";
+    if (stepEl) stepEl.textContent = "Carregando dados das turmas e alunos...";
+    if (timeEl) timeEl.textContent = "Aguarde...";
+    modal.style.display = "flex";
+  }
+
+  if (packageZipProgressInterval) clearInterval(packageZipProgressInterval);
+
+  let currentPercent = 5;
+  const startTime = Date.now();
+
+  packageZipProgressInterval = setInterval(() => {
+    if (currentPercent < 90) {
+      // Avanço gradual simulado
+      const increment = currentPercent < 30 ? 3.5 : (currentPercent < 60 ? 2.5 : (currentPercent < 80 ? 1.5 : 0.8));
+      currentPercent = Math.min(92, currentPercent + increment);
+
+      if (barEl) barEl.style.width = `${Math.round(currentPercent)}%`;
+      if (percentEl) percentEl.textContent = `${Math.round(currentPercent)}%`;
+
+      if (stepEl) {
+        if (currentPercent < 25) {
+          stepEl.textContent = "Gerando etiquetas de envelope em folha única (4x1)...";
+          if (statusEl) statusEl.textContent = "Compilando etiquetas de envelope...";
+        } else if (currentPercent < 55) {
+          stepEl.textContent = "Gerando atas de frequência nominais por turma...";
+          if (statusEl) statusEl.textContent = "Gerando listas de frequência...";
+        } else if (currentPercent < 80) {
+          stepEl.textContent = "Renderizando capas de prova nominais personalizadas...";
+          if (statusEl) statusEl.textContent = "Montando cadernos e capas...";
+        } else {
+          stepEl.textContent = "Finalizando e compactando arquivos no pacote .ZIP...";
+          if (statusEl) statusEl.textContent = "Compactando arquivos...";
+        }
+      }
+
+      if (timeEl) {
+        const elapsedSec = Math.round((Date.now() - startTime) / 1000);
+        timeEl.textContent = `${elapsedSec}s decorridos`;
+      }
+    }
+  }, 300);
 
   try {
     const res = await fetch(`/api/schools/${schoolId}/package-zip`, {
       headers: { ...getAuthHeaders() }
     });
 
+    clearInterval(packageZipProgressInterval);
+    packageZipProgressInterval = null;
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       const msg = err.detail || "Erro ao gerar pacote compactado da escola.";
+
+      if (barEl) barEl.className = "covers-progress-bar error";
+      if (statusEl) statusEl.textContent = "Erro na compilação do pacote";
+      if (stepEl) stepEl.textContent = msg;
+
       showToast(msg, res.status === 400 ? "warning" : "error");
+      setTimeout(() => closeSchoolPackageModal(), 3500);
       return;
     }
+
+    // Sucesso - 100%
+    if (barEl) {
+      barEl.className = "covers-progress-bar success";
+      barEl.style.width = "100%";
+    }
+    if (percentEl) percentEl.textContent = "100%";
+    if (statusEl) statusEl.textContent = "Pacote compilado com sucesso!";
+    if (stepEl) stepEl.textContent = "Iniciando download do arquivo compactado .ZIP...";
+    if (timeEl) timeEl.textContent = "Concluído!";
 
     const blob = await res.blob();
     const blobUrl = window.URL.createObjectURL(blob);
@@ -2663,10 +2750,22 @@ async function downloadSchoolPackageZip(schoolId, schoolName = null) {
     document.body.removeChild(link);
     setTimeout(() => window.URL.revokeObjectURL(blobUrl), 2000);
 
-    showToast("Pacote .ZIP com Etiquetas, Atas e Capas baixado com sucesso!", "success");
+    // Fecha o modal após o download iniciar
+    setTimeout(() => {
+      closeSchoolPackageModal();
+      showToast("Pacote .ZIP com Etiquetas, Atas e Capas baixado com sucesso!", "success");
+    }, 1200);
+
   } catch (err) {
+    if (packageZipProgressInterval) clearInterval(packageZipProgressInterval);
     console.error(err);
+
+    if (barEl) barEl.className = "covers-progress-bar error";
+    if (statusEl) statusEl.textContent = "Falha na conexão";
+    if (stepEl) stepEl.textContent = err.message || "Erro de rede";
+
     showToast(err.message || "Erro ao baixar pacote da escola.", "error");
+    setTimeout(() => closeSchoolPackageModal(), 3500);
   }
 }
 
