@@ -11,25 +11,77 @@ from reportlab.graphics.barcode.qr import QrCodeWidget
 # Standard A4: 595.275 x 841.889 pt
 PAGE_WIDTH, PAGE_HEIGHT = pagesizes.A4
 
-def _draw_modern_header(c: canvas.Canvas, accent_color: str = "#1e3a8a"):
-    """Draws sleek modern corporate header area matching Prefeitura de Lagoa da Canoa design."""
+THEMES = {
+    "opcao_1_montanhas_canoa": {
+        "primary": "#0e2a47",
+        "secondary": "#059669",
+        "accent": "#f59e0b",
+        "pill_bg": "#f59e0b",
+        "pill_fg": "#0e2a47",
+        "title_color": "#ffffff",
+        "caderno_accent": "#f59e0b",
+        "card_header": "#0e2a47"
+    },
+    "opcao_2_rio_verde_petroleo": {
+        "primary": "#0b5d5c",
+        "secondary": "#042f2e",
+        "accent": "#10b981",
+        "pill_bg": "#10b981",
+        "pill_fg": "#042f2e",
+        "title_color": "#ffffff",
+        "caderno_accent": "#10b981",
+        "card_header": "#0b5d5c"
+    },
+    "opcao_3_por_do_sol_solar": {
+        "primary": "#c2410c",
+        "secondary": "#7c2d12",
+        "accent": "#f59e0b",
+        "pill_bg": "#f59e0b",
+        "pill_fg": "#7c2d12",
+        "title_color": "#ffffff",
+        "caderno_accent": "#f59e0b",
+        "card_header": "#c2410c"
+    },
+    "opcao_4_azul_nautico_lagoa": {
+        "primary": "#1e3a8a",
+        "secondary": "#172554",
+        "accent": "#38bdf8",
+        "pill_bg": "#38bdf8",
+        "pill_fg": "#172554",
+        "title_color": "#ffffff",
+        "caderno_accent": "#1e3a8a",
+        "card_header": "#1e3a8a"
+    }
+}
+
+def _draw_modern_header(c: canvas.Canvas, theme: dict):
+    """Draws sleek modern corporate header area matching the official chosen cover theme."""
     c.saveState()
-    # Soft background for the top header banner
-    c.setFillColor(colors.HexColor("#f8fafc"))
-    c.rect(0, PAGE_HEIGHT - 230, PAGE_WIDTH, 230, stroke=0, fill=1)
+    banner_h = 160
+    c.setFillColor(colors.HexColor(theme["primary"]))
+    c.rect(0, PAGE_HEIGHT - banner_h, PAGE_WIDTH, banner_h, stroke=0, fill=1)
 
-    # Accent top border (4pt)
-    c.setFillColor(colors.HexColor(accent_color))
-    c.rect(0, PAGE_HEIGHT - 6, PAGE_WIDTH, 6, stroke=0, fill=1)
+    # Dynamic wave / mountain background silhouette
+    c.setFillColor(colors.HexColor(theme["secondary"]))
+    p1 = c.beginPath()
+    p1.moveTo(0, PAGE_HEIGHT - banner_h)
+    p1.lineTo(0, PAGE_HEIGHT - banner_h + 30)
+    p1.curveTo(PAGE_WIDTH * 0.3, PAGE_HEIGHT - banner_h + 50, PAGE_WIDTH * 0.7, PAGE_HEIGHT - banner_h + 10, PAGE_WIDTH, PAGE_HEIGHT - banner_h + 35)
+    p1.lineTo(PAGE_WIDTH, PAGE_HEIGHT - banner_h)
+    p1.close()
+    c.drawPath(p1, stroke=0, fill=1)
 
-    # Subtle modern wave line in the header background
-    c.setStrokeColor(colors.HexColor("#e2e8f0"))
-    c.setLineWidth(1.2)
-    path = c.beginPath()
-    path.moveTo(0, PAGE_HEIGHT - 220)
-    path.curveTo(PAGE_WIDTH * 0.35, PAGE_HEIGHT - 200, PAGE_WIDTH * 0.65, PAGE_HEIGHT - 240, PAGE_WIDTH, PAGE_HEIGHT - 215)
-    c.drawPath(path, stroke=1, fill=0)
+    # Dynamic accent wave line
+    c.setStrokeColor(colors.HexColor(theme["accent"]))
+    c.setLineWidth(2.0)
+    p2 = c.beginPath()
+    p2.moveTo(0, PAGE_HEIGHT - banner_h + 32)
+    p2.curveTo(PAGE_WIDTH * 0.35, PAGE_HEIGHT - banner_h + 55, PAGE_WIDTH * 0.65, PAGE_HEIGHT - banner_h + 15, PAGE_WIDTH, PAGE_HEIGHT - banner_h + 40)
+    c.drawPath(p2, stroke=1, fill=0)
 
+    # Top border accent line (4pt)
+    c.setFillColor(colors.HexColor(theme["accent"]))
+    c.rect(0, PAGE_HEIGHT - 4, PAGE_WIDTH, 4, stroke=0, fill=1)
     c.restoreState()
 
 def generate_exam_cover(
@@ -49,12 +101,16 @@ def generate_exam_cover(
     caderno_accent_color: str = "#1e3a8a",
     school_name: str = "",
     classroom_name: str = "",
-    shift: str = "MATUTINO"
+    shift: str = "MATUTINO",
+    model_id: Optional[str] = "opcao_4_azul_nautico_lagoa"
 ) -> str:
     """
     Generates a high-precision assessment cover + OMR answer sheet conforming to the
     official Prefeitura de Lagoa da Canoa 2026 template layout.
     """
+    eff_model = (model_id or "opcao_4_azul_nautico_lagoa").strip().replace(".html", "")
+    theme = THEMES.get(eff_model, THEMES["opcao_4_azul_nautico_lagoa"])
+
     if main_title_lines is None:
         main_title_lines = [
             "PROVA CANOA"
@@ -66,75 +122,76 @@ def generate_exam_cover(
     os.makedirs(os.path.dirname(os.path.abspath(output_pdf_path)), exist_ok=True)
     c = canvas.Canvas(output_pdf_path, pagesize=pagesizes.A4)
 
-    # 1. Sleek Modern Header
-    _draw_modern_header(c, accent_color=caderno_accent_color)
+    # 1. Sleek Modern Header with Model Theme
+    _draw_modern_header(c, theme=theme)
 
     # 2. Year Pill Badge (Top Left)
-    pill_x, pill_y, pill_w, pill_h = 44, PAGE_HEIGHT - 54, 70, 22
+    pill_x, pill_y, pill_w, pill_h = 44, PAGE_HEIGHT - 48, 70, 22
     c.saveState()
-    c.setFillColor(colors.HexColor(caderno_accent_color))
+    c.setFillColor(colors.HexColor(theme["pill_bg"]))
     c.roundRect(pill_x, pill_y, pill_w, pill_h, 11, stroke=0, fill=1)
 
-    c.setFillColor(colors.white)
+    c.setFillColor(colors.HexColor(theme["pill_fg"]))
     c.setFont("Helvetica-Bold", 12)
     c.drawCentredString(pill_x + pill_w / 2.0, pill_y + 6.0, str(year))
     c.restoreState()
 
-    # 3. Main Title (Left Column)
+    # 3. Main Title (Left Column, Pure White over colored banner)
     title_start_y = pill_y - 28
     line_height = 24
     c.setFont("Helvetica-Bold", 22)
-    c.setFillColor(colors.HexColor("#0f172a"))
+    c.setFillColor(colors.HexColor(theme["title_color"]))
     for idx, line in enumerate(main_title_lines):
         c.drawString(pill_x, title_start_y - idx * line_height, line)
 
+    # Subtitle under title
+    c.setFont("Helvetica", 8.5)
+    c.setFillColor(colors.HexColor(theme["accent"]))
+    c.drawString(pill_x, title_start_y - len(main_title_lines) * line_height, f"AVALIAÇÃO DIAGNÓSTICA • {discipline.upper()}")
+
     # 4. Top-Right Header Subtitle
     c.saveState()
-    c.setFont("Helvetica-Bold", 7.5)
-    c.setFillColor(colors.HexColor("#1e293b"))
-    if " - " in header_subtitle:
-        sub_p1, sub_p2 = header_subtitle.split(" - ", 1)
-        c.drawRightString(PAGE_WIDTH - 44, PAGE_HEIGHT - 40, sub_p1.upper())
-        c.drawRightString(PAGE_WIDTH - 44, PAGE_HEIGHT - 51, f"- {sub_p2.upper()}")
-    else:
-        c.drawRightString(PAGE_WIDTH - 44, PAGE_HEIGHT - 45, header_subtitle.upper())
+    c.setFont("Helvetica-Bold", 8.0)
+    c.setFillColor(colors.white)
+    c.drawRightString(PAGE_WIDTH - 44, PAGE_HEIGHT - 36, "PREFEITURA DE LAGOA DA CANOA")
+    c.setFont("Helvetica", 7.5)
+    c.setFillColor(colors.HexColor(theme["accent"]))
+    c.drawRightString(PAGE_WIDTH - 44, PAGE_HEIGHT - 48, "SECRETARIA MUNICIPAL DE EDUCAÇÃO")
     c.restoreState()
 
     # 5. Right Badge "CADERNO"
-    badge_w, badge_h = 168, 58
+    badge_w, badge_h = 160, 56
     badge_x = PAGE_WIDTH - 44 - badge_w
-    badge_y = PAGE_HEIGHT - 172
+    badge_y = PAGE_HEIGHT - 148
 
     c.saveState()
     # Top Section of Badge: "CADERNO"
-    top_bar_h = 24
-    c.setFillColor(colors.HexColor(caderno_accent_color))
-    c.setStrokeColor(colors.HexColor(caderno_accent_color))
-    c.roundRect(badge_x, badge_y + badge_h - top_bar_h, badge_w, top_bar_h, 4, stroke=1, fill=1)
+    top_bar_h = 22
+    c.setFillColor(colors.HexColor(theme["caderno_accent"]))
+    c.roundRect(badge_x, badge_y + badge_h - top_bar_h, badge_w, top_bar_h, 4, stroke=0, fill=1)
     c.rect(badge_x, badge_y + badge_h - top_bar_h, badge_w, 4, stroke=0, fill=1)
 
-    c.setFillColor(colors.white)
-    c.setFont("Helvetica-Bold", 11)
-    c.drawCentredString(badge_x + badge_w / 2.0, badge_y + badge_h - top_bar_h + 6.5, "C  A  D  E  R  N  O")
+    c.setFillColor(colors.HexColor(theme["primary"]))
+    c.setFont("Helvetica-Bold", 10.5)
+    c.drawCentredString(badge_x + badge_w / 2.0, badge_y + badge_h - top_bar_h + 6.0, "C  A  D  E  R  N  O")
 
     # Bottom Section of Badge: Caderno Code (e.g. M0402)
     bot_bar_h = badge_h - top_bar_h
     c.setFillColor(colors.HexColor("#0f172a"))
-    c.setStrokeColor(colors.HexColor("#0f172a"))
-    c.roundRect(badge_x, badge_y, badge_w, bot_bar_h, 4, stroke=1, fill=1)
+    c.roundRect(badge_x, badge_y, badge_w, bot_bar_h, 4, stroke=0, fill=1)
     c.rect(badge_x, badge_y + bot_bar_h - 4, badge_w, 4, stroke=0, fill=1)
 
     c.setFillColor(colors.white)
-    c.setFont("Helvetica-Bold", 19)
+    c.setFont("Helvetica-Bold", 17)
     spaced_code = "  ".join(list(caderno_code.strip()))
-    c.drawCentredString(badge_x + badge_w / 2.0, badge_y + 9.0, spaced_code)
+    c.drawCentredString(badge_x + badge_w / 2.0, badge_y + 8.0, spaced_code)
     c.restoreState()
 
     # 6. Middle Card: Student Information & Discipline
     card_x = 38
     card_w = PAGE_WIDTH - 76  # 519.275 pt
     card_h = 176
-    card_y = badge_y - card_h - 18
+    card_y = badge_y - card_h - 22
 
     c.saveState()
     # Light gray rounded background
@@ -145,7 +202,7 @@ def generate_exam_cover(
 
     # 6.1 Card Header Bar
     bar_h = 24
-    c.setFillColor(colors.HexColor(caderno_accent_color))
+    c.setFillColor(colors.HexColor(theme["card_header"]))
     c.roundRect(card_x, card_y + card_h - bar_h, card_w, bar_h, 8, stroke=0, fill=1)
     c.rect(card_x, card_y + card_h - bar_h, card_w, 8, stroke=0, fill=1)
 

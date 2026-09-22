@@ -148,8 +148,16 @@ async def download_school_exam_package_zip(
         raise HTTPException(status_code=404, detail="Escola não encontrada.")
 
     schools_tree = await run_in_threadpool(list_schools_tree)
-    target_sch = next((s for s in schools_tree if str(s["id"]) == str(school_id)), None)
+    target_sch = next((s for s in schools_tree if str(s["id"]).strip().lower() == str(school_id).strip().lower()), None)
     classrooms_list = target_sch.get("classrooms", []) if target_sch else []
+    if not classrooms_list:
+        from app.services.database import get_connection
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM classrooms WHERE school_id = ? ORDER BY name ASC", (school_id,))
+        classrooms_list = [dict(c) for c in cursor.fetchall()]
+        conn.close()
+
     if not classrooms_list:
         raise HTTPException(status_code=400, detail="Esta escola não possui turmas cadastradas para geração do pacote.")
 
@@ -201,13 +209,12 @@ async def download_school_exam_package_zip(
                 try:
                     effective_model = model_id.strip() if model_id and model_id.strip() not in ["auto", "", "undefined"] else None
                     unified_pdf = await run_in_threadpool(
-                        generate_classroom_covers_pdf,
+                        generate_classroom_covers_reportlab,
                         classroom=cl_details,
                         students=valid_students,
                         exams=full_exams,
                         order_by="student",
                         model_id=effective_model,
-                        chunk_size=80,
                         include_attendance_roster=True
                     )
                     zf.writestr(f"{folder_name}/Ata e Capas de Prova - {cl_name}.pdf", unified_pdf)

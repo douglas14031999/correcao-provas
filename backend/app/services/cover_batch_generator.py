@@ -436,7 +436,8 @@ def generate_classroom_covers_reportlab(
                 caderno_accent_color=caderno_color,
                 school_name=school_name,
                 classroom_name=class_name,
-                shift=shift
+                shift=shift,
+                model_id=effective_model
             )
 
             cover_doc = fitz.open(page_pdf_path)
