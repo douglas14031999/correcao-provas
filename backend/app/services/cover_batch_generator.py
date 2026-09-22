@@ -456,7 +456,7 @@ def generate_classroom_covers_pdf(
     exams: List[Dict[str, Any]],
     order_by: str = "student",
     model_id: Optional[str] = None,
-    chunk_size: int = 30,
+    chunk_size: int = 60,
     include_attendance_roster: bool = True
 ) -> bytes:
     """

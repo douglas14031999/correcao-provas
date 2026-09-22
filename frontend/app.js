@@ -2721,7 +2721,25 @@ async function downloadSchoolPackageZip(schoolId, schoolName = null) {
     if (stepEl) stepEl.textContent = "Iniciando download do arquivo compactado .ZIP...";
     if (timeEl) timeEl.textContent = "Concluído!";
 
-    const blob = await res.blob();
+    let blob;
+    try {
+      blob = await res.blob();
+    } catch (blobErr) {
+      console.warn("Falha ao alocar blob em memória, acionando download nativo direto:", blobErr);
+      const fallbackLink = document.createElement("a");
+      fallbackLink.href = `/api/schools/${schoolId}/package-zip`;
+      fallbackLink.download = `Pacote - ${safeSchoolName}.zip`;
+      document.body.appendChild(fallbackLink);
+      fallbackLink.click();
+      document.body.removeChild(fallbackLink);
+
+      setTimeout(() => {
+        closeSchoolPackageModal();
+        showToast("Download do pacote .ZIP iniciado!", "success");
+      }, 1500);
+      return;
+    }
+
     const blobUrl = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = blobUrl;

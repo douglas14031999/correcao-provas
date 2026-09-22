@@ -2,6 +2,7 @@ import os
 import csv
 import io
 import re
+import time
 import tempfile
 import zipfile
 import urllib.parse
@@ -192,10 +193,37 @@ async def download_school_exam_package_zip(
     school_name = (school.get("name") or "Escola").strip()
     safe_school_name = sanitize_header_filename(school_name)
 
-    # 2. Cria arquivo temporário em disco para o ZIP (evita estouro de memória RAM no VPS com múltiplas turmas)
-    temp_zip = tempfile.NamedTemporaryFile(delete=False, suffix=".zip", prefix="school_package_")
-    temp_zip_path = temp_zip.name
-    temp_zip.close()
+    # 2. Gerenciamento seguro do arquivo em disco (evita corte de download ou estouro de RAM)
+    packages_dir = os.path.join(tempfile.gettempdir(), "school_packages_cache")
+    os.makedirs(packages_dir, exist_ok=True)
+
+    # Limpeza preventiva de arquivos com mais de 30 minutos
+    now = time.time()
+    try:
+        for f in os.listdir(packages_dir):
+            fp = os.path.join(packages_dir, f)
+            if os.path.isfile(fp) and (now - os.path.getmtime(fp) > 1800):
+                os.remove(fp)
+    except Exception:
+        pass
+
+    pkg_filename = f"package_{school_id}.zip"
+    temp_zip_path = os.path.join(packages_dir, pkg_filename)
+
+    raw_filename = f"Pacote Completo - {school_name}.zip"
+    safe_name = f"Pacote_Completo_{safe_school_name}.zip"
+    encoded_filename = urllib.parse.quote(raw_filename)
+
+    # Se o pacote já foi gerado nos últimos 5 minutos, entrega instantaneamente
+    if os.path.exists(temp_zip_path) and os.path.getsize(temp_zip_path) > 1000 and (now - os.path.getmtime(temp_zip_path) < 300):
+        return FileResponse(
+            path=temp_zip_path,
+            media_type="application/zip",
+            filename=safe_name,
+            headers={
+                "Content-Disposition": f'attachment; filename="{safe_name}"; filename*=UTF-8\'\'{encoded_filename}'
+            }
+        )
 
     try:
         with zipfile.ZipFile(temp_zip_path, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
@@ -276,33 +304,16 @@ async def download_school_exam_package_zip(
                 except Exception as e_cl:
                     logging.getLogger("uvicorn").error(f"Erro ao processar turma {cl_id} no pacote: {e_cl}")
 
-        def cleanup_temp_zip():
-            try:
-                if os.path.exists(temp_zip_path):
-                    os.remove(temp_zip_path)
-            except Exception:
-                pass
-
-        raw_filename = f"Pacote Completo - {school_name}.zip"
-        safe_name = f"Pacote_Completo_{safe_school_name}.zip"
-        encoded_filename = urllib.parse.quote(raw_filename)
-
         return FileResponse(
             path=temp_zip_path,
             media_type="application/zip",
             filename=safe_name,
-            background=BackgroundTask(cleanup_temp_zip),
             headers={
                 "Content-Disposition": f'attachment; filename="{safe_name}"; filename*=UTF-8\'\'{encoded_filename}'
             }
         )
 
     except Exception as e_fatal:
-        try:
-            if os.path.exists(temp_zip_path):
-                os.remove(temp_zip_path)
-        except Exception:
-            pass
         logging.getLogger("uvicorn").error(f"Erro fatal na compilação do pacote da escola {school_id}: {e_fatal}")
         raise HTTPException(status_code=500, detail=f"Erro ao compilar pacote compactado: {str(e_fatal)}")
 
