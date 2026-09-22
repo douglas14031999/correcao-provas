@@ -392,8 +392,8 @@ def generate_classroom_covers_reportlab(
 
             ex_title = (ex.get("cover_title") or ex.get("title") or "PROVA CANOA").upper()
             discipline = extract_exam_discipline(ex)
-            num_q = int(ex.get("num_questions", 22))
-            num_alt = int(ex.get("num_alternatives", 4))
+            num_q = max(1, int(ex.get("num_questions") or 22))
+            num_alt = max(2, min(5, int(ex.get("num_alternatives") or 4)))
 
             page_pdf_path = os.path.join(temp_dir, f"cover_{idx:04d}.pdf")
 

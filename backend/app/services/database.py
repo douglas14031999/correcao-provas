@@ -1126,7 +1126,7 @@ def get_classroom_with_details(classroom_id: str) -> Optional[Dict[str, Any]]:
     cursor.execute("""
         SELECT c.*, s.name as school_name 
         FROM classrooms c 
-        JOIN schools s ON c.school_id = s.id 
+        LEFT JOIN schools s ON c.school_id = s.id 
         WHERE c.id = ?
     """, (classroom_id,))
     row = cursor.fetchone()

@@ -33,7 +33,10 @@ from app.services.pdf_generator import (
     generate_classroom_attendance_roster_pdf,
     DEFAULT_LOGO_PATH
 )
-from app.services.cover_batch_generator import generate_classroom_covers_pdf
+from app.services.cover_batch_generator import (
+    generate_classroom_covers_pdf,
+    generate_classroom_covers_reportlab
+)
 from app.api.auth import require_roles
 
 router = APIRouter(tags=["Escolas e Turmas"])
@@ -176,10 +179,15 @@ async def download_school_exam_package_zip(
             if not cl_details:
                 continue
 
+            # Garante school_name nos detalhes da turma
+            if not cl_details.get("school_name"):
+                cl_details["school_name"] = school_name
+
             cl_name = (cl_details.get("name") or "Turma").strip()
             folder_name = cl_name
 
-            students = cl_details.get("students", [])
+            raw_students = cl_details.get("students", [])
+            valid_students = [s for s in raw_students if isinstance(s, dict) and (s.get("name") or s.get("id"))]
             linked_exams = cl_details.get("linked_exams", [])
 
             full_exams = []
@@ -188,35 +196,34 @@ async def download_school_exam_package_zip(
                 if fe:
                     full_exams.append(fe)
 
-            # 2a. Ata de Frequência da Turma
-            if students:
+            # 2. Arquivo Único por Turma: Ata de Frequência + Capas de Prova em um único PDF
+            if valid_students and full_exams:
+                try:
+                    effective_model = model_id.strip() if model_id and model_id.strip() not in ["auto", "", "undefined"] else None
+                    unified_pdf = await run_in_threadpool(
+                        generate_classroom_covers_reportlab,
+                        classroom=cl_details,
+                        students=valid_students,
+                        exams=full_exams,
+                        order_by="student",
+                        model_id=effective_model,
+                        include_attendance_roster=True
+                    )
+                    zf.writestr(f"{folder_name}/Ata e Capas de Prova - {cl_name}.pdf", unified_pdf)
+                except Exception as e:
+                    logging.getLogger("uvicorn").error(f"Erro ao gerar ata e capas da turma {cl_name}: {e}")
+            elif valid_students:
+                # Turma sem simulado vinculado: emite apenas a Ata de Frequência
                 try:
                     ata_pdf = await run_in_threadpool(
                         generate_classroom_attendance_roster_pdf,
                         classroom=cl_details,
-                        students=students,
+                        students=valid_students,
                         exams=full_exams
                     )
                     zf.writestr(f"{folder_name}/Ata de Frequência - {cl_name}.pdf", ata_pdf)
                 except Exception as e:
                     logging.getLogger("uvicorn").error(f"Erro ao gerar ata da turma {cl_name}: {e}")
-
-            # 2b. Capas Nominais da Turma
-            if students and full_exams:
-                try:
-                    effective_model = model_id.strip() if model_id and model_id.strip() not in ["auto", "", "undefined"] else None
-                    covers_pdf = await run_in_threadpool(
-                        generate_classroom_covers_pdf,
-                        classroom=cl_details,
-                        students=students,
-                        exams=full_exams,
-                        order_by="student",
-                        model_id=effective_model,
-                        include_attendance_roster=False
-                    )
-                    zf.writestr(f"{folder_name}/Capas de Prova - {cl_name}.pdf", covers_pdf)
-                except Exception as e:
-                    logging.getLogger("uvicorn").error(f"Erro ao gerar capas da turma {cl_name}: {e}")
 
     zip_bytes = zip_buffer.getvalue()
     zip_buffer.close()
