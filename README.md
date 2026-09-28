@@ -1,23 +1,62 @@
-# 🎯 Gabarito OMR — Sistema de Geração e Correção de Provas via Câmera
+# 🎯 Gabarito OMR & Elaborador de Provas
 
-Sistema 100% open-source, autohospedável e pronto para uso para criação de folhas de respostas em PDF e correção instantânea por visão computacional através da câmera de smartphones.
+Sistema open-source completo, moderno e autohospedável para **Elaboração de Provas (BNCC)**, **Geração de Folhas de Respostas em PDF** e **Correção Instantânea via Câmera de Smartphone por Visão Computacional**.
 
 ---
 
 ## ⚡ Deploy Automatizado em VPS (1 Linha)
 
-Para implantar em produção em uma VPS (Ubuntu/Debian) com **PostgreSQL**, **Nginx**, **Systemd** e **Certificado SSL**:
+Para implantar em produção na sua VPS (Ubuntu/Debian) com **PostgreSQL**, **FastAPI**, **Nginx**, **Systemd** e **Certificado SSL**:
 
 ```bash
 bash <(curl -sSL https://raw.githubusercontent.com/douglas14031999/correcao-provas/main/install.sh)
 ```
 
+### 🔄 Como Atualizar a VPS com Novas Versões
+```bash
+cd /var/www/correcao-provas && git fetch origin && git reset --hard origin/main && ./venv/bin/pip install -r backend/requirements.txt && PYTHONPATH=backend ./venv/bin/python backend/scripts/seed_question_bank.py && sudo chown -R www-data:www-data /var/www/correcao-provas && sudo systemctl restart correcao-provas
+```
+
+---
+
+## ✨ Principais Funcionalidades
+
+### 📝 1. Elaborador de Provas Integrado (Novo!)
+- **Banco de Questões BNCC:** Acervo pré-cadastrado com habilidades do Ensino Fundamental (Língua Portuguesa, Matemática e Ciências).
+- **Editor Matemático e Científico:** Suporte completo a fórmulas e equações via **KaTeX** e teclado virtual interativo **MathLive**.
+- **Diagramação Profissional em 2 Colunas:** Algoritmo inteligente com paginação automática que evita quebra desnecessária de questões e cabeçalhos.
+- **Exportação Multiformato:**
+  - 📄 **PDF Diagramado:** Pronto para impressão em alta definição.
+  - 📝 **Word (.docx):** Documento formatado e 100% editável.
+- **Sincronização com o Corretor OMR:** Criação automática do gabarito oficial no sistema de correção com um clique.
+
+### 🖨️ 2. Geração Avançada de Folhas de Respostas (OMR)
+- **Folhas Nominais em Lote:** PDFs gerados com nome do estudante, turma, escola e matrícula pré-preenchidos.
+- **Modo Folha Dupla (2 por página):** Permite imprimir 2 provas por folha A4 com linha de corte tracejada, gerando economia de 50% de papel.
+- **Ata de Presença Automática:** A primeira página do lote contém a lista oficial de presença para assinatura dos alunos.
+- **Etiquetas de Envelopes:** Geração de etiquetas em PDF para identificação e lacre dos pacotes de prova por turma.
+- **Capas Oficiais Temáticas:** Modelos de capa estilizados com brasão municipal e cabeçalho institucional.
+- **Download em Pacote ZIP:** Download consolidado de todas as turmas de uma escola em um único arquivo compactado.
+
+### 📱 3. Correção Instantânea por Câmera (Mobile PWA)
+- **Visão Computacional em Tempo Real:** Detecção matemática dos 4 marcadores ArUco nos cantos da folha.
+- **Correção de Perspectiva (Perspective Warp):** Desentorta fotos tiradas em ângulos inclinados.
+- **Leitura OMR de Alta Precisão:** Análise por densidade de pixels das bolhas preenchidas a caneta preta ou azul.
+- **Raio-X Visual:** Exibe na tela do celular a imagem corrigida com anotações visuais (verde = acerto, vermelho = erro, amarelo = anulada).
+- **Funciona como App Nativo (PWA):** Instale diretamente no celular via "Adicionar à Tela de Início", com suporte a offline e feedback tátil/sonoro.
+
+### 📊 4. Gestão Escolar & Relatórios Estatísticos
+- Cadastro de Escolas, Turmas e Alunos com **importação em massa via CSV**.
+- Relatórios analíticos com percentual de acertos por questão, médias por turma e distribuição de notas.
+- Exportação de planilhas consolidadas em **Excel (.xlsx)** e relatórios para impressão em **PDF**.
+- Sistema de backup completo do banco de dados e arquivos com restauração facilitada.
+
 ---
 
 ## 🚀 Como Executar Localmente
 
-### 1. Iniciar o Servidor
-No terminal, execute:
+### 1. Iniciar o Servidor Backend
+No terminal (dentro da pasta do projeto):
 ```bash
 cd backend
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
@@ -30,60 +69,41 @@ python backend/app/main.py
 ### 2. Acessar a Interface
 - **No Computador:** Abra no navegador: [http://localhost:8080](http://localhost:8080)
 - **No Celular (mesma rede Wi-Fi):**
-  1. Descubra o IP do seu computador na rede local (ex: `ipconfig` no Windows $\rightarrow$ IPv4 `192.168.1.X`).
-  2. No navegador do celular (Chrome ou Safari), acesse: `http://192.168.1.X:8080`
-  3. Você pode clicar em "Adicionar à Tela Inicial" para usá-lo em tela cheia como um aplicativo nativo (PWA).
-
----
-
-## 📋 Como Funciona
-
-### 1. Criar um Simulado ou Prova
-1. Acesse a aba **"Criar Simulado"**.
-2. Preencha o título (ex: *Simulado ENEM 2026 - Matemática*), o número de questões (ex: 20, 50, 90) e o tipo de alternativas (4 [A-D] ou 5 [A-E]).
-3. Defina o gabarito oficial com um clique nas bolinhas de cada questão.
-4. Clique em **"Gerar Simulado & Folha PDF"**.
-
-### 2. Imprimir a Folha de Respostas
-1. Na aba **"Meus Simulados"**, clique no botão **"PDF A4"**.
-2. Uma folha milimétrica de alta definição será gerada contendo:
-   - Os **4 Marcadores ArUco** nos cantos.
-   - O **QR Code** de identificação da prova.
-   - Os campos para nome, turma e data.
-   - A grade vetorial de bolhas.
-3. Imprima a folha em papel A4 comum.
-
-### 3. Corrigir com a Câmera do Celular
-1. Distribua as folhas para os alunos e peça para preencherem com caneta preta ou azul.
-2. No celular ou computador, acesse a aba **"Corrigir Prova"**.
-3. Aponte a câmera para a folha, enquadrando os 4 marcadores ArUco dentro da moldura da tela.
-4. Clique em **"Escanear Folha"** (ou envie uma foto salva pela opção *Galeria / Arquivo*).
-5. Em menos de 800ms, o sistema:
-   - Desentorta a perspectiva da foto matematicamente (Perspective Warp).
-   - Analisa a densidade de preenchimento das bolhas.
-   - Calcula a nota e os pontos.
-   - Exibe na tela o **Raio-X visual** com círculos verdes nos acertos e vermelhos nos erros!
+  1. Descubra o IP local do computador (ex: `ipconfig` no Windows $\rightarrow$ `192.168.1.X`).
+  2. No navegador do smartphone, acesse: `http://192.168.1.X:8080`
+  3. Para testar o Elaborador de Provas diretamente, acesse: `http://localhost:8080/elaborador.html`
 
 ---
 
 ## 🧪 Testes Automatizados
 
-O sistema inclui testes de estresse com geração sintética de folhas inclinadas e upload via API REST:
+O sistema conta com suíte automatizada cobrindo fluxos de ponta a ponta:
 
 ```bash
-# Teste de precisão matemática e visão computacional OMR
-python backend/tests/test_omr_synthetic.py
-
-# Teste de upload HTTP multipart de ponta a ponta
-python backend/tests/test_api_upload.py
+# Executar toda a suíte de testes (38 testes)
+python -m pytest backend/tests
 ```
+
+**Módulos testados:**
+- Leitura e processamento de OMR sintético e folha dupla.
+- Geração de PDFs de lotes, etiquetas, capas e atas de presença.
+- Autenticação com tokens, backup e integridade de exclusão.
+- Motor de relatórios estatísticos e importação CSV de estudantes.
 
 ---
 
 ## 🛠️ Stack Tecnológica
 
-- **Backend:** Python 3.11 + FastAPI + Uvicorn
-- **Visão Computacional & OMR:** OpenCV 4.11 (`cv2.aruco`, `warpPerspective`, `adaptiveThreshold`) + NumPy
-- **Gerador de Folhas:** ReportLab Community (Renderização vetorial A4 com QR Code)
-- **Banco de Dados:** SQLite embutido (`backend/storage/exams.db`)
-- **Frontend / PWA:** HTML5 + Vanilla CSS + JavaScript ES6 + WebRTC Camera API + Web Audio API
+| Camada | Tecnologias |
+|---|---|
+| **Backend** | Python 3.11, FastAPI, Uvicorn, Pydantic |
+| **Visão Computacional & OMR** | OpenCV (`cv2.aruco`, `cv2.warpPerspective`), NumPy |
+| **Processamento de Documentos** | ReportLab, PyMuPDF (fitz), python-docx, openpyxl, WeasyPrint |
+| **Banco de Dados** | PostgreSQL (Produção VPS) / SQLite (Desenvolvimento local) |
+| **Frontend** | HTML5 Semântico, Vanilla CSS, JavaScript ES6+, MathLive, KaTeX |
+| **Infraestrutura & Deploy** | Nginx (Proxy Reverso & SSL Let's Encrypt), Systemd, Bash Scripting |
+
+---
+
+## 📄 Licença
+Distribuído sob a licença open-source MIT. Desenvolvido para modernizar e agilizar a avaliação escolar na rede pública e privada.
