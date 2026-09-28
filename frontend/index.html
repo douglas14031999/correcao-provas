@@ -154,6 +154,13 @@
             </svg>
             <span>Nova Prova</span>
           </button>
+          <a href="/provas" class="elaborador-nav-btn" onclick="event.stopPropagation(); window.location.href='/provas';" title="Gerenciar avaliações, criar provas e consultar o banco de questões">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2">
+              <path d="M12 20h9"></path>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+            </svg>
+            <span>Elaborador (Novo)</span>
+          </a>
         </div>
 
         <div class="nav-divider"></div>
@@ -2251,6 +2258,94 @@
     </div>
   </div>
 
+  <!-- Modal: Emitir Provas da Turma (PDF ou DOCX do Elaborador) -->
+  <div id="classroom-provas-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 540px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #f0fdfa; border: 1px solid #ccfbf1; display: flex; align-items: center; justify-content: center; color: #0f766e;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+          </div>
+          <div>
+            <h3 class="modal-title" style="margin: 0; font-size: 1.05rem;">Caderno de Provas da Turma</h3>
+            <p style="margin: 0; font-size: 0.76rem; color: var(--text-secondary);" id="classroom-provas-modal-subtitle">Carregando...</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close" id="btn-close-classroom-provas-modal">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 1.25rem;">
+        
+        <!-- Bloco para Única Prova (sem pergunta se quer emitir todas) -->
+        <div id="provas-modal-single-wrap" style="display: none;">
+          <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.25rem;">
+              <span id="provas-single-discipline-badge" style="display: inline-flex; align-items: center; padding: 0.2rem 0.55rem; border-radius: 999px; font-size: 0.7rem; font-weight: 700; background: #e0f2fe; color: #0369a1;">DISCIPLINA</span>
+              <span id="provas-single-questions-badge" style="font-size: 0.75rem; color: #64748b; font-weight: 600;">0 Questões</span>
+            </div>
+            <strong id="provas-single-exam-title" style="font-size: 0.95rem; color: #0f172a; display: block; line-height: 1.35;">Título da Prova</strong>
+          </div>
+        </div>
+
+        <!-- Bloco para Múltiplas Provas (com pergunta e checkboxes para emitir todas) -->
+        <div id="provas-modal-multi-wrap" style="display: none;">
+          <div style="margin-bottom: 0.85rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+              <label style="display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; font-weight: 700; color: #0f172a; cursor: pointer;">
+                <input type="checkbox" id="chk-provas-select-all" checked style="width: 16px; height: 16px; border-radius: 4px; accent-color: #0f766e; cursor: pointer;">
+                <span>Emitir Todas as Provas (<span id="provas-multi-count-label">0</span>)</span>
+              </label>
+              <span style="font-size: 0.75rem; color: #64748b;">(Arquivo compactado .ZIP)</span>
+            </div>
+            <p style="font-size: 0.78rem; color: var(--text-secondary); margin: 0 0 0.75rem 0;">Selecione as provas diagramadas que deseja incluir na emissão:</p>
+
+            <div id="provas-modal-exams-list" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 180px; overflow-y: auto; padding-right: 0.25rem;">
+              <!-- Cards dinâmicos das provas -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Escolha do Formato (PDF ou Word DOCX) -->
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: #334155; margin-bottom: 0.45rem; display: block;">Formato de Saída:</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <label id="label-provas-format-pdf" style="display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.75rem; border: 2px solid #0f766e; background: #f0fdfa; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;">
+              <input type="radio" name="provas-export-format" value="pdf" checked style="margin-top: 0.15rem; accent-color: #0f766e;">
+              <div>
+                <strong style="display: block; font-size: 0.85rem; color: #0f172a;">PDF Diagramado</strong>
+                <span style="font-size: 0.74rem; color: #64748b; line-height: 1.3; display: block;">Pronto para impressão A4 de alta definição</span>
+              </div>
+            </label>
+
+            <label id="label-provas-format-docx" style="display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.75rem; border: 1.5px solid #cbd5e1; background: #ffffff; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;">
+              <input type="radio" name="provas-export-format" value="docx" style="margin-top: 0.15rem; accent-color: #0f766e;">
+              <div>
+                <strong style="display: block; font-size: 0.85rem; color: #0f172a;">Word (.DOCX)</strong>
+                <span style="font-size: 0.74rem; color: #64748b; line-height: 1.3; display: block;">Documento 100% editável para professores</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Indicador de Carregamento / Download -->
+        <div id="provas-modal-loading" style="display: none; padding: 0.85rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 1rem; text-align: center;">
+          <div style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; font-weight: 600; color: #0f766e;">
+            <svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"></path></svg>
+            <span id="provas-modal-loading-text">Gerando cadernos de provas...</span>
+          </div>
+        </div>
+
+        <div class="form-actions" style="margin-top: 0.5rem;">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-classroom-provas">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btn-confirm-classroom-provas" style="background: linear-gradient(135deg, #0f766e, #115e59); border-color: #0d9488;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span id="btn-label-classroom-provas">Baixar Prova (PDF)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Gerar Gabaritos em Lote -->
   <div id="batch-pdf-modal" class="modal-overlay" style="display: none;">
     <div class="modal-card">
@@ -3104,6 +3199,9 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=1789790080"></script>
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+  <script src="/static/app.js?v=1789790083"></script>
 </body>
 </html>

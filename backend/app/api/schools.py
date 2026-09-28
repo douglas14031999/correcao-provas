@@ -172,9 +172,11 @@ async def download_school_exam_package_zip(
                 c_row["student_count"] = cnt
                 c_row["students_count"] = cnt
                 cur.execute("""
-                    SELECT e.id, e.title, e.num_questions
+                    SELECT e.id, e.title, e.num_questions,
+                           be.id as builder_exam_id, be.title as builder_title, be.discipline as builder_discipline, be.page_count as builder_page_count
                     FROM classroom_exams ce
                     JOIN exams e ON ce.exam_id = e.id
+                    LEFT JOIN builder_exams be ON (be.linked_exam_id = e.id OR be.id = e.id)
                     WHERE ce.classroom_id = ?
                     ORDER BY ce.created_at ASC
                 """, (c_row["id"],))

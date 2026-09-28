@@ -73,12 +73,31 @@ async def upload_logo(file: UploadFile = File(...), authorization: Optional[str]
     }
 
 from fastapi.responses import FileResponse, Response
-from PIL import Image
+from PIL import Image, ImageDraw
 import io
 
+def _apply_rounded_corners(canvas: Image.Image, radius_ratio: float = 0.20) -> Image.Image:
+    """Aplica cantos arredondados suaves com antialiasing perfeito usando supersampling 2x."""
+    w, h = canvas.size
+    scale = 2
+    sw, sh = w * scale, h * scale
+    radius = int(min(sw, sh) * radius_ratio)
+    
+    mask = Image.new("L", (sw, sh), 0)
+    draw = ImageDraw.Draw(mask)
+    draw.rounded_rectangle([(0, 0), (sw - 1, sh - 1)], radius=radius, fill=255)
+    mask = mask.resize((w, h), Image.Resampling.LANCZOS)
+    
+    if canvas.mode != "RGBA":
+        canvas = canvas.convert("RGBA")
+    
+    canvas.putalpha(mask)
+    return canvas
+
 def sync_pwa_icons(logo_path: Optional[str] = None):
-    """Gera os arquivos estáticos frontend/pwa-icon-192.png e frontend/pwa-icon-512.png."""
-    frontend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "frontend")
+    """Gera os arquivos estáticos frontend/pwa-icon-192.png e frontend/pwa-icon-512.png com cantos arredondados."""
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    frontend_dir = os.path.join(project_root, "frontend")
     if not os.path.exists(frontend_dir):
         return
 
@@ -97,7 +116,7 @@ def sync_pwa_icons(logo_path: Optional[str] = None):
         img = img.convert("RGBA")
         for size in [192, 512]:
             canvas = Image.new("RGBA", (size, size), (255, 255, 255, 255))
-            padding = int(size * 0.10)
+            padding = int(size * 0.12)
             fit_w = size - (padding * 2)
             fit_h = size - (padding * 2)
             thumb = img.copy()
@@ -105,9 +124,9 @@ def sync_pwa_icons(logo_path: Optional[str] = None):
             paste_x = (size - thumb.width) // 2
             paste_y = (size - thumb.height) // 2
             canvas.paste(thumb, (paste_x, paste_y), thumb)
+            canvas = _apply_rounded_corners(canvas, radius_ratio=0.20)
             target = os.path.join(frontend_dir, f"pwa-icon-{size}.png")
             canvas.save(target, format="PNG", optimize=True)
-
 
 
 @router.get("/logo")
@@ -121,7 +140,7 @@ def get_logo():
 @router.get("/pwa-icon")
 def get_pwa_icon(size: int = 192):
     """
-    Retorna o logo cadastrado na plataforma formatado e quadrado para ícone de PWA (192x192, 512x512).
+    Retorna o logo cadastrado na plataforma formatado com cantos arredondados para ícone de PWA e Favicon (192x192, 512x512).
     """
     settings = get_system_settings()
     logo_path = settings.get("logo_path", "")
@@ -138,11 +157,11 @@ def get_pwa_icon(size: int = 192):
         try:
             with Image.open(logo_path) as img:
                 img = img.convert("RGBA")
-                # Fundo branco suave com cantos limpos
+                # Fundo branco suave
                 canvas = Image.new("RGBA", (target_size, target_size), (255, 255, 255, 255))
                 
-                # Margem/Padding de 10% para não cortar bordas em ícones maskable
-                padding = int(target_size * 0.10)
+                # Margem/Padding de 12% para harmonia com as bordas arredondadas
+                padding = int(target_size * 0.12)
                 fit_w = target_size - (padding * 2)
                 fit_h = target_size - (padding * 2)
 
@@ -150,6 +169,9 @@ def get_pwa_icon(size: int = 192):
                 paste_x = (target_size - img.width) // 2
                 paste_y = (target_size - img.height) // 2
                 canvas.paste(img, (paste_x, paste_y), img)
+
+                # Aplica cantos arredondados modernos (squircle) com antialiasing supersample
+                canvas = _apply_rounded_corners(canvas, radius_ratio=0.20)
 
                 buf = io.BytesIO()
                 canvas.save(buf, format="PNG", optimize=True)
@@ -163,6 +185,7 @@ def get_pwa_icon(size: int = 192):
 
     # Fallback elegante caso a imagem não possa ser aberta
     canvas = Image.new("RGBA", (target_size, target_size), (36, 64, 97, 255))
+    canvas = _apply_rounded_corners(canvas, radius_ratio=0.20)
     buf = io.BytesIO()
     canvas.save(buf, format="PNG")
     return Response(

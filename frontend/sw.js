@@ -1,5 +1,5 @@
 // Prova Canoa - PWA Service Worker
-const CACHE_NAME = 'prova-canoa-v7';
+const CACHE_NAME = 'prova-canoa-v10';
 const PRECACHE_ASSETS = [
   '/',
   '/manifest.json',
@@ -37,8 +37,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Não intercepta chamadas de API ou uploads em tempo real
-  if (url.pathname.startsWith('/api/') || event.request.method !== 'GET') {
+  // Não intercepta chamadas de API, uploads ou o módulo de elaboração de provas
+  if (url.pathname.startsWith('/api/') || url.pathname.includes('elaborador') || event.request.method !== 'GET') {
     return;
   }
 

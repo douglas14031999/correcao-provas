@@ -1102,9 +1102,11 @@ def list_schools_tree() -> List[Dict[str, Any]]:
             cl["student_count"] = cnt
             cl["students_count"] = cnt
             cursor.execute("""
-                SELECT e.id, e.title, e.num_questions
+                SELECT e.id, e.title, e.num_questions,
+                       be.id as builder_exam_id, be.title as builder_title, be.discipline as builder_discipline, be.page_count as builder_page_count
                 FROM classroom_exams ce
                 JOIN exams e ON ce.exam_id = e.id
+                LEFT JOIN builder_exams be ON (be.linked_exam_id = e.id OR be.id = e.id)
                 WHERE ce.classroom_id = ?
                 ORDER BY ce.created_at ASC
             """, (cl["id"],))
@@ -1137,9 +1139,11 @@ def get_classroom_with_details(classroom_id: str) -> Optional[Dict[str, Any]]:
     cursor.execute("SELECT * FROM students WHERE classroom_id = ? ORDER BY name ASC", (classroom_id,))
     data["students"] = [dict(r) for r in cursor.fetchall()]
     cursor.execute("""
-        SELECT e.id, e.title, e.num_questions
+        SELECT e.id, e.title, e.num_questions,
+               be.id as builder_exam_id, be.title as builder_title, be.discipline as builder_discipline, be.page_count as builder_page_count
         FROM classroom_exams ce
         JOIN exams e ON ce.exam_id = e.id
+        LEFT JOIN builder_exams be ON (be.linked_exam_id = e.id OR be.id = e.id)
         WHERE ce.classroom_id = ?
         ORDER BY ce.created_at ASC
     """, (classroom_id,))

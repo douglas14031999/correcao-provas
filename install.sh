@@ -137,6 +137,9 @@ apt install -y \
   build-essential \
   ufw
 
+# Garantir navegador Chromium headless para emissão de provas em PDF de alta resolução
+apt install -y chromium-browser 2>/dev/null || apt install -y chromium 2>/dev/null || true
+
 # 7. Verificação e Instalação do PostgreSQL
 echo -e "\n${BLUE}🐘 Verificando PostgreSQL...${NC}"
 if ! command -v psql &> /dev/null; then
@@ -229,6 +232,13 @@ PYTHONPATH=backend venv/bin/python -c "from app.services.database import init_db
   echo -e "${YELLOW}[AVISO] Falha ao rodar init_db direto. A aplicação tentará ao iniciar o serviço.${NC}"
 }
 echo -e "${GREEN}✓ Tabelas e usuário administrador (admin) verificados com sucesso.${NC}"
+
+# 12.1 Popular Banco de Questões da BNCC (Português, Matemática e Ciências)
+echo -e "\n${BLUE}📚 Populando Banco de Questões da BNCC no PostgreSQL...${NC}"
+PYTHONPATH=backend venv/bin/python backend/scripts/seed_question_bank.py || {
+  echo -e "${YELLOW}[AVISO] Falha ao rodar seed_question_bank.py direto. O acervo pode ser populado posteriormente.${NC}"
+}
+echo -e "${GREEN}✓ Banco de questões da BNCC inicializado e verificado com sucesso.${NC}"
 
 # 13. Garantir pastas de armazenamento e permissões
 mkdir -p "$INSTALL_DIR/backend/storage/scans"

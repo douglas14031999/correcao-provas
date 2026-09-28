@@ -97,7 +97,7 @@ function initTabs() {
   // Pré-restauração visual rápida da aba antes de requisições de rede
   try {
     const savedTab = localStorage.getItem("omr_active_tab");
-    if (savedTab && document.getElementById(savedTab)) {
+    if (savedTab && savedTab !== "undefined" && document.getElementById(savedTab)) {
       tabButtons.forEach(b => b.classList.toggle("active", b.dataset.tab === savedTab));
       const mobileBottomBtns = document.querySelectorAll(".bottom-nav-btn[data-tab]");
       mobileBottomBtns.forEach(b => b.classList.toggle("active", b.dataset.tab === savedTab));
@@ -118,6 +118,7 @@ function initTabs() {
   tabButtons.forEach(btn => {
     btn.addEventListener("click", () => {
       const targetTab = btn.dataset.tab;
+      if (!targetTab || targetTab === "undefined") return;
       switchTab(targetTab);
     });
   });
@@ -145,6 +146,8 @@ function initTabs() {
 }
 
 function switchTab(tabId) {
+  if (!tabId || tabId === "undefined") return;
+
   // Permission gate based on user role
   if (currentUserProfile) {
     const role = currentUserProfile.role;
@@ -219,14 +222,225 @@ function switchTab(tabId) {
   if (itemBackup) itemBackup.classList.toggle("active", tabId === "backup-tab");
 }
 
-// --- Toast System ---
-function showToast(message, type = "normal") {
-  toastEl.textContent = message;
-  toastEl.className = `toast show ${type}`;
-  setTimeout(() => {
-    toastEl.classList.remove("show");
-  }, 4000);
+// --- Toast System Ultra-Moderno ---
+function showToast(message, type = "info", options = {}) {
+  let container = document.getElementById("toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toast-container";
+    container.className = "toast-container";
+    container.setAttribute("aria-live", "polite");
+    document.body.appendChild(container);
+  }
+
+  while (container.children.length >= 5) {
+    container.removeChild(container.firstChild);
+  }
+
+  let toastType = type === "normal" ? "info" : type;
+  if (!["success", "error", "warning", "info"].includes(toastType)) {
+    toastType = "info";
+  }
+
+  const duration = options.duration || (toastType === "error" ? 4500 : 3500);
+  const defaultTitles = {
+    success: "Sucesso",
+    error: "Erro",
+    warning: "Atenção",
+    info: "Informação"
+  };
+  const titleText = options.title || defaultTitles[toastType];
+
+  const icons = {
+    success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+  };
+
+  const toast = document.createElement("div");
+  toast.className = `toast-card toast-${toastType}`;
+  toast.setAttribute("role", "alert");
+
+  const iconWrap = document.createElement("div");
+  iconWrap.className = "toast-icon-wrap";
+  iconWrap.innerHTML = icons[toastType];
+
+  const bodyEl = document.createElement("div");
+  bodyEl.className = "toast-body";
+
+  const titleEl = document.createElement("div");
+  titleEl.className = "toast-title";
+  titleEl.textContent = titleText;
+
+  const msgEl = document.createElement("div");
+  msgEl.className = "toast-message";
+  msgEl.textContent = message;
+
+  bodyEl.appendChild(titleEl);
+  bodyEl.appendChild(msgEl);
+
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "toast-close-btn";
+  closeBtn.setAttribute("aria-label", "Fechar notificação");
+  closeBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+
+  const trackEl = document.createElement("div");
+  trackEl.className = "toast-progress-track";
+  const barEl = document.createElement("div");
+  barEl.className = "toast-progress-bar";
+  barEl.style.animationDuration = `${duration}ms`;
+  trackEl.appendChild(barEl);
+
+  toast.appendChild(iconWrap);
+  toast.appendChild(bodyEl);
+  toast.appendChild(closeBtn);
+  toast.appendChild(trackEl);
+
+  container.appendChild(toast);
+
+  let dismissTimer = null;
+  let remainingTime = duration;
+  let startTime = Date.now();
+
+  function startTimer(time) {
+    startTime = Date.now();
+    remainingTime = time;
+    dismissTimer = setTimeout(dismissToast, remainingTime);
+  }
+
+  function pauseTimer() {
+    if (dismissTimer) {
+      clearTimeout(dismissTimer);
+      dismissTimer = null;
+      remainingTime -= (Date.now() - startTime);
+      if (remainingTime < 500) remainingTime = 500;
+    }
+  }
+
+  function dismissToast() {
+    if (dismissTimer) clearTimeout(dismissTimer);
+    toast.classList.add("toast-hiding");
+    setTimeout(() => {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 280);
+  }
+
+  closeBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dismissToast();
+  });
+
+  toast.addEventListener("mouseenter", pauseTimer);
+  toast.addEventListener("mouseleave", () => {
+    startTimer(remainingTime);
+  });
+
+  startTimer(duration);
 }
+
+// --- Modal de Confirmação Moderno (Substitui confirm nativo) ---
+function showConfirmModal({
+  title = "Confirmar ação",
+  message = "Tem certeza que deseja continuar?",
+  html = null,
+  confirmText = "Confirmar",
+  cancelText = "Cancelar",
+  type = "danger"
+} = {}) {
+  return new Promise((resolve) => {
+    let overlay = document.getElementById("confirm-modal-overlay");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "confirm-modal-overlay";
+      overlay.className = "confirm-modal-overlay";
+      document.body.appendChild(overlay);
+    }
+
+    const icons = {
+      danger: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+      warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+      info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+    };
+
+    const iconSvg = icons[type] || icons.danger;
+
+    function escapeTxt(t) {
+      const d = document.createElement("div");
+      d.textContent = t;
+      return d.innerHTML;
+    }
+
+    const messageHtml = html || escapeTxt(message).replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+
+    overlay.innerHTML = `
+      <div class="confirm-modal-card" role="dialog" aria-modal="true">
+        <button type="button" class="confirm-modal-close" aria-label="Fechar modal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+        <div class="confirm-modal-icon-wrap type-${type}">
+          ${iconSvg}
+        </div>
+        <div class="confirm-modal-title">${escapeTxt(title)}</div>
+        <div class="confirm-modal-message">${messageHtml}</div>
+        <div class="confirm-modal-actions">
+          <button type="button" class="confirm-btn-cancel">${escapeTxt(cancelText)}</button>
+          <button type="button" class="confirm-btn-confirm type-${type}">${escapeTxt(confirmText)}</button>
+        </div>
+      </div>
+    `;
+
+    requestAnimationFrame(() => {
+      overlay.classList.add("active");
+    });
+
+    function closeDialog(result) {
+      overlay.classList.remove("active");
+      cleanup();
+      setTimeout(() => {
+        overlay.innerHTML = "";
+        resolve(result);
+      }, 220);
+    }
+
+    function onKeyDown(e) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeDialog(false);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        closeDialog(true);
+      }
+    }
+
+    function onOverlayClick(e) {
+      if (e.target === overlay) {
+        closeDialog(false);
+      }
+    }
+
+    function cleanup() {
+      document.removeEventListener("keydown", onKeyDown);
+      overlay.removeEventListener("click", onOverlayClick);
+    }
+
+    overlay.querySelector(".confirm-btn-cancel").addEventListener("click", () => closeDialog(false));
+    overlay.querySelector(".confirm-modal-close").addEventListener("click", () => closeDialog(false));
+    overlay.querySelector(".confirm-btn-confirm").addEventListener("click", () => closeDialog(true));
+    overlay.addEventListener("click", onOverlayClick);
+    document.addEventListener("keydown", onKeyDown);
+
+    setTimeout(() => {
+      const btn = overlay.querySelector(".confirm-btn-confirm");
+      if (btn) btn.focus();
+    }, 50);
+  });
+}
+
 
 // --- Mobile & HTTPS Camera Helper ---
 function checkHttpsEnvironment() {
@@ -902,8 +1116,23 @@ if (btnDeleteCurrentResult) {
       showToast("Nenhuma correção ativa para excluir.", "warning");
       return;
     }
-    const stName = currentGradingResult.student_name || "este aluno";
-    const conf = confirm(`Deseja realmente excluir a correção de "${stName}"?\n\nOs arquivos de imagem e a nota calculada serão removidos permanentemente.`);
+    const conf = await showConfirmModal({
+      title: "Excluir Correção",
+      html: `
+        <div style="font-size: 0.95rem; color: #1e293b; margin-bottom: 0.85rem; line-height: 1.5;">
+          Deseja realmente excluir a correção de <strong style="color: #0f172a; font-weight: 700;">"${escapeHtml(stName)}"</strong>?
+        </div>
+        <div style="background: #fef2f2; border: 1.5px solid #fecdd3; border-radius: 10px; padding: 0.75rem 0.95rem; font-size: 0.82rem; color: #991b1b; text-align: left; line-height: 1.45; display: flex; align-items: flex-start; gap: 0.65rem;">
+          <span style="font-size: 1.15rem; line-height: 1; flex-shrink: 0; margin-top: 1px;">⚠️</span>
+          <div>
+            Os arquivos de imagem escaneados e a nota calculada serão removidos permanentemente.
+          </div>
+        </div>
+      `,
+      confirmText: "Sim, Excluir Correção",
+      cancelText: "Cancelar",
+      type: "danger"
+    });
     if (!conf) return;
 
     try {
@@ -1347,10 +1576,24 @@ function renderExamsGrid(filterTerm = "") {
           return;
         }
 
-        const confirmDelete = confirm(
-          `Tem certeza que deseja excluir o gabarito "${ex.title}"?\n\n` +
-          `ATENÇÃO: Esta ação é definitiva e removerá a folha de respostas gerada.`
-        );
+        const confirmDelete = await showConfirmModal({
+          title: "Excluir Gabarito",
+          html: `
+            <div style="font-size: 0.95rem; color: #1e293b; margin-bottom: 0.85rem; line-height: 1.5;">
+              Tem certeza que deseja excluir o gabarito <strong style="color: #0f172a; font-weight: 700;">"${escapeHtml(ex.title)}"</strong>?
+            </div>
+            <div style="background: #fef2f2; border: 1.5px solid #fecdd3; border-radius: 10px; padding: 0.75rem 0.95rem; font-size: 0.82rem; color: #991b1b; text-align: left; line-height: 1.45; display: flex; align-items: flex-start; gap: 0.65rem;">
+              <span style="font-size: 1.15rem; line-height: 1; flex-shrink: 0; margin-top: 1px;">⚠️</span>
+              <div>
+                <strong style="color: #7f1d1d; display: block; margin-bottom: 0.2rem;">ATENÇÃO: Ação Definitiva</strong>
+                Esta ação removerá permanentemente a folha de respostas gerada, as configurações deste gabarito e desvinculará a avaliação no Elaborador de Provas.
+              </div>
+            </div>
+          `,
+          confirmText: "Sim, Excluir",
+          cancelText: "Cancelar",
+          type: "danger"
+        });
         if (!confirmDelete) return;
 
         try {
@@ -2242,6 +2485,9 @@ function renderSchoolsGrid(filterTerm = "") {
     let classListHtml = "";
     if (school.classrooms && school.classrooms.length > 0) {
       classListHtml = school.classrooms.map(cl => {
+        const builderExams = (cl.linked_exams || []).filter(e => Boolean(e.builder_exam_id));
+        const hasBuilderExams = builderExams.length > 0;
+
         const linkedBadges = (cl.linked_exams && cl.linked_exams.length > 0)
           ? cl.linked_exams.map(e => `<span class="cl-exam-chip" title="${escapeHtml(e.title)}">${escapeHtml(e.title)}</span>`).join("")
           : `<button type="button" class="cl-no-exams-btn" onclick="openLinkExamsModal('${cl.id}')" title="Clique para vincular simulados a esta turma">
@@ -2313,6 +2559,11 @@ function renderSchoolsGrid(filterTerm = "") {
             </div>
 
             <div class="cl-col-actions">
+              ${hasBuilderExams ? `
+              <button type="button" class="cl-action-btn cl-action-btn-provas" onclick="openClassroomProvasModal('${cl.id}')" title="Emitir caderno de provas desta turma (PDF ou Word DOCX)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                <span>Provas</span>
+              </button>` : ''}
               <button type="button" class="cl-action-btn cl-action-btn-primary" onclick="openBatchModal('${cl.id}')" title="Gerar folha de gabaritos personalizada em lote para esta turma">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                 <span>Gabaritos</span>
@@ -2513,9 +2764,25 @@ async function deleteSchoolConfirm(schoolId, schoolName = null) {
     const s = schoolsList.find(x => x.id === schoolId);
     if (s) schoolName = s.name;
   }
-  if (!confirm(`Tem certeza que deseja excluir a escola "${schoolName || 'esta escola'}"?\n\nEsta ação excluirá permanentemente em cascata todas as turmas, alunos e notas desta escola.`)) {
-    return;
-  }
+  const confirmed = await showConfirmModal({
+    title: "Excluir Escola",
+    html: `
+      <div style="font-size: 0.95rem; color: #1e293b; margin-bottom: 0.85rem; line-height: 1.5;">
+        Tem certeza que deseja excluir a escola <strong style="color: #0f172a; font-weight: 700;">"${escapeHtml(schoolName || 'esta escola')}"</strong>?
+      </div>
+      <div style="background: #fef2f2; border: 1.5px solid #fecdd3; border-radius: 10px; padding: 0.75rem 0.95rem; font-size: 0.82rem; color: #991b1b; text-align: left; line-height: 1.45; display: flex; align-items: flex-start; gap: 0.65rem;">
+        <span style="font-size: 1.15rem; line-height: 1; flex-shrink: 0; margin-top: 1px;">⚠️</span>
+        <div>
+          <strong style="color: #7f1d1d; display: block; margin-bottom: 0.2rem;">ATENÇÃO: Ação em Cascata</strong>
+          Esta ação excluirá permanentemente todas as turmas, matrículas de alunos e notas históricas vinculadas a esta escola.
+        </div>
+      </div>
+    `,
+    confirmText: "Sim, Excluir Escola",
+    cancelText: "Cancelar",
+    type: "danger"
+  });
+  if (!confirmed) return;
   try {
     const res = await fetch(`/api/schools/${schoolId}`, {
       method: "DELETE",
@@ -2801,9 +3068,25 @@ async function deleteClassroomConfirm(classId, className = null) {
       }
     }
   }
-  if (!confirm(`Tem certeza que deseja excluir a turma "${className || 'esta turma'}" e seus alunos?`)) {
-    return;
-  }
+  const confirmed = await showConfirmModal({
+    title: "Excluir Turma",
+    html: `
+      <div style="font-size: 0.95rem; color: #1e293b; margin-bottom: 0.85rem; line-height: 1.5;">
+        Tem certeza que deseja excluir a turma <strong style="color: #0f172a; font-weight: 700;">"${escapeHtml(className || 'esta turma')}"</strong>?
+      </div>
+      <div style="background: #fef2f2; border: 1.5px solid #fecdd3; border-radius: 10px; padding: 0.75rem 0.95rem; font-size: 0.82rem; color: #991b1b; text-align: left; line-height: 1.45; display: flex; align-items: flex-start; gap: 0.65rem;">
+        <span style="font-size: 1.15rem; line-height: 1; flex-shrink: 0; margin-top: 1px;">⚠️</span>
+        <div>
+          <strong style="color: #7f1d1d; display: block; margin-bottom: 0.2rem;">ATENÇÃO: Ação Definitiva</strong>
+          Esta ação removerá a turma, suas matrículas e desvinculará os simulados associados.
+        </div>
+      </div>
+    `,
+    confirmText: "Sim, Excluir Turma",
+    cancelText: "Cancelar",
+    type: "danger"
+  });
+  if (!confirmed) return;
   try {
     const res = await fetch(`/api/classrooms/${classId}`, {
       method: "DELETE",
@@ -3255,6 +3538,258 @@ function closeCoversModal() {
   if (progressPagesCount) progressPagesCount.textContent = "0 / 0";
   if (examSelect) examSelect.disabled = false;
   if (btnCancelCovers) btnCancelCovers.disabled = false;
+}
+
+// =========================================================================
+// Modal: Emissão de Provas da Turma (Elaborador -> PDF / Word DOCX)
+// =========================================================================
+let activeProvasClassId = null;
+let activeProvasClassName = "";
+let activeProvasSchoolName = "";
+let activeProvasList = [];
+
+function openClassroomProvasModal(classId) {
+  activeProvasClassId = classId;
+  let targetClass = null;
+  let targetSchool = null;
+
+  if (Array.isArray(schoolsList)) {
+    for (const s of schoolsList) {
+      const c = (s.classrooms || []).find(item => item.id === classId);
+      if (c) {
+        targetClass = c;
+        targetSchool = s;
+        break;
+      }
+    }
+  }
+
+  activeProvasClassName = targetClass ? targetClass.name : "Turma";
+  activeProvasSchoolName = targetSchool ? targetSchool.name : "Escola";
+  
+  // Filtra as provas vinculadas que possuem origem no elaborador
+  const linked = targetClass ? (targetClass.linked_exams || []) : [];
+  activeProvasList = linked.filter(e => Boolean(e.builder_exam_id));
+
+  if (activeProvasList.length === 0) {
+    showToast("Esta turma não possui cadernos de provas vinculados no elaborador.", "warning");
+    return;
+  }
+
+  const modal = document.getElementById("classroom-provas-modal");
+  const subtitleEl = document.getElementById("classroom-provas-modal-subtitle");
+  const singleWrap = document.getElementById("provas-modal-single-wrap");
+  const multiWrap = document.getElementById("provas-modal-multi-wrap");
+  const singleTitle = document.getElementById("provas-single-exam-title");
+  const singleDisc = document.getElementById("provas-single-discipline-badge");
+  const singleQuestions = document.getElementById("provas-single-questions-badge");
+  const multiCount = document.getElementById("provas-multi-count-label");
+  const examsListEl = document.getElementById("provas-modal-exams-list");
+  const btnLabel = document.getElementById("btn-label-classroom-provas");
+  const loadingEl = document.getElementById("provas-modal-loading");
+  const btnConfirm = document.getElementById("btn-confirm-classroom-provas");
+
+  if (subtitleEl) {
+    subtitleEl.textContent = `${activeProvasSchoolName} • ${activeProvasClassName}`;
+  }
+  if (loadingEl) loadingEl.style.display = "none";
+  if (btnConfirm) btnConfirm.disabled = false;
+
+  // Reseta seleção de formato para PDF por padrão
+  const pdfRadio = document.querySelector('input[name="provas-export-format"][value="pdf"]');
+  if (pdfRadio) pdfRadio.checked = true;
+  updateProvasFormatRadios();
+
+  if (activeProvasList.length === 1) {
+    // CASO 1: Apenas 1 prova vinculada (não exibe opção de perguntar se quer emitir todas)
+    if (singleWrap) singleWrap.style.display = "block";
+    if (multiWrap) multiWrap.style.display = "none";
+
+    const ex = activeProvasList[0];
+    if (singleTitle) singleTitle.textContent = ex.builder_title || ex.title || "Prova";
+    if (singleDisc) singleDisc.textContent = ex.builder_discipline || "GERAL";
+    if (singleQuestions) singleQuestions.textContent = `${ex.num_questions || 0} Questões`;
+    if (btnLabel) btnLabel.textContent = "Baixar Prova (PDF)";
+  } else {
+    // CASO 2: Mais de 1 prova vinculada (com opção para emitir todas e checkboxes individuais)
+    if (singleWrap) singleWrap.style.display = "none";
+    if (multiWrap) multiWrap.style.display = "block";
+
+    if (multiCount) multiCount.textContent = activeProvasList.length;
+
+    if (examsListEl) {
+      examsListEl.innerHTML = activeProvasList.map((ex, idx) => `
+        <label class="cl-provas-item-card" style="display: flex; align-items: center; justify-content: space-between; gap: 0.65rem; padding: 0.65rem 0.85rem; border: 1.5px solid #e2e8f0; border-radius: 8px; background: #ffffff; cursor: pointer; transition: all 0.15s ease;">
+          <div style="display: flex; align-items: center; gap: 0.65rem; min-width: 0;">
+            <input type="checkbox" class="chk-provas-exam-item" value="${ex.builder_exam_id || ex.id}" checked style="width: 16px; height: 16px; accent-color: #0f766e; cursor: pointer;">
+            <div style="min-width: 0;">
+              <strong style="display: block; font-size: 0.84rem; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(ex.builder_title || ex.title || 'Prova')}</strong>
+              <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: #64748b; margin-top: 0.15rem;">
+                <span style="font-weight: 700; color: #0284c7;">${escapeHtml(ex.builder_discipline || 'GERAL')}</span>
+                <span>•</span>
+                <span>${ex.num_questions || 0} Questões</span>
+              </div>
+            </div>
+          </div>
+          <span style="font-size: 0.72rem; font-weight: 600; color: #0f766e; background: #f0fdfa; padding: 0.2rem 0.5rem; border-radius: 6px; border: 1px solid #ccfbf1; shrink-0;">Elaborador</span>
+        </label>
+      `).join("");
+
+      // Vincula eventos dos checkboxes
+      const selectAllChk = document.getElementById("chk-provas-select-all");
+      const itemChks = examsListEl.querySelectorAll(".chk-provas-exam-item");
+
+      if (selectAllChk) {
+        selectAllChk.checked = true;
+        selectAllChk.onchange = () => {
+          itemChks.forEach(chk => { chk.checked = selectAllChk.checked; });
+          updateProvasButtonLabel();
+        };
+      }
+
+      itemChks.forEach(chk => {
+        chk.onchange = () => {
+          const checkedCount = Array.from(itemChks).filter(c => c.checked).length;
+          if (selectAllChk) {
+            selectAllChk.checked = (checkedCount === itemChks.length);
+            selectAllChk.indeterminate = (checkedCount > 0 && checkedCount < itemChks.length);
+          }
+          updateProvasButtonLabel();
+        };
+      });
+    }
+
+    updateProvasButtonLabel();
+  }
+
+  if (modal) modal.style.display = "flex";
+}
+
+function updateProvasFormatRadios() {
+  const selectedFormat = document.querySelector('input[name="provas-export-format"]:checked')?.value || "pdf";
+  const labelPdf = document.getElementById("label-provas-format-pdf");
+  const labelDocx = document.getElementById("label-provas-format-docx");
+
+  if (labelPdf && labelDocx) {
+    if (selectedFormat === "pdf") {
+      labelPdf.style.borderColor = "#0f766e";
+      labelPdf.style.background = "#f0fdfa";
+      labelDocx.style.borderColor = "#cbd5e1";
+      labelDocx.style.background = "#ffffff";
+    } else {
+      labelDocx.style.borderColor = "#0f766e";
+      labelDocx.style.background = "#f0fdfa";
+      labelPdf.style.borderColor = "#cbd5e1";
+      labelPdf.style.background = "#ffffff";
+    }
+  }
+  updateProvasButtonLabel();
+}
+
+function updateProvasButtonLabel() {
+  const btnLabel = document.getElementById("btn-label-classroom-provas");
+  if (!btnLabel) return;
+  const selectedFormat = document.querySelector('input[name="provas-export-format"]:checked')?.value || "pdf";
+  const fmtLabel = selectedFormat === "pdf" ? "PDF" : "Word (.DOCX)";
+
+  if (activeProvasList.length === 1) {
+    btnLabel.textContent = `Baixar Prova (${fmtLabel})`;
+  } else {
+    const itemChks = document.querySelectorAll(".chk-provas-exam-item");
+    const count = Array.from(itemChks).filter(c => c.checked).length;
+    if (count === 0) {
+      btnLabel.textContent = "Selecione ao menos 1 prova";
+    } else if (count === 1) {
+      btnLabel.textContent = `Baixar Prova (${fmtLabel})`;
+    } else {
+      btnLabel.textContent = `Baixar ${count} Provas (ZIP com ${fmtLabel})`;
+    }
+  }
+}
+
+function closeClassroomProvasModal() {
+  const modal = document.getElementById("classroom-provas-modal");
+  if (modal) modal.style.display = "none";
+}
+
+async function handleConfirmDownloadClassroomProvas() {
+  if (!activeProvasClassId) return;
+  const btnConfirm = document.getElementById("btn-confirm-classroom-provas");
+  const loadingEl = document.getElementById("provas-modal-loading");
+  const loadingText = document.getElementById("provas-modal-loading-text");
+  const selectedFormat = document.querySelector('input[name="provas-export-format"]:checked')?.value || "pdf";
+
+  let selectedExamIds = [];
+  if (activeProvasList.length === 1) {
+    selectedExamIds = [activeProvasList[0].builder_exam_id || activeProvasList[0].id];
+  } else {
+    const itemChks = document.querySelectorAll(".chk-provas-exam-item:checked");
+    selectedExamIds = Array.from(itemChks).map(c => c.value);
+  }
+
+  if (selectedExamIds.length === 0) {
+    showToast("Por favor, selecione ao menos uma prova para emitir.", "warning");
+    return;
+  }
+
+  try {
+    if (btnConfirm) btnConfirm.disabled = true;
+    if (loadingEl) loadingEl.style.display = "block";
+    if (loadingText) {
+      loadingText.textContent = selectedExamIds.length > 1
+        ? `Gerando e compactando ${selectedExamIds.length} cadernos de provas em ${selectedFormat.toUpperCase()}...`
+        : `Compilando caderno de prova em ${selectedFormat.toUpperCase()} de alta definição...`;
+    }
+
+    const token = getAuthToken();
+    const queryParams = new URLSearchParams({
+      format: selectedFormat,
+      exam_ids: selectedExamIds.join(",")
+    });
+
+    const url = `/api/exam-builder/classrooms/${activeProvasClassId}/download-provas?${queryParams.toString()}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail || "Falha ao gerar cadernos de provas.");
+    }
+
+    // Extrai nome do arquivo do Content-Disposition se disponível
+    const disposition = response.headers.get("Content-Disposition") || "";
+    let filename = `Provas_${activeProvasClassName}.${selectedExamIds.length > 1 ? 'zip' : selectedFormat}`;
+    const matchStar = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+    const matchSimple = disposition.match(/filename="?([^";]+)"?/i);
+    if (matchStar && matchStar[1]) {
+      filename = decodeURIComponent(matchStar[1]);
+    } else if (matchSimple && matchSimple[1]) {
+      filename = matchSimple[1];
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = downloadUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(downloadUrl);
+
+    showToast("Download das provas iniciado com sucesso!", "success");
+    closeClassroomProvasModal();
+  } catch (err) {
+    console.error("Erro ao emitir cadernos de provas:", err);
+    showToast(`Erro na emissão: ${err.message || err}`, "error");
+  } finally {
+    if (btnConfirm) btnConfirm.disabled = false;
+    if (loadingEl) loadingEl.style.display = "none";
+  }
 }
 
 // ==========================================================================
@@ -3735,7 +4270,23 @@ function renderRankingTable(students, maxScore, filterQuery) {
             showToast("Apenas o Administrador SEMED tem permissão para excluir correções.", "warning");
             return;
           }
-          const conf = confirm(`Deseja realmente excluir a correção de "${st.name}"?\n\nOs dados da folha serão removidos e o status voltará para PENDENTE.`);
+          const conf = await showConfirmModal({
+            title: "Excluir Correção",
+            html: `
+              <div style="font-size: 0.95rem; color: #1e293b; margin-bottom: 0.85rem; line-height: 1.5;">
+                Deseja realmente excluir a correção de <strong style="color: #0f172a; font-weight: 700;">"${escapeHtml(st.name)}"</strong>?
+              </div>
+              <div style="background: #fef2f2; border: 1.5px solid #fecdd3; border-radius: 10px; padding: 0.75rem 0.95rem; font-size: 0.82rem; color: #991b1b; text-align: left; line-height: 1.45; display: flex; align-items: flex-start; gap: 0.65rem;">
+                <span style="font-size: 1.15rem; line-height: 1; flex-shrink: 0; margin-top: 1px;">⚠️</span>
+                <div>
+                  Os dados da folha serão removidos e a situação do aluno retornará para <strong>PENDENTE</strong>.
+                </div>
+              </div>
+            `,
+            confirmText: "Sim, Excluir Correção",
+            cancelText: "Cancelar",
+            type: "danger"
+          });
           if (!conf) return;
 
           try {
@@ -4671,6 +5222,26 @@ function initSchoolBatchEventListeners() {
         if (examSelect) examSelect.disabled = false;
         if (btnCancelCovers) btnCancelCovers.disabled = false;
       }
+    });
+  }
+
+  // Classroom Provas Modal triggers
+  const btnCloseProvas = document.getElementById("btn-close-classroom-provas-modal");
+  const btnCancelProvas = document.getElementById("btn-cancel-classroom-provas");
+  const btnConfirmProvas = document.getElementById("btn-confirm-classroom-provas");
+  const modalProvas = document.getElementById("classroom-provas-modal");
+
+  if (btnCloseProvas) btnCloseProvas.addEventListener("click", closeClassroomProvasModal);
+  if (btnCancelProvas) btnCancelProvas.addEventListener("click", closeClassroomProvasModal);
+  if (btnConfirmProvas) btnConfirmProvas.addEventListener("click", handleConfirmDownloadClassroomProvas);
+
+  document.querySelectorAll('input[name="provas-export-format"]').forEach(radio => {
+    radio.addEventListener("change", updateProvasFormatRadios);
+  });
+
+  if (modalProvas) {
+    modalProvas.addEventListener("click", (e) => {
+      if (e.target === modalProvas) closeClassroomProvasModal();
     });
   }
 
@@ -6160,7 +6731,7 @@ function restoreActiveTab(user) {
     validTabs.push("users-tab");
   }
 
-  if (savedTab && validTabs.includes(savedTab)) {
+  if (savedTab && savedTab !== "undefined" && validTabs.includes(savedTab)) {
     switchTab(savedTab);
   } else {
     switchTab("dashboard-tab");
@@ -6191,6 +6762,14 @@ async function checkAuthStatus() {
         document.body.classList.remove("login-locked");
       }
       updateNavUserBadge(user);
+
+      // Redirecionamento pendente (ex: vindo de /provas ou /elaborador)
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectUrl = urlParams.get("redirect");
+      if (redirectUrl && (redirectUrl.startsWith("/provas") || redirectUrl.startsWith("/elaborador")) && user.role !== "professor") {
+        window.location.href = redirectUrl;
+        return true;
+      }
 
       // Pouso inteligente: restaura exatamente a aba ou subpágina em que o usuário estava antes do refresh
       restoreActiveTab(user);
@@ -6277,6 +6856,12 @@ async function handleLoginSubmit(e) {
     if (user.role === "professor") {
       switchTab("scanner-tab");
     } else {
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectUrl = urlParams.get("redirect");
+      if (redirectUrl && (redirectUrl.startsWith("/provas") || redirectUrl.startsWith("/elaborador"))) {
+        window.location.href = redirectUrl;
+        return;
+      }
       restoreActiveTab(user);
     }
     checkPWAInstallPromptAfterLogin();
@@ -6301,7 +6886,14 @@ function togglePasswordVisibility() {
 }
 
 async function handleLogout() {
-  if (!confirm("Deseja realmente sair da sua sessão?")) return;
+  const confirmed = await showConfirmModal({
+    title: "Sair do Sistema",
+    message: "Deseja realmente encerrar a sua sessão no Prova Canoa?",
+    confirmText: "Sim, Sair",
+    cancelText: "Permanecer",
+    type: "warning"
+  });
+  if (!confirmed) return;
   try {
     await fetch("/api/auth/logout", {
       method: "POST",
@@ -7155,9 +7747,25 @@ async function deleteUser(userId) {
   const user = allUsersList.find(u => String(u.id) === String(userId));
   const username = user ? (user.name || user.username) : "este usuário";
 
-  if (!confirm(`Tem certeza que deseja excluir o usuário "${username}"?\nEsta ação não poderá ser desfeita.`)) {
-    return;
-  }
+  const confirmed = await showConfirmModal({
+    title: "Excluir Usuário",
+    html: `
+      <div style="font-size: 0.95rem; color: #1e293b; margin-bottom: 0.85rem; line-height: 1.5;">
+        Tem certeza que deseja excluir o usuário <strong style="color: #0f172a; font-weight: 700;">"${escapeHtml(username)}"</strong>?
+      </div>
+      <div style="background: #fef2f2; border: 1.5px solid #fecdd3; border-radius: 10px; padding: 0.75rem 0.95rem; font-size: 0.82rem; color: #991b1b; text-align: left; line-height: 1.45; display: flex; align-items: flex-start; gap: 0.65rem;">
+        <span style="font-size: 1.15rem; line-height: 1; flex-shrink: 0; margin-top: 1px;">⚠️</span>
+        <div>
+          <strong style="color: #7f1d1d; display: block; margin-bottom: 0.2rem;">ATENÇÃO: Ação Irreversível</strong>
+          Esta conta e seus acessos ao sistema serão permanentemente revogados.
+        </div>
+      </div>
+    `,
+    confirmText: "Sim, Excluir Usuário",
+    cancelText: "Cancelar",
+    type: "danger"
+  });
+  if (!confirmed) return;
 
   try {
     const res = await fetch(`/api/users/${userId}`, {
@@ -7819,6 +8427,8 @@ window.dismissPWAInstallModal = dismissPWAInstallModal;
 window.triggerPWAInstallation = triggerPWAInstallation;
 window.openCoversModal = openCoversModal;
 window.closeCoversModal = closeCoversModal;
+window.openClassroomProvasModal = openClassroomProvasModal;
+window.closeClassroomProvasModal = closeClassroomProvasModal;
 
 
 

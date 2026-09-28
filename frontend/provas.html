@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <meta content="web_standard" name="shell-type">
+  <title>Minhas Provas & Avaliações • EduAvalia</title>
+  <link rel="icon" type="image/png" sizes="192x192" href="/api/settings/pwa-icon?size=192">
+  <link rel="apple-touch-icon" href="/api/settings/pwa-icon?size=192">
+  <link rel="apple-touch-icon" sizes="512x512" href="/api/settings/pwa-icon?size=512">
+
+  <!-- Google Fonts & Material Symbols -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+
+  <!-- Font Awesome para ícones auxiliares -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- KaTeX para Fórmulas Matemáticas e Científicas -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <!-- Tailwind CSS com a Paleta Oficial Stitch -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "on-primary": "#ffffff",
+            "tertiary-fixed": "#cce5ff",
+            "on-primary-fixed-variant": "#0039b5",
+            "secondary-fixed-dim": "#4edea3",
+            "surface-bright": "#f8f9ff",
+            "secondary": "#006c49",
+            "outline": "#747686",
+            "primary-fixed-dim": "#b7c4ff",
+            "on-primary-fixed": "#001551",
+            "inverse-on-surface": "#eaf1ff",
+            "on-secondary": "#ffffff",
+            "surface-container-high": "#dce9ff",
+            "error-container": "#ffdad6",
+            "surface-container-highest": "#d3e4fe",
+            "on-secondary-container": "#00714d",
+            "on-background": "#0b1c30",
+            "on-primary-container": "#cad3ff",
+            "surface-container-low": "#eff4ff",
+            "secondary-fixed": "#6ffbbe",
+            "on-secondary-fixed-variant": "#005236",
+            "on-secondary-fixed": "#002113",
+            "surface-tint": "#2151da",
+            "inverse-surface": "#213145",
+            "surface": "#f8f9ff",
+            "tertiary-fixed-dim": "#93ccff",
+            "on-surface-variant": "#434655",
+            "surface-container": "#e5eeff",
+            "tertiary-container": "#006194",
+            "primary-container": "#1d4ed8",
+            "surface-dim": "#cbdbf5",
+            "on-error-container": "#93000a",
+            "on-error": "#ffffff",
+            "background": "#f8f9ff",
+            "tertiary": "#004870",
+            "outline-variant": "#c4c5d7",
+            "primary-fixed": "#dce1ff",
+            "inverse-primary": "#b7c4ff",
+            "primary": "#0037b0",
+            "on-tertiary-fixed-variant": "#004b73",
+            "on-tertiary": "#ffffff",
+            "on-tertiary-fixed": "#001d31",
+            "error": "#ba1a1a",
+            "surface-variant": "#d3e4fe",
+            "surface-container-lowest": "#ffffff",
+            "on-tertiary-container": "#b2d9ff",
+            "secondary-container": "#6cf8bb",
+            "on-surface": "#0b1c30"
+          },
+          borderRadius: {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "2xl": "1rem",
+            "full": "9999px"
+          },
+          spacing: {
+            "space-xs": "0.25rem",
+            "space-sm": "0.5rem",
+            "space-md": "0.75rem",
+            "space-lg": "1.25rem",
+            "space-xl": "1.75rem",
+            "space-2xl": "2.5rem",
+            "gutter-sm": "0.75rem",
+            "gutter": "1.25rem",
+            "gutter-lg": "1.5rem",
+            "margin-sm": "1rem",
+            "margin": "1.5rem",
+            "margin-lg": "2rem"
+          },
+          fontFamily: {
+            "headline-xl": ["Plus Jakarta Sans", "sans-serif"],
+            "headline-lg": ["Plus Jakarta Sans", "sans-serif"],
+            "headline-md": ["Plus Jakarta Sans", "sans-serif"],
+            "body-lg": ["Inter", "sans-serif"],
+            "body-md": ["Inter", "sans-serif"],
+            "body-sm": ["Inter", "sans-serif"],
+            "label-lg": ["Inter", "sans-serif"],
+            "label-md": ["Inter", "sans-serif"],
+            "label-sm": ["Inter", "sans-serif"],
+            "mono-math": ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    @layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+    }
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined' !important;
+      font-weight: normal;
+      font-style: normal;
+      font-size: 20px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-smoothing: antialiased;
+      vertical-align: middle;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #eff4ff;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #c4c5d7;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #747686;
+    }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(11, 28, 48, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .dropdown-menu {
+      display: none;
+    }
+    .dropdown-menu.active {
+      display: block;
+    }
+  </style>
+</head>
+<body class="bg-background font-body-md text-on-surface antialiased min-h-screen flex flex-col">
+
+  <!-- =========================================================================
+       AVISO / BLOQUEIO DE USO EM CELULARES (MOBILE)
+       ========================================================================= -->
+  <div id="mobile-device-blocker" class="fixed inset-0 z-[9999] bg-white flex flex-col items-center justify-center p-6 text-center" style="display: none;">
+    <div class="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4 shadow-sm border border-amber-200">
+      <span class="material-symbols-outlined text-3xl">desktop_windows</span>
+    </div>
+    <h2 class="text-xl font-bold text-slate-800 mb-2">Disponível Apenas no Computador</h2>
+    <p class="text-sm text-slate-600 max-w-sm mb-6 leading-relaxed">
+      O Gerenciador e Elaborador de Provas foi desenvolvido exclusivamente para uso em computadores e notebooks para garantir a precisão da diagramação pedagógica, edição e impressão.
+    </p>
+    <a href="/" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-md transition-all">
+      <span class="material-symbols-outlined text-lg">arrow_back</span>
+      <span>Voltar ao Sistema de Correção</span>
+    </a>
+  </div>
+
+  <!-- =========================================================================
+       HEADER FIXO (EDTOPIA / EDUAVALIA STITCH DESIGN)
+       ========================================================================= -->
+  <header class="fixed top-0 left-0 right-0 z-50 bg-surface-container-lowest shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-surface-container">
+    <div class="h-16 w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+      
+      <!-- Navegação Primária -->
+      <div class="flex items-center gap-space-lg flex-shrink-0">
+        <a href="/" class="flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors text-xs font-semibold py-1.5 px-2.5 rounded-lg hover:bg-surface-container-low border border-surface-container" title="Voltar ao Painel Geral">
+          <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+          <span class="hidden sm:inline">Dashboard</span>
+        </a>
+        <!-- Links de Abas Principais -->
+        <nav class="flex items-center gap-space-lg h-16">
+          <button id="tab-btn-exams" type="button" class="h-full flex items-center transition-colors px-space-xs text-primary border-b-2 border-primary font-label-lg font-semibold cursor-pointer">
+            <span class="material-symbols-outlined text-[18px] mr-1.5">assignment</span>
+            <span>Minhas Provas</span>
+            <span id="badge-count-exams" class="ml-1.5 px-2 py-0.5 rounded-full text-[11px] bg-primary-fixed text-on-primary-fixed font-bold">0</span>
+          </button>
+          <button id="tab-btn-bank" type="button" class="font-label-lg text-on-surface-variant hover:text-on-surface h-full flex items-center transition-colors px-space-xs border-b-2 border-transparent font-medium cursor-pointer">
+            <span class="material-symbols-outlined text-[18px] mr-1.5">menu_book</span>
+            <span>Banco de Questões</span>
+            <span id="badge-count-questions" class="ml-1.5 px-2 py-0.5 rounded-full text-[11px] bg-surface-container text-on-surface-variant font-semibold">0</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Ações da Direita & Perfil -->
+      <div class="flex items-center gap-space-md flex-shrink-0">
+
+        <!-- Perfil do Usuário Autenticado & Logout -->
+        <div class="flex items-center gap-space-sm select-none pl-space-xs">
+          <div id="user-avatar-badge" class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold text-xs shadow-xs">
+            <span class="material-symbols-outlined text-[18px]">person</span>
+          </div>
+          <div class="hidden sm:flex flex-col text-left leading-tight">
+            <span id="user-display-name" class="font-label-md text-label-md text-on-surface font-semibold">Carregando...</span>
+            <span id="user-display-role" class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-0.5">
+              SEMED Lagoa da Canoa
+            </span>
+          </div>
+          <button id="btn-logout" type="button" class="ml-2 flex items-center gap-1 text-on-surface-variant hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-transparent hover:border-red-200" title="Sair do sistema">
+            <span class="material-symbols-outlined text-[18px]">logout</span>
+            <span class="hidden md:inline">Sair</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       CONTEÚDO PRINCIPAL (MAIN CANVAS)
+       ========================================================================= -->
+  <main class="w-full pt-16 bg-background flex-1 overflow-x-hidden">
+    <div id="main-content-wrapper" class="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 flex flex-col gap-4 sm:gap-5 transition-all duration-300">
+
+      <!-- =====================================================================
+           PAINEL 1: MINHAS PROVAS & AVALIAÇÕES
+           ===================================================================== -->
+      <section id="panel-exams" class="flex flex-col gap-4 sm:gap-5">
+        
+        <!-- Top Bar: Título, Contexto e Ações Principais -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+          <div class="flex flex-col gap-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs text-on-surface-variant flex items-center gap-1 font-medium">
+                <span class="material-symbols-outlined text-[15px] text-primary">domain</span>
+                Secretaria Municipal de Educação - SEMED
+              </span>
+              <span class="text-outline text-xs">•</span>
+              <span class="text-xs text-secondary font-semibold">Instrumentos de Avaliação</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <h1 class="font-headline-xl text-2xl sm:text-3xl text-on-surface font-bold tracking-tight">Minhas Provas</h1>
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-primary-fixed text-on-primary-fixed shadow-xs">
+                <span class="material-symbols-outlined text-[15px]">assignment</span>
+                <span id="stat-total-exams">0</span>
+                <span class="font-semibold text-primary/80">avaliações</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Ações Rápidas do Header -->
+          <div class="flex items-center flex-wrap gap-2.5 flex-shrink-0">
+            <button id="btn-open-create-modal" class="h-9 sm:h-10 px-4 bg-primary-container text-on-primary hover:bg-primary transition-colors rounded-xl font-label-md text-xs sm:text-sm shadow-xs flex items-center gap-2 cursor-pointer font-semibold" type="button">
+              <span class="material-symbols-outlined text-[19px]">add_circle</span>
+              <span>Criar Nova Prova</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Área de Filtros e Busca (Espaçamento Otimizado) -->
+        <div class="bg-surface-container-lowest rounded-2xl p-3.5 sm:p-4 shadow-xs border border-surface-container flex flex-col gap-3">
+          <div class="flex flex-col md:flex-row items-center gap-3 justify-between">
+            
+            <!-- Campo de Busca Unificada -->
+            <div class="relative flex-1 w-full">
+              <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-outline pointer-events-none">search</span>
+              <input id="input-search-exams" class="w-full h-10 pl-10 pr-4 bg-surface-container-low rounded-xl text-xs sm:text-sm text-on-surface placeholder:text-outline focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container transition-all border border-transparent focus:border-primary/30" placeholder="Buscar avaliações..." type="text">
+            </div>
+
+            <!-- Alternador de Visualização (Tabela vs Cards) -->
+            <div class="flex items-center gap-2 w-full md:w-auto justify-end flex-shrink-0">
+              <div class="flex items-center p-1 bg-surface-container-low rounded-xl border border-surface-container/60">
+                <button id="btn-view-table" class="px-3 py-1.5 rounded-lg bg-surface-container-lowest text-primary shadow-xs font-label-sm text-xs flex items-center gap-1.5 font-bold cursor-pointer transition-all" type="button">
+                  <span class="material-symbols-outlined text-[16px]">view_list</span>
+                  <span>Tabela</span>
+                </button>
+                <button id="btn-view-cards" class="px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface font-label-sm text-xs flex items-center gap-1.5 transition-colors cursor-pointer font-medium" type="button">
+                  <span class="material-symbols-outlined text-[16px]">grid_view</span>
+                  <span>Cards</span>
+                </button>
+              </div>
+
+              <div class="h-6 w-px bg-surface-container"></div>
+
+              <button id="btn-refresh-exams" class="h-10 px-3.5 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface font-label-sm text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-surface-container/60" title="Recarregar Provas" type="button">
+                <span class="material-symbols-outlined text-[16px]">refresh</span>
+                <span class="hidden sm:inline">Atualizar</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Filtros de Disciplina e Ano -->
+          <div class="flex items-center gap-2.5 flex-wrap pt-2.5 border-t border-surface-container-low">
+            <span class="text-xs text-on-surface-variant font-semibold flex items-center gap-1 mr-1">
+              <span class="material-symbols-outlined text-[15px] text-outline">tune</span>
+              Filtrar por:
+            </span>
+            
+            <!-- Disciplina -->
+            <div class="relative inline-flex flex-1 sm:flex-initial">
+              <select id="select-filter-discipline" class="w-full appearance-none h-8 pl-3 pr-7 bg-surface-container-low hover:bg-surface-container text-on-surface rounded-lg text-xs font-semibold cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary transition-colors border border-surface-container/50">
+                <option value="">Disciplina: Todas</option>
+              </select>
+              <span class="material-symbols-outlined absolute right-1.5 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant pointer-events-none">expand_more</span>
+            </div>
+
+            <!-- Ano / Série -->
+            <div class="relative inline-flex flex-1 sm:flex-initial">
+              <select id="select-filter-grade" class="w-full appearance-none h-8 pl-3 pr-7 bg-surface-container-low hover:bg-surface-container text-on-surface rounded-lg text-xs font-semibold cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary transition-colors border border-surface-container/50">
+                <option value="">Ano/Série: Todos</option>
+                <option value="9º ANO">9º Ano EF</option>
+                <option value="8º ANO">8º Ano EF</option>
+                <option value="7º ANO">7º Ano EF</option>
+                <option value="6º ANO">6º Ano EF</option>
+                <option value="5º ANO">5º Ano EF</option>
+                <option value="4º ANO">4º Ano EF</option>
+                <option value="3º ANO">3º Ano EF</option>
+                <option value="2º ANO">2º Ano EF</option>
+                <option value="1º ANO">1º Ano EF</option>
+                <option value="1ª SÉRIE EM">1ª Série EM</option>
+                <option value="2ª SÉRIE EM">2ª Série EM</option>
+                <option value="3ª SÉRIE EM">3ª Série EM</option>
+              </select>
+              <span class="material-symbols-outlined absolute right-1.5 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant pointer-events-none">expand_more</span>
+            </div>
+
+            <!-- Botão Limpar Filtros -->
+            <button id="btn-clear-exam-filters" class="text-primary hover:text-on-primary-fixed-variant text-xs ml-auto flex items-center gap-1 py-1 font-bold transition-colors cursor-pointer" type="button">
+              <span class="material-symbols-outlined text-[14px]">refresh</span>
+              <span>Limpar Filtros</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Barra de Ações em Massa (Batch Selection) -->
+        <div id="bar-batch-actions" class="hidden px-5 py-3 bg-surface-container-lowest border border-error/30 rounded-2xl shadow-xs items-center justify-between gap-3 flex-wrap transition-all">
+          <div class="flex items-center gap-2.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-error animate-pulse"></span>
+            <span id="label-batch-selected-count" class="text-sm font-bold text-on-surface">0 avaliações selecionadas</span>
+            <span class="text-xs text-outline hidden sm:inline">• As questões permanecerão salvas no Banco de Questões</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="btn-batch-delete-exams" type="button" class="btn-press px-3.5 py-1.5 rounded-xl bg-error hover:bg-error/90 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer">
+              <span class="material-symbols-outlined text-[17px]">delete_sweep</span>
+              <span>Excluir Avaliações</span>
+            </button>
+            <button id="btn-batch-clear-selection" type="button" class="btn-press px-3 py-1.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-semibold transition-all cursor-pointer">
+              <span>Desmarcar Todas</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- MODO 1: TABELA (Padrão Stitch Otimizado) -->
+        <div id="table-exams-container" class="bg-surface-container-lowest rounded-2xl shadow-xs border border-surface-container overflow-hidden flex flex-col">
+          <div class="px-5 py-3.5 bg-surface-container-low/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-surface-container">
+            <div class="flex items-center gap-2">
+              <span class="font-headline-md text-sm sm:text-base text-on-surface font-bold">Lista Geral de Avaliações</span>
+              <span id="label-table-count" class="px-2.5 py-0.5 rounded-full bg-surface-container-high text-primary font-label-sm text-xs font-bold">0 provas</span>
+            </div>
+            <div class="flex items-center gap-1 text-on-surface-variant text-xs">
+              <span class="material-symbols-outlined text-[14px] text-outline">sort</span>
+              <span>Organizado por atualizações recentes</span>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto w-full">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-surface-container-low/40 text-on-surface-variant font-label-sm text-xs uppercase tracking-wider border-b border-surface-container">
+                  <th class="py-3 px-4 w-12 text-center">
+                    <input type="checkbox" id="chk-select-all-exams" class="w-4 h-4 rounded text-primary focus:ring-primary/30 border-outline-variant cursor-pointer align-middle" title="Selecionar todas as avaliações">
+                  </th>
+                  <th class="py-3 px-4 font-bold">Avaliação</th>
+                  <th class="py-3 px-4 font-bold w-44 sm:w-52">Estrutura</th>
+                  <th class="py-3 px-5 text-right font-bold w-40">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-exams" class="divide-y divide-surface-container-low/60">
+                <!-- Inserido dinamicamente via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- MODO 2: GRID DE CARDS (Alternativo Stitch) -->
+        <div id="grid-exams" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Inserido dinamicamente via JS -->
+        </div>
+
+        <!-- Estado Vazio (Sem Provas) -->
+        <div id="empty-exams-state" class="hidden flex-col items-center justify-center py-16 px-4 bg-surface-container-lowest rounded-xl border border-dashed border-outline-variant text-center">
+          <div class="w-16 h-16 rounded-xl bg-surface-container-low text-primary flex items-center justify-center mb-4 text-2xl">
+            <span class="material-symbols-outlined text-[32px]">folder_open</span>
+          </div>
+          <h3 class="font-headline-md text-headline-md text-on-surface font-bold mb-1">Nenhuma avaliação encontrada</h3>
+          <p class="font-body-sm text-body-sm text-on-surface-variant max-w-sm mb-5 leading-relaxed">
+            Você ainda não criou nenhuma avaliação ou o filtro aplicado não retornou resultados.
+          </p>
+          <button id="btn-empty-create" class="inline-flex items-center gap-2 px-space-lg py-2.5 bg-primary-container text-on-primary hover:bg-primary font-label-md text-label-md font-bold rounded-lg shadow-xs transition-all cursor-pointer">
+            <span class="material-symbols-outlined text-[18px]">add_circle</span>
+            <span>Criar Primeira Prova</span>
+          </button>
+        </div>
+
+      </section>
+
+      <!-- =====================================================================
+           PAINEL 2: BANCO DE QUESTÕES (INTEGRADO COM BNCC E KATEX)
+           ===================================================================== -->
+      <section id="panel-bank" class="hidden flex-col gap-5 sm:gap-6">
+        
+        <!-- Header do Banco de Questões -->
+        <div class="flex flex-col gap-1">
+          <span class="text-xs text-secondary font-semibold flex items-center gap-1">
+            <span class="material-symbols-outlined text-[16px]">menu_book</span>
+            Acervo Pedagógico BNCC
+          </span>
+          <h2 class="font-headline-xl text-2xl sm:text-3xl text-on-surface font-bold tracking-tight">Banco de Questões</h2>
+        </div>
+
+        <!-- Filtros do Acervo -->
+        <div class="bg-surface-container-lowest p-4 sm:p-5 rounded-2xl shadow-xs border border-surface-container flex flex-col gap-4 mb-2">
+          <div class="flex items-center justify-between border-b border-surface-container pb-2.5">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-primary"></span>
+              <span class="font-headline-md text-sm sm:text-base text-on-surface font-bold">Filtros do Acervo de Questões</span>
+            </div>
+            <span class="font-body-sm text-xs sm:text-sm text-on-surface-variant font-medium" id="bank-filtered-count">Carregando acervo...</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <!-- Busca Textual -->
+            <div>
+              <label class="text-xs text-on-surface-variant font-semibold block mb-1.5">Enunciado ou Palavra-Chave</label>
+              <div class="relative">
+                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px] pointer-events-none">search</span>
+                <input type="text" id="bank-input-query" placeholder="Ex: Bhaskara, relevo..." class="w-full h-10 pl-9 pr-3 bg-surface-container-low border border-surface-container rounded-xl text-xs sm:text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary-container focus:bg-surface-container-lowest transition-all">
+              </div>
+            </div>
+
+            <!-- Filtro Disciplina -->
+            <div>
+              <label class="text-xs text-on-surface-variant font-semibold block mb-1.5">Componente Curricular</label>
+              <select id="bank-select-discipline" class="w-full h-10 px-3 bg-surface-container-low border border-surface-container rounded-xl text-xs sm:text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container cursor-pointer font-medium">
+                <option value="">Todas as Disciplinas</option>
+              </select>
+            </div>
+
+            <!-- Filtro Ano / Série -->
+            <div>
+              <label class="text-xs text-on-surface-variant font-semibold block mb-1.5">Ano / Série</label>
+              <select id="bank-select-grade" class="w-full h-10 px-3 bg-surface-container-low border border-surface-container rounded-xl text-xs sm:text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container cursor-pointer font-medium">
+                <option value="">Todos os Anos</option>
+              </select>
+            </div>
+
+            <!-- Filtro BNCC -->
+            <div>
+              <label class="text-xs text-on-surface-variant font-semibold block mb-1.5">Código da BNCC</label>
+              <div class="flex items-center gap-2">
+                <div class="relative flex-1 flex items-center bg-surface-container-low border border-surface-container rounded-xl pl-3 pr-1.5 h-10 focus-within:ring-2 focus-within:ring-primary-container focus-within:bg-surface-container-lowest transition-all">
+                  <span class="text-xs font-bold text-on-surface-variant mr-1.5 select-none">BNCC:</span>
+                  <input type="text" id="bank-input-bncc" placeholder="Ex: EF09MA06" class="w-full bg-transparent font-mono-math text-xs font-bold text-primary focus:outline-none uppercase placeholder:text-outline">
+                  <button id="btn-open-bncc-modal" type="button" class="h-7 px-2.5 rounded-lg bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 hover:border-transparent text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shrink-0" title="Consultar Catálogo Oficial de Habilidades da BNCC">
+                    <span class="material-symbols-outlined text-[14px]">search</span>
+                    <span>BNCC</span>
+                  </button>
+                </div>
+                <button id="btn-clear-bank-filters" title="Limpar Filtros" class="h-10 px-3.5 rounded-xl border border-surface-container bg-surface-container-low text-on-surface-variant hover:text-error hover:bg-error-container text-xs font-bold transition-colors cursor-pointer shrink-0">
+                  Limpar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista de Questões do Banco -->
+        <div id="list-bank-questions" class="flex flex-col gap-4 sm:gap-5 mt-2">
+          <!-- Inserido dinamicamente via JS -->
+        </div>
+
+        <!-- Estado Vazio Banco -->
+        <div id="empty-bank-state" class="hidden flex-col items-center justify-center py-16 px-4 bg-surface-container-lowest rounded-xl border border-dashed border-outline-variant text-center">
+          <div class="w-16 h-16 rounded-xl bg-surface-container-low text-primary flex items-center justify-center mb-4 text-2xl">
+            <span class="material-symbols-outlined text-[32px]">database</span>
+          </div>
+          <h3 class="font-headline-md text-headline-md text-on-surface font-bold mb-1">Nenhuma questão encontrada</h3>
+          <p class="font-body-sm text-body-sm text-on-surface-variant max-w-sm mb-4 leading-relaxed">
+            Tente ajustar os filtros de disciplina, série ou termo pesquisado.
+          </p>
+        </div>
+
+      </section>
+
+    </div>
+  </main>
+
+  <!-- =========================================================================
+       PAINEL LATERAL FLUTUANTE: MONTADOR DE PROVA (LUGAR DETERMINADO À DIREITA)
+       ========================================================================= -->
+  <aside id="drawer-new-exam" class="hidden flex-col fixed top-20 right-4 sm:right-6 lg:right-8 w-[380px] xl:w-[420px] bottom-6 bg-white rounded-2xl border border-slate-200 z-40 overflow-hidden transition-all duration-300 shadow-none" aria-label="Painel de Montagem da Nova Prova">
+    
+    <!-- Topo da Gaveta -->
+    <div class="px-5 py-4 bg-white border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-primary text-on-primary flex items-center justify-center">
+          <span class="material-symbols-outlined text-[20px]">playlist_add_check</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="font-headline-md text-sm sm:text-base font-bold text-on-surface">Nova Prova</h3>
+            <span id="drawer-count-badge" class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-primary-fixed text-on-primary-fixed">0</span>
+          </div>
+          <span class="text-xs text-on-surface-variant font-medium">Questões selecionadas</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-1">
+        <button id="btn-drawer-clear" type="button" class="text-xs text-on-surface-variant hover:text-error px-2.5 py-1.5 rounded-lg hover:bg-error-container/40 font-semibold transition-colors cursor-pointer" title="Remover todas as questões">
+          Limpar
+        </button>
+        <button id="btn-drawer-close" type="button" class="w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-lg transition-colors cursor-pointer" title="Recolher painel">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Lista com Scroll de Questões Adicionadas -->
+    <div id="drawer-questions-list" class="flex-1 overflow-y-auto p-4 flex flex-col gap-3 custom-scrollbar bg-slate-50/40">
+      <!-- Inserido dinamicamente via JS -->
+    </div>
+
+    <!-- Rodapé Fixo da Gaveta -->
+    <div class="p-4 bg-white border-t border-slate-200/80 flex flex-col gap-3 flex-shrink-0">
+      <!-- Resumo Métrico -->
+      <div class="flex items-center justify-between text-xs px-1">
+        <div class="flex items-center gap-1.5 text-on-surface font-semibold">
+          <span class="material-symbols-outlined text-[17px] text-primary">format_list_numbered</span>
+          <span>Total: <strong id="drawer-total-count" class="font-bold text-primary">0</strong> questões</span>
+        </div>
+        <div class="flex items-center gap-1 text-secondary font-bold">
+          <span class="material-symbols-outlined text-[17px]">stars</span>
+          <span><strong id="drawer-total-points">0,0</strong> pts</span>
+        </div>
+      </div>
+
+      <!-- Botão Criar Prova -->
+      <button id="btn-drawer-create-exam" type="button" class="w-full h-11 rounded-xl bg-primary-container text-on-primary hover:bg-primary font-label-md text-sm font-bold flex items-center justify-center gap-2 shadow-sm hover:shadow-md transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+        <span class="material-symbols-outlined text-[20px]">add_circle</span>
+        <span>Criar Prova</span>
+      </button>
+    </div>
+
+  </aside>
+
+  <!-- Botão Flutuante para Reabrir a Gaveta quando houver questões -->
+  <button id="btn-drawer-toggle-floating" type="button" class="hidden fixed bottom-6 right-6 z-30 bg-primary-container text-on-primary hover:bg-primary h-12 px-4 rounded-full shadow-lg items-center gap-2 font-bold text-xs sm:text-sm cursor-pointer transition-all hover:scale-105 border border-primary/20" title="Ver questões selecionadas">
+    <span class="material-symbols-outlined text-[20px]">playlist_add_check</span>
+    <span>Nova Prova (<span id="floating-badge-count">0</span>)</span>
+  </button>
+
+  <!-- =========================================================================
+       MODAL 1: CONFIGURAR NOVA AVALIAÇÃO (STITCH DESIGN)
+       ========================================================================= -->
+  <div id="modal-create-exam" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="bg-surface-container-lowest rounded-2xl w-full max-w-2xl max-h-[90vh] shadow-2xl border border-surface-container overflow-hidden flex flex-col">
+      
+      <!-- Cabeçalho Modal -->
+      <div class="px-6 py-4 bg-surface-container-low border-b border-surface-container flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-primary-container text-on-primary flex items-center justify-center shadow-xs shrink-0">
+            <span class="material-symbols-outlined text-[20px]">add_notes</span>
+          </div>
+          <h3 class="font-headline-md text-headline-md text-on-surface font-bold leading-tight">Configurar Avaliação</h3>
+        </div>
+        <button type="button" id="btn-close-create-modal" class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container p-1.5 rounded-lg transition-colors cursor-pointer" title="Fechar (Esc)">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <!-- Formulário Modal -->
+      <div class="p-6 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
+        
+        <!-- Título -->
+        <div class="flex flex-col gap-1">
+          <label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Título <span class="text-error">*</span></label>
+          <input type="text" id="modal-input-title" placeholder="Título da prova" class="w-full bg-surface-container-low border border-surface-container rounded-xl px-3.5 py-2.5 font-body-md text-body-md font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Disciplina -->
+          <div class="flex flex-col gap-1">
+            <label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Disciplina</label>
+            <select id="modal-input-discipline" class="w-full bg-surface-container-low border border-surface-container rounded-xl px-3 py-2 font-body-sm text-body-sm font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container cursor-pointer">
+              <option value="LÍNGUA PORTUGUESA">Língua Portuguesa</option>
+              <option value="MATEMÁTICA" selected>Matemática</option>
+              <option value="CIÊNCIAS">Ciências</option>
+              <option value="HISTÓRIA">História</option>
+              <option value="GEOGRAFIA">Geografia</option>
+              <option value="LÍNGUA INGLESA">Língua Inglesa</option>
+              <option value="ARTE">Arte</option>
+              <option value="EDUCAÇÃO FÍSICA">Educação Física</option>
+              <option value="ENSINO RELIGIOSO">Ensino Religioso</option>
+              <option value="REDAÇÃO">Redação</option>
+              <option value="LITERATURA">Literatura</option>
+              <option value="BIOLOGIA">Biologia</option>
+              <option value="FÍSICA">Física</option>
+              <option value="QUÍMICA">Química</option>
+              <option value="FILOSOFIA">Filosofia</option>
+              <option value="SOCIOLOGIA">Sociologia</option>
+              <option value="POLIVALENTE / GERAL">Polivalente / Geral</option>
+            </select>
+          </div>
+
+          <!-- Ano / Série -->
+          <div class="flex flex-col gap-1">
+            <label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Ano / Série</label>
+            <select id="modal-select-grade" class="w-full bg-surface-container-low border border-surface-container rounded-xl px-3 py-2 font-body-sm text-body-sm font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container cursor-pointer">
+              <option value="9º ANO">9º Ano (Fundamental)</option>
+              <option value="8º ANO">8º Ano (Fundamental)</option>
+              <option value="7º ANO">7º Ano (Fundamental)</option>
+              <option value="6º ANO">6º Ano (Fundamental)</option>
+              <option value="5º ANO">5º Ano (Fundamental)</option>
+              <option value="4º ANO">4º Ano (Fundamental)</option>
+              <option value="3º ANO">3º Ano (Fundamental)</option>
+              <option value="2º ANO">2º Ano (Fundamental)</option>
+              <option value="1º ANO">1º Ano (Fundamental)</option>
+              <option value="1ª SÉRIE EM">1ª Série (Médio)</option>
+              <option value="2ª SÉRIE EM">2ª Série (Médio)</option>
+              <option value="3ª SÉRIE EM">3ª Série (Médio)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Turma -->
+          <div class="flex flex-col gap-1">
+            <div class="flex items-center justify-between">
+              <label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Turma</label>
+              <span id="modal-classroom-hint" class="text-[10px] text-on-surface-variant/80 font-normal">escolha ou digite</span>
+            </div>
+            <input type="text" id="modal-input-classroom" list="datalist-classrooms" placeholder="Ex: 9º A" autocomplete="off" class="w-full bg-surface-container-low border border-surface-container rounded-xl px-3 py-2 font-body-sm text-body-sm font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container">
+            <datalist id="datalist-classrooms"></datalist>
+          </div>
+
+          <!-- Escola -->
+          <div class="flex flex-col gap-1">
+            <div class="flex items-center justify-between">
+              <label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Escola</label>
+              <span class="text-[10px] text-primary/80 font-normal">rede ou digite</span>
+            </div>
+            <input type="text" id="modal-input-school" list="datalist-schools" placeholder="Digite ou selecione da rede..." autocomplete="off" class="w-full bg-surface-container-low border border-surface-container rounded-xl px-3 py-2 font-body-sm text-body-sm font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container">
+            <datalist id="datalist-schools"></datalist>
+          </div>
+        </div>
+
+        <!-- Seção: Margens da Página (PDF A4) -->
+        <div class="flex flex-col gap-2.5 p-3.5 rounded-xl bg-surface-container-low border border-surface-container">
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-bold text-xs uppercase tracking-wider text-on-surface-variant">Margens (cm)</span>
+            <div class="flex items-center gap-1 bg-surface-container-lowest p-1 rounded-lg border border-surface-container">
+              <button type="button" class="modal-create-preset-btn px-2.5 py-1 rounded text-xs font-semibold text-on-surface-variant hover:bg-surface-container transition-colors" data-preset="narrow">Econômica</button>
+              <button type="button" class="modal-create-preset-btn px-2.5 py-1 rounded text-xs font-semibold bg-primary-container text-on-primary shadow-xs transition-colors active" data-preset="standard">ABNT (3×2)</button>
+              <button type="button" class="modal-create-preset-btn px-2.5 py-1 rounded text-xs font-semibold text-on-surface-variant hover:bg-surface-container transition-colors" data-preset="wide">Ampla</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-4 gap-2 pt-0.5">
+            <div class="flex flex-col gap-1">
+              <span class="text-[11px] text-on-surface-variant font-medium text-center">Superior</span>
+              <div class="flex items-center justify-center bg-surface-container-lowest px-2 py-1.5 rounded-lg border border-surface-container text-center">
+                <input type="number" id="modal-cfg-margin-top" class="w-full bg-transparent font-bold text-xs text-center text-on-surface focus:outline-none" value="3" min="0.4" max="5.0" step="0.1">
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <span class="text-[11px] text-on-surface-variant font-medium text-center">Inferior</span>
+              <div class="flex items-center justify-center bg-surface-container-lowest px-2 py-1.5 rounded-lg border border-surface-container text-center">
+                <input type="number" id="modal-cfg-margin-bottom" class="w-full bg-transparent font-bold text-xs text-center text-on-surface focus:outline-none" value="2" min="0.4" max="5.0" step="0.1">
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <span class="text-[11px] text-on-surface-variant font-medium text-center">Esquerda</span>
+              <div class="flex items-center justify-center bg-surface-container-lowest px-2 py-1.5 rounded-lg border border-surface-container text-center">
+                <input type="number" id="modal-cfg-margin-left" class="w-full bg-transparent font-bold text-xs text-center text-on-surface focus:outline-none" value="3" min="0.4" max="5.0" step="0.1">
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <span class="text-[11px] text-on-surface-variant font-medium text-center">Direita</span>
+              <div class="flex items-center justify-center bg-surface-container-lowest px-2 py-1.5 rounded-lg border border-surface-container text-center">
+                <input type="number" id="modal-cfg-margin-right" class="w-full bg-transparent font-bold text-xs text-center text-on-surface focus:outline-none" value="2" min="0.4" max="5.0" step="0.1">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção: Diagramação em 3 Cards (Padrão de Alternativas, Colunas, Gabarito) -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="p-3 rounded-xl bg-surface-container-low border border-surface-container flex flex-col justify-between gap-2">
+            <span class="font-bold text-xs text-on-surface">Alternativas</span>
+            <div class="flex items-center gap-1 bg-surface-container-lowest p-1 rounded-lg border border-surface-container">
+              <button type="button" id="modal-btn-alt-4" class="flex-1 py-1 rounded text-xs font-bold bg-primary-container text-on-primary shadow-xs transition-colors active">4 Alts</button>
+              <button type="button" id="modal-btn-alt-5" class="flex-1 py-1 rounded text-xs font-bold text-on-surface-variant transition-colors">5 Alts</button>
+            </div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-surface-container-low border border-surface-container flex flex-col justify-between gap-2">
+            <span class="font-bold text-xs text-on-surface">Colunas</span>
+            <div class="flex items-center gap-1 bg-surface-container-lowest p-1 rounded-lg border border-surface-container">
+              <button type="button" id="modal-btn-col-1" class="flex-1 py-1 rounded text-xs font-semibold text-on-surface-variant transition-colors">1 Col</button>
+              <button type="button" id="modal-btn-col-2" class="flex-1 py-1 rounded text-xs font-semibold bg-primary-container text-on-primary shadow-xs transition-colors active">2 Col</button>
+            </div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-surface-container-low border border-surface-container flex flex-col justify-between gap-2">
+            <span class="font-bold text-xs text-on-surface">Gabarito</span>
+            <label class="flex items-center justify-center gap-2 bg-surface-container-lowest p-1.5 rounded-lg border border-surface-container cursor-pointer select-none">
+              <input type="checkbox" id="modal-chk-answer-sheet" class="w-4 h-4 accent-primary cursor-pointer" checked>
+              <span class="text-xs font-medium text-on-surface">Incluir folha</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Banner Informativo quando aberto a partir da Gaveta -->
+        <div id="box-drawer-selected-badge" class="hidden items-center gap-3 p-3 rounded-xl bg-primary-fixed/20 border border-primary/20 text-on-surface">
+          <span class="w-8 h-8 rounded-lg bg-primary-container text-on-primary flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined text-[18px]">playlist_add_check</span>
+          </span>
+          <div class="flex-1 min-w-0">
+            <span class="text-xs font-bold text-on-surface" id="modal-drawer-count-text">Questões selecionadas</span>
+            <p class="text-[11px] text-on-surface-variant">As questões selecionadas serão importadas diretamente para o editor.</p>
+          </div>
+        </div>
+
+        <!-- Seletor do Modo de Criação (exibido apenas quando aberto fora da gaveta) -->
+        <div id="box-create-mode-selector" class="flex flex-col gap-2">
+          <label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Modo Inicial</label>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            
+            <!-- Opção 1: Em Branco -->
+            <label class="cursor-pointer border-2 border-primary bg-primary-fixed/20 rounded-xl p-3 flex flex-col gap-1.5 transition-all relative option-create-type active" data-type="blank">
+              <input type="radio" name="create_type" value="blank" checked class="sr-only">
+              <div class="flex items-center justify-between">
+                <span class="w-7 h-7 rounded-lg bg-primary-container text-on-primary flex items-center justify-center text-sm shadow-xs">
+                  <span class="material-symbols-outlined text-[16px]">edit_document</span>
+                </span>
+                <span class="material-symbols-outlined text-primary text-[20px] check-icon">check_circle</span>
+              </div>
+              <div>
+                <div class="font-bold text-xs text-on-surface">Em Branco</div>
+                <div class="text-[11px] text-on-surface-variant">Digitar questões no editor</div>
+              </div>
+            </label>
+
+            <!-- Opção 2: Do Banco de Questões -->
+            <label class="cursor-pointer border-2 border-surface-container hover:border-outline-variant rounded-xl p-3 flex flex-col gap-1.5 transition-all relative option-create-type" data-type="bank">
+              <input type="radio" name="create_type" value="bank" class="sr-only">
+              <div class="flex items-center justify-between">
+                <span class="w-7 h-7 rounded-lg bg-surface-container text-primary flex items-center justify-center text-sm">
+                  <span class="material-symbols-outlined text-[16px]">menu_book</span>
+                </span>
+                <span class="material-symbols-outlined text-outline text-[20px] check-icon">radio_button_unchecked</span>
+              </div>
+              <div>
+                <div class="font-bold text-xs text-on-surface">Banco de Questões</div>
+                <div class="text-[11px] text-on-surface-variant">Selecionar do acervo</div>
+              </div>
+            </label>
+
+          </div>
+        </div>
+
+        <!-- Seletor de Questões do Banco -->
+        <div id="modal-bank-selector-area" class="hidden flex-col gap-2.5 p-4 rounded-xl bg-surface-container-low border border-surface-container">
+          <div class="flex items-center justify-between">
+            <span class="font-label-sm text-label-sm text-primary font-bold">Checklist de Questões do Acervo:</span>
+            <span class="font-label-sm text-label-sm text-primary font-bold" id="modal-bank-selected-count">0 selecionadas</span>
+          </div>
+
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[16px] pointer-events-none">search</span>
+            <input type="text" id="modal-bank-quick-search" placeholder="Buscar questão..." class="w-full h-8 pl-8 pr-3 bg-surface-container-lowest border border-surface-container rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none">
+          </div>
+
+          <div id="modal-bank-questions-checklist" class="max-h-48 overflow-y-auto custom-scrollbar flex flex-col gap-1.5 pr-1">
+            <!-- Injetado dinamicamente via JS -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Rodapé Modal -->
+      <div class="px-6 py-3.5 bg-surface-container-low border-t border-surface-container flex items-center justify-end gap-2.5">
+        <button type="button" id="btn-cancel-create" class="px-4 py-2 rounded-xl font-label-md text-label-md font-semibold text-on-surface-variant hover:bg-surface-container transition-colors cursor-pointer">
+          Cancelar
+        </button>
+        <button type="button" id="btn-confirm-create-exam" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-label-md text-label-md font-bold bg-primary-container text-on-primary hover:bg-primary shadow-xs transition-all cursor-pointer">
+          <span>Criar e Ir para o Editor</span>
+          <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL 2: EMITIR PROVA (PDF OU WORD DOCX)
+       ========================================================================= -->
+  <div id="modal-emitir-prova" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="bg-surface-container-lowest rounded-2xl w-full max-w-md shadow-2xl border border-surface-container overflow-hidden flex flex-col p-6">
+      
+      <div class="flex items-center justify-between pb-3 border-b border-surface-container">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-primary-container text-on-primary flex items-center justify-center text-sm shadow-xs">
+            <span class="material-symbols-outlined text-[20px]">print</span>
+          </div>
+          <div>
+            <h3 class="font-headline-md text-headline-md text-on-surface font-bold text-sm">Emitir Instrumento Avaliativo</h3>
+            <span class="font-body-sm text-body-sm text-on-surface-variant">Escolha o formato oficial de exportação</span>
+          </div>
+        </div>
+        <button type="button" id="btn-close-emitir-modal" class="text-on-surface-variant hover:text-on-surface p-1 rounded-lg cursor-pointer">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 my-5">
+        
+        <!-- Opção PDF -->
+        <label class="cursor-pointer border-2 border-primary bg-primary-fixed/20 rounded-xl p-3.5 transition-all flex flex-col gap-2 relative option-emitir-format active" data-format="pdf">
+          <input type="radio" name="emitir_format" value="pdf" checked class="sr-only">
+          <div class="flex items-center justify-between">
+            <span class="material-symbols-outlined text-error text-[26px]">picture_as_pdf</span>
+            <span class="material-symbols-outlined text-primary text-[20px] radio-icon">check_circle</span>
+          </div>
+          <div class="font-headline-md text-[13px] text-on-surface font-bold mt-1">PDF Oficial</div>
+          <div class="font-body-sm text-[11px] text-on-surface-variant leading-tight">Diagramação milimétrica A4 pronta para impressão.</div>
+        </label>
+
+        <!-- Opção Word DOCX -->
+        <label class="cursor-pointer border-2 border-surface-container rounded-xl p-3.5 hover:border-outline-variant hover:bg-surface-container-low transition-all flex flex-col gap-2 relative option-emitir-format" data-format="docx">
+          <input type="radio" name="emitir_format" value="docx" class="sr-only">
+          <div class="flex items-center justify-between">
+            <span class="material-symbols-outlined text-primary text-[26px]">description</span>
+            <span class="material-symbols-outlined text-outline text-[20px] radio-icon">radio_button_unchecked</span>
+          </div>
+          <div class="font-headline-md text-[13px] text-on-surface font-bold mt-1">Word (.docx)</div>
+          <div class="font-body-sm text-[11px] text-on-surface-variant leading-tight">Documento editável com 2 colunas e alternativas formatadas.</div>
+        </label>
+
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5">
+        <button id="btn-cancel-emitir" class="px-4 py-2 rounded-xl font-label-md text-label-md font-semibold text-on-surface-variant hover:bg-surface-container transition-colors cursor-pointer">
+          Cancelar
+        </button>
+        <button id="btn-confirm-emitir-download" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-label-md text-label-md font-bold bg-primary-container text-on-primary hover:bg-primary shadow-xs transition-all cursor-pointer">
+          <span class="material-symbols-outlined text-[18px]">download</span>
+          <span>Baixar Arquivo</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL: CATÁLOGO OFICIAL DE HABILIDADES BNCC (ENSINO FUNDAMENTAL)
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-bncc-picker" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+      
+      <!-- Cabeçalho do Modal -->
+      <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+            <span class="material-symbols-outlined text-[20px]">menu_book</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-base leading-tight">Catálogo Oficial de Habilidades da BNCC</h3>
+            <span class="text-xs text-slate-500 font-medium">Ensino Fundamental (1º ao 9º Ano) • 1.304 Habilidades</span>
+          </div>
+        </div>
+        <button type="button" id="btn-close-bncc-modal" class="text-slate-400 hover:text-slate-700 hover:bg-slate-200 p-1.5 rounded-lg transition-colors cursor-pointer" title="Fechar (Esc)">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <!-- Barra de Filtros e Busca -->
+      <div class="p-4 bg-white border-b border-slate-100 flex flex-col gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          
+          <!-- Filtro de Disciplina -->
+          <div class="flex flex-col gap-1">
+            <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Componente / Disciplina</label>
+            <select id="bncc-modal-filter-discipline" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+              <option value="">Todas as Disciplinas</option>
+            </select>
+          </div>
+
+          <!-- Filtro de Ano Escolar -->
+          <div class="flex flex-col gap-1">
+            <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Ano Escolar</label>
+            <select id="bncc-modal-filter-grade" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+              <option value="">Todos os Anos (1º ao 9º)</option>
+              <option value="1">1º Ano</option>
+              <option value="2">2º Ano</option>
+              <option value="3">3º Ano</option>
+              <option value="4">4º Ano</option>
+              <option value="5">5º Ano</option>
+              <option value="6">6º Ano</option>
+              <option value="7">7º Ano</option>
+              <option value="8">8º Ano</option>
+              <option value="9">9º Ano</option>
+            </select>
+          </div>
+
+          <!-- Campo de Busca Textual -->
+          <div class="flex flex-col gap-1">
+            <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Pesquisar Código ou Conteúdo</label>
+            <div class="relative">
+              <input type="text" id="bncc-modal-search-input" class="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-400" placeholder="Ex: EF09MA06, fração, verbo...">
+              <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[16px] pointer-events-none">search</span>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="flex items-center justify-between text-xs text-slate-500 pt-1">
+          <span id="bncc-modal-results-count">Carregando habilidades...</span>
+          <span class="text-[11px] text-slate-400">Clique em "Selecionar" para filtrar por esta habilidade</span>
+        </div>
+      </div>
+
+      <!-- Lista Rolável de Habilidades da BNCC -->
+      <div id="bncc-modal-cards-list" class="flex-1 overflow-y-auto p-4 flex flex-col gap-2.5 max-h-[55vh] scrollbar-thin bg-slate-50/50">
+        <!-- Renderizado dinamicamente via JS -->
+      </div>
+
+      <!-- Rodapé do Modal -->
+      <div class="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <span class="text-xs text-slate-500">Base oficial de dados: <strong>bncc-dev/bncc-dados</strong></span>
+        <button type="button" id="btn-cancel-bncc-modal" class="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer">Fechar</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL 4: CONFIRMAÇÃO MODERNA E ELEGANTE (SUBSTITUTO PARA CONFIRM NATIVO)
+       ========================================================================= -->
+  <div id="modal-confirm-dialog" class="modal-overlay z-[120]" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200">
+      
+      <!-- Topo: Ícone estilizado, Título e Fechar -->
+      <div class="flex items-start gap-3.5 mb-3">
+        <div id="confirm-dialog-icon-box" class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100 shadow-xs shrink-0">
+          <span id="confirm-dialog-icon" class="material-symbols-outlined text-[26px]">delete_sweep</span>
+        </div>
+        <div class="flex-1 min-w-0 pt-0.5">
+          <h3 id="confirm-dialog-title" class="font-headline-md font-bold text-slate-900 text-lg leading-tight">Excluir Avaliações</h3>
+          <p id="confirm-dialog-message" class="text-sm text-slate-600 mt-1 leading-relaxed">
+            Tem certeza que deseja excluir as avaliações selecionadas?
+          </p>
+        </div>
+        <button type="button" id="confirm-dialog-btn-close" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer" title="Fechar (Esc)">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <!-- Caixa de Informação / Alerta de Preservação -->
+      <div id="confirm-dialog-callout" class="bg-emerald-50 border border-emerald-200/80 rounded-xl p-3.5 flex items-start gap-3 my-2 transition-all">
+        <span id="confirm-dialog-callout-icon" class="material-symbols-outlined text-emerald-600 text-[22px] shrink-0 mt-0.5">verified_user</span>
+        <div class="flex-1 text-xs">
+          <strong id="confirm-dialog-callout-title" class="font-bold text-emerald-950 block mb-0.5">Banco de Questões Seguro</strong>
+          <span id="confirm-dialog-callout-desc" class="text-emerald-800 leading-relaxed block">
+            Todas as questões e alternativas dessas avaliações permanecerão salvas e seguras no Banco de Questões. Elas só poderão ser excluídas se você as apagar diretamente no banco.
+          </span>
+        </div>
+      </div>
+
+      <!-- Rodapé: Botões de Ação -->
+      <div class="flex items-center gap-3 mt-4 pt-2">
+        <button type="button" id="confirm-dialog-btn-cancel" class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 font-semibold text-sm transition-colors cursor-pointer text-center">
+          Cancelar
+        </button>
+        <button type="button" id="confirm-dialog-btn-confirm" class="flex-1 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-sm shadow-xs hover:shadow transition-all cursor-pointer flex items-center justify-center gap-2">
+          <span id="confirm-dialog-btn-icon" class="material-symbols-outlined text-[18px]">delete</span>
+          <span id="confirm-dialog-btn-label">Sim, Excluir</span>
+  <!-- =========================================================================
+       MODAL: CONFIGURAR E GERAR GABARITO NO SISTEMA DE CORREÇÃO (SIMPLIFICADO)
+       ========================================================================= -->
+  <div id="modal-sync-gabarito" class="modal-overlay z-[110]" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+      
+      <!-- Cabeçalho do Modal -->
+      <div class="px-6 py-4 bg-gradient-to-r from-emerald-50 via-teal-50 to-slate-50 border-b border-emerald-100 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+            <span class="material-symbols-outlined text-[22px]">fact_check</span>
+          </div>
+          <div>
+            <h3 class="font-headline-md font-bold text-slate-900 text-base sm:text-lg leading-tight flex items-center gap-2">
+              <span>Gerar Gabarito OMR no Sistema</span>
+              <span id="sync-gabarito-status-badge" class="hidden px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">Já Vinculado</span>
+            </h3>
+            <p class="text-xs text-slate-500 font-medium">
+              Configuração rápida do gabarito oficial com leitura por câmera e capa padrão SEMED
+            </p>
+          </div>
+        </div>
+        <button type="button" id="btn-close-sync-gabarito" class="text-slate-400 hover:text-slate-700 hover:bg-slate-200/80 p-1.5 rounded-lg transition-colors cursor-pointer" title="Fechar (Esc)">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <!-- Corpo com Scroll do Modal Simplificado -->
+      <div class="p-6 overflow-y-auto max-h-[calc(90vh-140px)] custom-scrollbar flex flex-col gap-4 bg-slate-50/40">
+        
+        <!-- Alerta Edge Case 1: Questões sem resposta correta -->
+        <div id="sync-gabarito-missing-alert" class="hidden bg-rose-50 border border-rose-200 rounded-xl p-4 flex items-start gap-3 transition-all">
+          <span class="material-symbols-outlined text-rose-600 text-[24px] shrink-0 mt-0.5">error</span>
+          <div class="flex-1 text-xs">
+            <strong class="font-bold text-rose-950 text-sm block mb-1">Atenção: Gabarito Incompleto no Elaborador</strong>
+            <span id="sync-gabarito-missing-desc" class="text-rose-800 leading-relaxed block mb-2">
+              As seguintes questões estão sem alternativa correta definida: <strong>Questão 3</strong>.
+            </span>
+            <span class="text-rose-700 font-medium block">
+              Para garantir a precisão da correção automática, marque a resposta correta de cada questão no Elaborador antes de gerar o gabarito.
+            </span>
+          </div>
+        </div>
+
+        <!-- Alerta Informativo: Gabarito Já Existente e Correções -->
+        <div id="sync-gabarito-warning-alert" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex items-start gap-3 transition-all">
+          <span class="material-symbols-outlined text-amber-600 text-[22px] shrink-0 mt-0.5">info</span>
+          <div class="flex-1 text-xs">
+            <strong class="font-bold text-amber-950 block mb-0.5">Gabarito Vinculado Existente</strong>
+            <span id="sync-gabarito-warning-desc" class="text-amber-800 leading-relaxed block">
+              Esta avaliação já possui um gabarito vinculado no sistema. Confirmar irá atualizar as respostas oficiais da prova preservando seu identificador.
+            </span>
+          </div>
+        </div>
+
+        <!-- Card de Resumo da Avaliação Elaborada -->
+        <div class="bg-white border border-slate-200/90 rounded-xl p-4 shadow-2xs">
+          <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2.5">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Dados da Avaliação</span>
+            <div class="flex items-center gap-2">
+              <span id="sync-gabarito-qcount-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                0 Questões
+              </span>
+              <span id="sync-gabarito-pages-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                1 Página
+              </span>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div class="sm:col-span-2">
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">Título do Gabarito *</label>
+              <input type="text" id="sync-gabarito-input-title" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold" placeholder="Título da prova no gabarito">
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">Etapa / Subtítulo</label>
+              <input type="text" id="sync-gabarito-input-subtitle" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Ex: 9º ANO DO ENSINO FUNDAMENTAL">
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-600 mb-1">Turma</label>
+                <input type="text" id="sync-gabarito-input-classroom" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Ex: 9º ANO A">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-600 mb-1">Turno</label>
+                <select id="sync-gabarito-select-shift" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium cursor-pointer">
+                  <option value="MANHÃ">MANHÃ</option>
+                  <option value="TARDE">TARDE</option>
+                  <option value="INTEGRAL">INTEGRAL</option>
+                  <option value="NOITE">NOITE</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-600 mb-1" title="Número de páginas do caderno de prova para cálculo de impressão">Pág. Prova</label>
+                <input type="number" id="sync-gabarito-input-page-count" min="1" max="100" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-center" placeholder="1" value="1">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção: Seleção da Capa Oficial de Lagoa da Canoa -->
+        <div class="bg-white border border-slate-200/90 rounded-xl p-4 shadow-2xs">
+          <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2.5">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-700 block">Modelo de Capa Oficial</span>
+              <span class="text-[11px] text-slate-400">Selecione o design padrão da capa para esta avaliação</span>
+            </div>
+            <span class="material-symbols-outlined text-slate-400 text-[18px]">palette</span>
+          </div>
+
+          <!-- Grade de Modelos de Capa -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5" id="sync-gabarito-cover-options">
+            
+            <!-- Opção 4: Lagoa Serena & Náutico Real (Oficial Padrão) -->
+            <label class="cover-card-label relative flex items-start gap-3 p-3 rounded-xl border border-emerald-500 bg-emerald-50/40 cursor-pointer hover:shadow-xs transition-all">
+              <input type="radio" name="sync_cover_model" value="opcao_4_azul_nautico_lagoa" checked class="mt-0.5 text-emerald-600 focus:ring-emerald-500">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-3 h-3 rounded-full bg-[#1e3a8a] shrink-0"></span>
+                  <span class="text-xs font-bold text-slate-900 leading-tight">Opção 4: Lagoa Serena &amp; Náutico</span>
+                </div>
+                <span class="text-[11px] text-slate-500 block mt-0.5">Azul Marinho Oficial Canoa 2026</span>
+              </div>
+              <span class="badge-recommended text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">Oficial</span>
+            </label>
+
+            <!-- Opção 1: Montanhas & Dourado -->
+            <label class="cover-card-label relative flex items-start gap-3 p-3 rounded-xl border border-slate-200 bg-white cursor-pointer hover:border-slate-300 hover:shadow-xs transition-all">
+              <input type="radio" name="sync_cover_model" value="opcao_1_montanhas_canoa" class="mt-0.5 text-emerald-600 focus:ring-emerald-500">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-3 h-3 rounded-full bg-[#0e2a47] shrink-0"></span>
+                  <span class="text-xs font-bold text-slate-900 leading-tight">Opção 1: Montanhas de Canoa</span>
+                </div>
+                <span class="text-[11px] text-slate-500 block mt-0.5">Navy &amp; Dourado Clássico</span>
+              </div>
+            </label>
+
+            <!-- Opção 2: Rio & Verde Petróleo -->
+            <label class="cover-card-label relative flex items-start gap-3 p-3 rounded-xl border border-slate-200 bg-white cursor-pointer hover:border-slate-300 hover:shadow-xs transition-all">
+              <input type="radio" name="sync_cover_model" value="opcao_2_rio_verde_petroleo" class="mt-0.5 text-emerald-600 focus:ring-emerald-500">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-3 h-3 rounded-full bg-[#0b5d5c] shrink-0"></span>
+                  <span class="text-xs font-bold text-slate-900 leading-tight">Opção 2: Rio São Francisco</span>
+                </div>
+                <span class="text-[11px] text-slate-500 block mt-0.5">Verde Petróleo &amp; Fluvial</span>
+              </div>
+            </label>
+
+            <!-- Opção 3: Pôr do Sol Solar -->
+            <label class="cover-card-label relative flex items-start gap-3 p-3 rounded-xl border border-slate-200 bg-white cursor-pointer hover:border-slate-300 hover:shadow-xs transition-all">
+              <input type="radio" name="sync_cover_model" value="opcao_3_por_do_sol_solar" class="mt-0.5 text-emerald-600 focus:ring-emerald-500">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-3 h-3 rounded-full bg-[#c2410c] shrink-0"></span>
+                  <span class="text-xs font-bold text-slate-900 leading-tight">Opção 3: Pôr do Sol Solar</span>
+                </div>
+                <span class="text-[11px] text-slate-500 block mt-0.5">Solar Laranja &amp; Âmbar</span>
+              </div>
+            </label>
+
+          </div>
+
+          <!-- Campos complementares da capa -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-100 text-xs">
+            <div>
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">Título Principal da Capa</label>
+              <input type="text" id="sync-gabarito-cover-title" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500" value="PROVA CANOA">
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">Subtítulo da Capa</label>
+              <input type="text" id="sync-gabarito-cover-subtitle" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Ex: MATEMÁTICA">
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">Instruções aos Estudantes na Capa</label>
+              <textarea id="sync-gabarito-cover-instructions" rows="2" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 leading-relaxed resize-none">1. Preencha completamente o círculo da resposta correta.
+2. Utilize caneta esferográfica azul ou preta.
+3. Não dobre, rasure ou molhe esta folha de respostas.</textarea>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Rodapé do Modal com Ações -->
+      <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+        <button type="button" id="btn-cancel-sync-gabarito" class="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors cursor-pointer">
+          Cancelar
+        </button>
+        <button type="button" id="btn-confirm-sync-gabarito" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs shadow-xs hover:shadow transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+          <span class="material-symbols-outlined text-[18px]">check_circle</span>
+          <span id="sync-gabarito-btn-label">Criar Gabarito Completo</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: SUCESSO PÓS-CRIAÇÃO DO GABARITO (EDGE CASE 2)
+       ========================================================================= -->
+  <div id="modal-sync-gabarito-success" class="modal-overlay z-[120]" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-emerald-100 overflow-hidden flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200">
+      
+      <div class="flex items-start gap-3.5 mb-4">
+        <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 shadow-xs shrink-0">
+          <span class="material-symbols-outlined text-[28px]">verified</span>
+        </div>
+        <div class="flex-1 min-w-0 pt-0.5">
+          <h3 class="font-headline-md font-bold text-slate-900 text-lg leading-tight">Gabarito OMR Pronto!</h3>
+          <p id="sync-success-message" class="text-xs text-slate-600 mt-1 leading-relaxed">
+            O gabarito oficial foi criado e sincronizado com sucesso no sistema de correção com a capa vinculada.
+          </p>
+        </div>
+      </div>
+
+      <!-- Caixa de Informações Rápidas -->
+      <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 my-1 flex flex-col gap-2 text-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-slate-500">Avaliação:</span>
+          <strong id="sync-success-exam-title" class="font-bold text-slate-800 truncate max-w-[200px]">Matemática</strong>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-slate-500">Total de Questões:</span>
+          <span id="sync-success-questions-count" class="font-bold text-emerald-700">20 questões</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-slate-500">Modelo de Capa:</span>
+          <span id="sync-success-cover-name" class="font-semibold text-slate-700">Opção 4: Lagoa Serena</span>
+        </div>
+      </div>
+
+      <!-- Botões de Ação Imediata (Edge Case 2 - Opção A) -->
+      <div class="flex flex-col gap-2 mt-4 pt-2">
+        <a id="sync-success-btn-pdf" href="#" target="_blank" class="w-full h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer text-center">
+          <span class="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+          <span>Visualizar Folha OMR (PDF)</span>
+        </a>
+        <a href="/" class="w-full h-10 px-4 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer text-center">
+          <span class="material-symbols-outlined text-[18px]">document_scanner</span>
+          <span>Ir para o Painel de Correção</span>
+        </a>
+        <button type="button" id="sync-success-btn-close" class="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer text-center">
+          Continuar Aqui
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CONTAINER DE TOASTS -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- SCRIPT PRINCIPAL -->
+  <script src="/static/provas.js?v=33"></script>
+</body>
+</html>

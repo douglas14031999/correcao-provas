@@ -29,6 +29,8 @@ from app.api.settings import router as settings_router
 from app.api.auth import router as auth_router
 from app.api.users import router as users_router
 from app.api.backup import router as backup_router
+from app.api.exam_builder import router as exam_builder_router
+from app.api.bncc import router as bncc_router
 from app.services.database import init_db
 
 app = FastAPI(
@@ -53,6 +55,7 @@ STORAGE_DIR = os.path.join(BASE_DIR, "storage")
 os.makedirs(os.path.join(STORAGE_DIR, "overlays"), exist_ok=True)
 os.makedirs(os.path.join(STORAGE_DIR, "scans"), exist_ok=True)
 os.makedirs(os.path.join(STORAGE_DIR, "sheets"), exist_ok=True)
+os.makedirs(os.path.join(STORAGE_DIR, "builder_images"), exist_ok=True)
 
 # Mount storage directory
 app.mount("/storage", StaticFiles(directory=STORAGE_DIR), name="storage")
@@ -67,6 +70,8 @@ app.include_router(settings_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
 app.include_router(backup_router, prefix="/api")
+app.include_router(exam_builder_router)
+app.include_router(bncc_router)
 
 # Mount frontend files if available
 FRONTEND_DIR = os.path.join(PROJECT_ROOT, "frontend")
@@ -74,6 +79,20 @@ if os.path.exists(FRONTEND_DIR):
     @app.get("/")
     async def serve_index():
         return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+
+    @app.get("/elaborador")
+    async def serve_elaborador():
+        el_path = os.path.join(FRONTEND_DIR, "elaborador.html")
+        if os.path.exists(el_path):
+            return FileResponse(el_path)
+        raise HTTPException(status_code=404, detail="Página do elaborador não encontrada")
+
+    @app.get("/provas")
+    async def serve_provas():
+        pr_path = os.path.join(FRONTEND_DIR, "provas.html")
+        if os.path.exists(pr_path):
+            return FileResponse(pr_path)
+        raise HTTPException(status_code=404, detail="Página do banco de provas não encontrada")
 
     @app.get("/manifest.json")
     async def serve_manifest():
@@ -119,6 +138,12 @@ if os.path.exists(FRONTEND_DIR):
         raise HTTPException(status_code=404, detail="Certificado CA não encontrado")
         
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="frontend_static")
+    app.mount("/frontend", StaticFiles(directory=FRONTEND_DIR), name="frontend_dir")
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    from app.api.settings import get_pwa_icon
+    return get_pwa_icon(size=64)
 
 @app.get("/health")
 def health_check():

@@ -336,6 +336,21 @@ def remove_exam(exam_id: str, authorization: Optional[str] = Header(None), x_aut
         except Exception:
             pass
 
+    # Desvincula quaisquer provas do elaborador que estavam associadas a este gabarito
+    try:
+        from app.services.exam_builder_db import get_connection as get_builder_conn
+        b_conn = get_builder_conn()
+        b_cur = b_conn.cursor()
+        b_cur.execute("""
+            UPDATE builder_exams
+            SET linked_exam_id = NULL, gabarito_synced_at = NULL
+            WHERE linked_exam_id = ?
+        """, (exam_id,))
+        b_conn.commit()
+        b_conn.close()
+    except Exception as e:
+        logger.warning(f"Erro ao desvincular prova do elaborador ao excluir gabarito: {e}")
+
     success = delete_exam(exam_id)
     if not success:
         raise HTTPException(status_code=404, detail="Simulado não encontrado")

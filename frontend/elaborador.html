@@ -1,0 +1,1799 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Montador de Instrumento Avaliativo • SEMED Lagoa da Canoa</title>
+  <link rel="icon" type="image/png" sizes="192x192" href="/api/settings/pwa-icon?size=192">
+  <link rel="apple-touch-icon" href="/api/settings/pwa-icon?size=192">
+  <link rel="apple-touch-icon" sizes="512x512" href="/api/settings/pwa-icon?size=512">
+  
+  <script>
+    // Limpeza de cache antigo do Service Worker para o Elaborador de Provas
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        for (let reg of registrations) reg.update();
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then(keys => {
+        keys.forEach(k => {
+          if (k !== 'prova-canoa-v10') {
+            caches.delete(k);
+          } else {
+            caches.open(k).then(cache => {
+              cache.keys().then(requests => {
+                requests.forEach(req => {
+                  if (req.url.includes('elaborador')) cache.delete(req);
+                });
+              });
+            });
+          }
+        });
+      });
+    }
+  </script>
+
+  <!-- Fontes do Design System (Plus Jakarta Sans & Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+
+  <!-- KaTeX para Fórmulas Matemáticas e Científicas -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <!-- MathLive - Editor Matemático Visual Interativo (Estilo MathType / Word) -->
+  <script defer src="/static/mathlive.min.js"></script>
+
+  <!-- Tailwind CSS com o Tema do DESIGN.md (Educação Analítica) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "background": "#f8fafc",
+            "surface": "#f8fafc",
+            "surface-dim": "#f1f5f9",
+            "surface-bright": "#ffffff",
+            "surface-container-lowest": "#ffffff",
+            "surface-container-low": "#f8fafc",
+            "surface-container": "#f1f5f9",
+            "surface-container-high": "#e2e8f0",
+            "surface-container-highest": "#cbd5e1",
+            "on-surface": "#0f172a",
+            "on-surface-variant": "#475569",
+            "outline": "#94a3b8",
+            "outline-variant": "#e2e8f0",
+            "primary": "#2563eb",
+            "primary-container": "#1d4ed8",
+            "on-primary": "#ffffff",
+            "on-primary-container": "#eff6ff",
+            "secondary": "#0284c7",
+            "secondary-container": "#0369a1",
+            "tertiary": "#059669",
+            "tertiary-container": "#10b981",
+            "on-tertiary": "#ffffff",
+            "error": "#e11d48",
+            "error-container": "#ffe4e6"
+          },
+          fontFamily: {
+            "body-md": ["Inter", "sans-serif"],
+            "headline-xl": ["Plus Jakarta Sans", "sans-serif"],
+            "headline-lg": ["Plus Jakarta Sans", "sans-serif"],
+            "headline-md": ["Plus Jakarta Sans", "sans-serif"],
+            "label-md": ["Inter", "sans-serif"],
+            "label-sm": ["Inter", "sans-serif"],
+            "mono": ["JetBrains Mono", "monospace"]
+          },
+          borderRadius: {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "2xl": "1rem",
+            "full": "9999px"
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Folha de Estilos Customizada do Elaborador -->
+  <link rel="stylesheet" href="/static/elaborador.css?v=11">
+
+  <style>
+    @layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+        background-color: #f8fafc;
+        color: #0f172a;
+        font-family: 'Inter', sans-serif;
+      }
+    }
+    
+    /* Layout Studio 2 Colunas (Navegador de Questões + Estúdio de Edição Central) */
+    .workspace-studio-grid {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+      width: 100%;
+      max-width: 1540px;
+      margin: 0 auto;
+      padding: 20px 24px 100px 24px;
+      box-sizing: border-box;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .workspace-studio-grid {
+        display: flex;
+        flex-direction: column;
+        padding: 12px 12px 100px 12px;
+      }
+      #sidebar-questions-panel {
+        width: 100% !important;
+      }
+    }
+
+    /* Cartões Táteis das Alternativas */
+    .alt-card-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1.5px solid #e2e8f0;
+      background: #ffffff;
+      transition: all 0.15s ease;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+    .alt-card-row:hover {
+      border-color: #cbd5e1;
+      background: #f8fafc;
+    }
+    .alt-card-row.is-correct {
+      border-color: #10b981;
+      background: #f0fdf4;
+      box-shadow: 0 1px 4px rgba(16, 185, 129, 0.15);
+    }
+    .alt-card-badge {
+      width: 34px;
+      height: 34px;
+      min-width: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      user-select: none;
+      border: 1.5px solid #cbd5e1;
+      background: #f8fafc;
+      color: #334155;
+      transition: all 0.15s ease;
+    }
+    .alt-card-badge:hover {
+      transform: scale(1.08);
+      border-color: #2563eb;
+      color: #2563eb;
+      background: #eff6ff;
+    }
+    .alt-card-badge.is-correct {
+      background: #059669;
+      border-color: #059669;
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(5, 150, 105, 0.35);
+    }
+    .alt-input-field {
+      flex: 1;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 0.85rem;
+      color: #0f172a;
+      outline: none;
+      transition: all 0.2s;
+    }
+    .alt-input-field:focus {
+      background: #ffffff;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+    .alt-card-row.is-correct .alt-input-field {
+      background: #ffffff;
+      border-color: #86efac;
+      font-weight: 600;
+      color: #064e3b;
+    }
+
+    /* Chips de Equações Matemáticas no Enunciado */
+    .math-eq-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #eff6ff;
+      border: 1.5px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 2px 8px;
+      margin: 2px 4px;
+      cursor: pointer;
+      user-select: none;
+      vertical-align: middle;
+      font-family: 'Cambria Math', 'KaTeX_Math', 'Times New Roman', serif;
+      color: #1e40af;
+      box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+      transition: all 0.15s ease;
+    }
+    .math-eq-chip:hover {
+      background: #dbeafe;
+      border-color: #3b82f6;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
+      transform: translateY(-1px);
+    }
+    .math-eq-chip .chip-rendered {
+      pointer-events: none;
+      display: inline-block;
+      line-height: normal;
+    }
+    .math-eq-chip .chip-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      margin-left: 2px;
+    }
+    .math-eq-chip .chip-action-btn {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      font-size: 11px;
+      border: none;
+      background: rgba(255, 255, 255, 0.9);
+      color: #475569;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.1s ease;
+    }
+    .math-eq-chip .chip-action-btn:hover {
+      background: #2563eb;
+      color: #ffffff;
+    }
+    .math-eq-chip .chip-del-btn:hover {
+      background: #e11d48;
+      color: #ffffff;
+    }
+
+    /* Folha A4 Oficial em Tempo Real */
+    .live-a4-wrapper {
+      background: #e2e8f0;
+      border: 1px solid #cbd5e1;
+      border-radius: 14px;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      justify-content: center;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    .live-a4-sheet {
+      background: #ffffff;
+      width: 100%;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.06);
+      border: 1px solid #cbd5e1;
+      border-radius: 2px;
+      padding: 22px 18px;
+      font-family: 'Times New Roman', serif;
+      color: #0f172a;
+      font-size: 0.88rem;
+      line-height: 1.5;
+      transform-origin: top center;
+      transition: transform 0.2s ease;
+    }
+    .sheet-header-box {
+      border: 1.5px solid #000000;
+      padding: 10px 12px;
+      margin-bottom: 16px;
+      background: #ffffff;
+      font-family: Arial, sans-serif;
+    }
+    .sheet-header-title {
+      text-align: center;
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: #000000;
+      line-height: 1.35;
+    }
+    .sheet-header-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 4px 12px;
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid #000000;
+      font-size: 0.72rem;
+      color: #000000;
+    }
+    .sheet-question-item {
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px dashed #cbd5e1;
+    }
+    .sheet-question-item:last-child {
+      border-bottom: none;
+    }
+    .sheet-alt-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .sheet-alt-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      font-size: 0.84rem;
+    }
+
+    /* Barra de rolagem suave */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* Modal Backdrop */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    /* Toasts de Notificação gerenciados pelo elaborador.css */
+  </style>
+</head>
+<body class="bg-slate-50 font-body-md text-body-md text-on-surface antialiased min-h-screen flex flex-col">
+
+  <!-- =========================================================================
+       AVISO / BLOQUEIO DE USO EM CELULARES (MOBILE)
+       ========================================================================= -->
+  <div id="mobile-device-blocker" class="fixed inset-0 z-[9999] bg-white flex flex-col items-center justify-center p-6 text-center" style="display: none;">
+    <div class="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4 shadow-sm border border-amber-200">
+      <span class="material-symbols-outlined text-3xl">desktop_windows</span>
+    </div>
+    <h2 class="text-xl font-bold text-slate-800 mb-2">Disponível Apenas no Computador</h2>
+    <p class="text-sm text-slate-600 max-w-sm mb-6 leading-relaxed">
+      A criação e diagramação de provas no Elaborador requer uso de computadores ou notebooks para garantir máxima fidelidade visual e impressão A4 em alta definição.
+    </p>
+    <a href="/" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-md transition-all">
+      <span class="material-symbols-outlined text-lg">arrow_back</span>
+      <span>Voltar ao Sistema de Correção</span>
+    </a>
+  </div>
+
+  <!-- ======================================================================
+       CABEÇALHO FIXO COM FAIXA DE ALERTA & BARRA DE COMANDO
+       ====================================================================== -->
+  <header class="sticky top-0 z-40 w-full shadow-sm">
+    <!-- FAIXA AMARELA DE ALERTA: GABARITO OMR DESATUALIZADO -->
+    <div id="banner-gabarito-outdated" class="hidden w-full bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 border-b-2 border-amber-500 text-slate-950 px-4 sm:px-8 py-2.5 shadow-md transition-all">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-2.5 text-xs sm:text-sm font-bold text-slate-950">
+          <span class="material-symbols-outlined text-amber-950 text-xl font-bold animate-bounce">warning</span>
+          <span>Atenção: A prova foi alterada após a geração do Gabarito OMR. Atualize o gabarito para manter as respostas e o total de páginas sincronizados!</span>
+        </div>
+        <button type="button" id="btn-banner-update-gabarito" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-amber-300 hover:text-white text-xs font-bold transition-all shadow-sm cursor-pointer shrink-0">
+          <span class="material-symbols-outlined text-[16px]">sync</span>
+          <span>Atualizar Gabarito OMR</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Barra de Comando Superior -->
+    <section class="w-full bg-surface-container-low px-6 lg:px-8 py-4 border-b border-surface-container">
+      <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+        
+        <!-- Título, Status & Metadados -->
+        <div class="flex flex-col gap-2 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <a href="/provas" class="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white hover:bg-slate-100 text-slate-700 hover:text-blue-600 border border-slate-200 text-xs font-bold transition-all shadow-xs" title="Voltar para Minhas Provas e Banco de Questões">
+              <span class="material-symbols-outlined text-[16px] text-blue-600">arrow_back</span>
+              <span>Minhas Provas</span>
+            </a>
+            <span class="text-slate-300">|</span>
+            <span id="status-pill" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant text-xs">
+              <span class="w-1.5 h-1.5 rounded-full bg-tertiary-container animate-pulse" id="status-dot"></span>
+              <span id="save-status-text">Salvo no sistema</span>
+            </span>
+            <button type="button" id="btn-open-my-exams" class="text-xs text-primary hover:underline font-semibold flex items-center gap-1 ml-2">
+              <span class="material-symbols-outlined text-[15px]">folder_open</span>
+              <span>Trocar Prova</span>
+            </button>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <input class="bg-transparent text-on-surface font-headline-xl font-bold tracking-tight border-none focus:outline-none focus:bg-surface-container-lowest focus:px-3 focus:py-1 rounded-lg transition-all w-full max-w-3xl text-xl lg:text-2xl" 
+                   id="examTitleInput" type="text" value="Avaliação Bimestral de Matemática - 9º Ano" placeholder="Digite o título da avaliação...">
+            <button class="text-outline hover:text-primary transition-colors p-1" title="Renomear" type="button" onclick="document.getElementById('examTitleInput').focus();">
+              <span class="material-symbols-outlined text-[20px]">edit</span>
+            </button>
+          </div>
+
+          <!-- Quick Meta Chips -->
+          <div class="flex flex-wrap items-center gap-2 mt-0.5">
+            <div class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-lowest shadow-sm text-on-surface text-xs font-medium">
+              <span class="material-symbols-outlined text-[16px] text-primary">format_list_numbered</span>
+              <span id="chip-question-count">2 Questões</span>
+            </div>
+            <div class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-lowest shadow-sm text-on-surface text-xs font-medium">
+              <span class="material-symbols-outlined text-[16px] text-tertiary">award_star</span>
+              <span>Valor Total: <strong class="text-primary font-semibold" id="chip-total-score">10,0 pts</strong></span>
+            </div>
+            <div class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-lowest shadow-sm text-on-surface text-xs font-medium">
+              <span class="material-symbols-outlined text-[16px] text-secondary">school</span>
+              <span id="chip-discipline-display">MATEMÁTICA • 9º ANO</span>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Quick Actions Header (Toolbar Profissional de Ações) -->
+        <div class="flex items-center gap-2.5 self-start xl:self-center shrink-0 flex-nowrap overflow-x-auto">
+          <button id="btn-header-bank-import" class="h-10 px-3.5 rounded-xl bg-indigo-50 hover:bg-indigo-100/90 text-indigo-700 border border-indigo-200 text-xs font-bold flex items-center gap-2 shadow-xs hover:shadow-sm transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" type="button" title="Importar questões do Banco de Questões">
+            <span class="material-symbols-outlined text-[18px] text-indigo-600">auto_stories</span>
+            <span class="whitespace-nowrap">Banco de Questões</span>
+          </button>
+
+          <button id="btn-open-margins-modal" class="h-10 px-3.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-200/90 hover:border-slate-300 text-xs font-semibold flex items-center gap-2 shadow-xs hover:shadow-sm transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" type="button" title="Configurar margens da página, colunas e cabeçalho institucional">
+            <span class="material-symbols-outlined text-[18px] text-blue-600">tune</span>
+            <span class="whitespace-nowrap">Margens &amp; Impressão</span>
+          </button>
+
+          <button id="btn-header-preview" class="h-10 px-3.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-200/90 hover:border-slate-300 text-xs font-semibold flex items-center gap-2 shadow-xs hover:shadow-sm transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0" type="button" title="Pré-visualizar diagramação e páginas A4 em tamanho real">
+            <span class="material-symbols-outlined text-[18px] text-indigo-600">visibility</span>
+            <span class="whitespace-nowrap">Visualizar Prova</span>
+          </button>
+
+          <button id="btn-header-gabarito" class="h-10 px-3.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold flex items-center gap-2 shadow-xs hover:shadow-sm transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer relative" type="button" title="Gerar e sincronizar gabarito oficial OMR no Sistema de Correção">
+            <span class="material-symbols-outlined text-[18px] text-emerald-600">fact_check</span>
+            <span class="whitespace-nowrap">Gabarito OMR</span>
+            <span id="badge-gabarito-outdated-dot" class="hidden absolute -top-1 -right-1 flex h-3 w-3">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-3 w-3 bg-amber-500 border border-white"></span>
+            </span>
+          </button>
+
+          <button id="btn-header-download-pdf" class="h-10 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer" type="button" title="Emitir avaliação oficial diagramada em PDF ou Word (.docx)">
+            <span class="material-symbols-outlined text-[18px]">print</span>
+            <span class="whitespace-nowrap">Emitir Prova</span>
+          </button>
+
+          <!-- Perfil do Usuário Autenticado & Sair -->
+          <div class="flex items-center gap-2 pl-2 border-l border-slate-200 text-xs select-none">
+            <div id="user-avatar-badge" class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+              <span class="material-symbols-outlined text-[18px]">person</span>
+            </div>
+            <div class="hidden 2xl:flex flex-col text-left leading-tight">
+              <span id="user-display-name" class="font-semibold text-slate-800">Carregando...</span>
+              <span id="user-display-role" class="text-[11px] text-slate-500">SEMED</span>
+            </div>
+            <button id="btn-logout" type="button" class="flex items-center gap-1 text-slate-500 hover:text-red-600 hover:bg-red-50 px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer" title="Sair do sistema">
+              <span class="material-symbols-outlined text-[18px]">logout</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </header>
+
+  <!-- ======================================================================
+       WORKSPACE: 3-PANE SPLIT VIEW STUDIO (Navegador | Editor Studio | Folha A4 em Tempo Real)
+       ====================================================================== -->
+  <div class="workspace-studio-grid flex-1" id="workspace-studio-container">
+    
+    <!-- PANE 1: Navegador Lateral de Questões -->
+    <aside class="flex flex-col gap-3 w-full sticky top-20" id="sidebar-questions-panel">
+      <div class="bg-white rounded-2xl p-4 shadow-xs border border-slate-200/90 flex flex-col gap-3">
+        
+        <div class="flex items-center justify-between pb-1">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-slate-800 text-base">Questões</span>
+            <span class="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100" id="sidebar-question-badge">2 itens</span>
+          </div>
+          <span class="text-xs font-semibold text-slate-500" id="sidebar-total-score">Total: 10,0 pts</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button id="btn-add-question-side" class="btn-press py-2 px-2.5 rounded-xl bg-blue-50 hover:bg-blue-100/80 text-blue-700 border border-blue-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs" type="button" title="Adicionar questão em branco">
+            <span class="material-symbols-outlined text-[17px]">add_circle</span>
+            <span>Nova</span>
+          </button>
+          <button id="btn-open-bank-import-side" class="btn-press py-2 px-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100/80 text-indigo-700 border border-indigo-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs" type="button" title="Importar questões do Banco de Questões">
+            <span class="material-symbols-outlined text-[17px]">auto_stories</span>
+            <span>Do Banco</span>
+          </button>
+        </div>
+
+        <div class="h-px bg-slate-100 my-0.5"></div>
+
+        <!-- Lista Rolável de Questões -->
+        <div id="questions-sidebar-list" class="flex flex-col gap-1.5 max-h-[calc(100vh-320px)] overflow-y-auto pr-1 scrollbar-thin">
+          <!-- Injetado dinamicamente via JS -->
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- PANE 2: Estúdio de Edição Central -->
+    <main class="flex-1 w-full flex flex-col gap-4 min-w-0" id="main-editor-area">
+      
+      <!-- QUESTION CARD CONTAINER -->
+      <div class="bg-white rounded-2xl p-5 lg:p-6 shadow-xs border border-slate-200/90 flex flex-col gap-5" id="active-question-card">
+        
+        <!-- Header da Questão & Parâmetros Rápidos -->
+        <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-base shadow-xs" id="editor-q-num-badge">01</div>
+            <div>
+              <h2 class="font-bold text-slate-900 text-base leading-tight" id="editor-q-title">Questão 01</h2>
+              <span class="text-[11px] font-medium text-slate-400">Edição Ativa</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 flex-wrap">
+            <!-- Botões de Ação na Questão -->
+            <button id="btn-duplicate-question" class="btn-press p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 transition-all" title="Duplicar Questão" type="button">
+              <span class="material-symbols-outlined text-[18px]">content_copy</span>
+            </button>
+
+            <button id="btn-delete-question" class="btn-press p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-all" title="Excluir Questão" type="button">
+              <span class="material-symbols-outlined text-[18px]">delete</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Metadados da Questão (Pontuação, Dificuldade, BNCC) -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+          <div class="flex items-center justify-between sm:justify-start gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
+            <span class="text-xs font-bold text-slate-600">Pontos:</span>
+            <div class="flex items-center gap-1">
+              <input id="editor-q-points" class="w-16 text-center font-bold text-blue-700 bg-transparent text-sm focus:outline-none" step="0.25" min="0" type="number" value="1.00">
+              <span class="text-[11px] font-semibold text-slate-400">pt</span>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between sm:justify-start gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
+            <span class="text-xs font-bold text-slate-600">Dificuldade:</span>
+            <select id="editor-q-difficulty" class="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer flex-1 text-right sm:text-left">
+              <option value="facil">Fácil</option>
+              <option value="medio" selected>Médio</option>
+              <option value="dificil">Difícil</option>
+            </select>
+          </div>
+
+          <div class="relative flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-2xs focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
+            <span class="text-xs font-bold text-slate-600 shrink-0">BNCC:</span>
+            <input id="editor-q-skill" class="bg-transparent text-xs text-slate-800 focus:outline-none w-full font-mono font-semibold" placeholder="Ex: EF09MA06" type="text" value="" autocomplete="off">
+            <button type="button" id="btn-open-bncc-modal" class="btn-press px-2 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-bold border border-blue-200 transition-colors flex items-center gap-1 shrink-0" title="Abrir catálogo da BNCC com filtros de disciplina e ano">
+              <span class="material-symbols-outlined text-[14px]">search</span>
+              <span>BNCC</span>
+            </button>
+            
+            <!-- Autocomplete Dropdown Flutuante -->
+            <div id="bncc-autocomplete-list" class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-60 overflow-y-auto p-1.5 flex flex-col gap-1"></div>
+          </div>
+        </div>
+
+        <!-- Seção: Enunciado da Questão (100% Visual / Sem Código) -->
+        <div class="flex flex-col gap-2 relative" id="section-statement-container">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div class="flex items-center gap-2">
+              <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Enunciado da Questão</label>
+              <span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                Editor Visual
+              </span>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button type="button" id="btn-open-img-statement-header" class="btn-press px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold flex items-center gap-1.5 transition-all border border-blue-200 shadow-2xs" title="Inserir ou configurar imagem no enunciado">
+                <span class="material-symbols-outlined text-[16px] text-blue-600">add_photo_alternate</span>
+                <span>Inserir Imagem</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Barra de Ferramentas de Formatação de Texto e Equações -->
+          <div class="shadow-2xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 flex-wrap">
+            <div class="flex items-center gap-0.5">
+              <button id="btn-format-bold" class="btn-press p-1.5 rounded hover:bg-white hover:text-blue-600 hover:shadow-2xs transition-all font-bold text-xs text-slate-700" title="Negrito (Ctrl+B)" type="button">
+                <span class="material-symbols-outlined text-[18px]">format_bold</span>
+              </button>
+              <button id="btn-format-italic" class="btn-press p-1.5 rounded hover:bg-white hover:text-blue-600 hover:shadow-2xs transition-all italic text-xs text-slate-700" title="Itálico (Ctrl+I)" type="button">
+                <span class="material-symbols-outlined text-[18px]">format_italic</span>
+              </button>
+              <button id="btn-format-underline" class="btn-press p-1.5 rounded hover:bg-white hover:text-blue-600 hover:shadow-2xs transition-all underline text-xs text-slate-700" title="Sublinhado (Ctrl+U)" type="button">
+                <span class="material-symbols-outlined text-[18px]">format_underlined</span>
+              </button>
+              <div class="h-4 w-px bg-slate-300 mx-1"></div>
+              <button id="btn-format-ul" class="btn-press p-1.5 rounded hover:bg-white hover:text-blue-600 hover:shadow-2xs transition-all text-slate-700" title="Lista com Marcadores" type="button">
+                <span class="material-symbols-outlined text-[18px]">format_list_bulleted</span>
+              </button>
+              <button id="btn-format-ol" class="btn-press p-1.5 rounded hover:bg-white hover:text-blue-600 hover:shadow-2xs transition-all text-slate-700" title="Lista Numerada" type="button">
+                <span class="material-symbols-outlined text-[18px]">format_list_numbered</span>
+              </button>
+              <button id="btn-format-clear" class="btn-press p-1.5 rounded hover:bg-white hover:text-rose-600 hover:shadow-2xs transition-all text-slate-400" title="Limpar formatação" type="button">
+                <span class="material-symbols-outlined text-[18px]">format_clear</span>
+              </button>
+            </div>
+
+            <div class="h-5 w-px bg-slate-300 mx-1"></div>
+
+            <!-- Botão Inserir Imagem no Enunciado com controle de tamanho e alinhamento -->
+            <button type="button" id="btn-insert-image-statement" class="btn-press px-2.5 py-1 rounded-lg bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 text-xs font-bold border border-slate-200 transition-all flex items-center gap-1.5 shadow-2xs" title="Inserir Imagem na posição do cursor com alinhamento e redimensionamento">
+              <span class="material-symbols-outlined text-[16px] text-blue-600">add_photo_alternate</span>
+              <span>Inserir Imagem</span>
+            </button>
+
+            <!-- Botão MathType ao lado dos botões de formatação -->
+            <button type="button" id="btn-open-math-visual-modal" class="btn-press px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[16px]">functions</span>
+              <span>Abrir Editor Visual (MathType)</span>
+            </button>
+          </div>
+
+          <!-- Área do Editor Visual WYSIWYG (ContentEditable) -->
+          <div class="relative w-full rounded-xl bg-white border border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 shadow-2xs transition-all p-3.5">
+            <div id="editor-q-statement-rich" contenteditable="true" spellcheck="false" class="w-full text-slate-800 leading-relaxed min-h-[110px] text-sm focus:outline-none" data-placeholder="Digite o enunciado da questão aqui. Clique em 'Inserir Imagem' para imagens ou 'Abrir Editor Visual (MathType)' para equações..."></div>
+            
+            <!-- Textarea Oculto Sincronizado para garantir envio para a API -->
+            <textarea id="editor-q-statement" class="hidden"></textarea>
+          </div>
+
+          <!-- Cartão de Prévia Compacto Integrado -->
+          <div id="editor-realtime-card" class="hidden">
+            <div id="editor-realtime-preview"></div>
+          </div>
+        </div>
+
+        <!-- Seção: Alternativas de Resposta Táteis -->
+        <div class="flex flex-col gap-2.5 pt-1" id="section-alternatives">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-slate-800 text-sm">Alternativas de Resposta</span>
+              <span class="text-[11px] text-slate-400 font-medium">• Clique na letra para marcar o gabarito oficial</span>
+            </div>
+            <span class="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">Badge Verde = Gabarito</span>
+          </div>
+
+          <div id="editor-alternatives-list" class="flex flex-col gap-2">
+            <!-- Injetado dinamicamente via JS com estilo tátil refinado -->
+          </div>
+        </div>
+
+        <!-- Rodapé Interno da Questão (Navegação Anterior / Próxima) -->
+        <div class="flex items-center justify-between pt-3 border-t border-slate-100">
+          <button id="btn-prev-question" class="btn-press px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-slate-200" type="button">
+            <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+            <span id="prev-question-label">Questão Anterior</span>
+          </button>
+
+          <div class="flex items-center gap-2">
+            <button id="btn-quick-preview-student" class="btn-press px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-slate-200" type="button">
+              <span class="material-symbols-outlined text-[16px]">visibility</span>
+              <span>Visão Aluno</span>
+            </button>
+
+            <button id="btn-next-question" class="btn-press px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors" type="button">
+              <span id="next-question-label">Próxima Questão</span>
+              <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+  </div>
+
+  <!-- ======================================================================
+       FLOATING BOTTOM SUMMARY BAR (Barra Fixa Inferior de Distribuição)
+       ====================================================================== -->
+  <footer class="fixed bottom-0 right-0 bg-surface/95 backdrop-blur-md shadow-2xl px-6 lg:px-8 py-3.5 z-30 left-0 border-t border-surface-container">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+          <span class="material-symbols-outlined text-[20px]">grading</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-on-surface text-sm lg:text-base" id="footer-score-ratio">10,0 / 10,0 pts</span>
+          <span class="text-outline">•</span>
+          <span class="text-xs text-on-surface-variant font-medium" id="footer-configured-status">2 de 2 questões configuradas</span>
+        </div>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- ======================================================================
+       MODAL 1: CONFIGURAÇÕES DE IMPRESSÃO & MARGENS DA PÁGINA (A4)
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-margins" role="dialog" aria-modal="true" aria-labelledby="modal-margins-title">
+    <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+      
+      <!-- Cabeçalho -->
+      <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
+            <span class="material-symbols-outlined text-[20px]">straighten</span>
+          </div>
+          <div>
+            <h3 id="modal-margins-title" class="font-bold text-slate-900 text-base leading-tight">Configurações de Impressão e Margens (A4)</h3>
+            <span class="text-xs text-slate-500 font-medium">Ajuste as margens em centímetros (cm) e o cabeçalho oficial de Lagoa da Canoa para o PDF</span>
+          </div>
+        </div>
+        <button type="button" class="text-slate-400 hover:text-slate-700 hover:bg-slate-200 p-1.5 rounded-lg transition-colors" id="btn-close-margins" title="Fechar (Esc)">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <div class="p-6 flex flex-col gap-6 overflow-y-auto bg-white">
+
+      <!-- Seção: Margens em Centímetros & Presets -->
+      <div class="flex flex-col gap-4 p-5 rounded-xl bg-surface-container-low border border-surface-container">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <span class="font-bold text-sm text-on-surface">Margens da Página (PDF A4)</span>
+            <p class="text-xs text-on-surface-variant">Selecione um preset ou digite as medidas em centímetros (cm).</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button type="button" class="canoa-preset-btn px-3 py-1 rounded-lg text-xs font-semibold bg-surface-container-lowest border border-surface-container hover:bg-surface-container transition-colors" data-preset="narrow">Econômica (1,5 cm)</button>
+            <button type="button" class="canoa-preset-btn px-3 py-1 rounded-lg text-xs font-semibold bg-primary-container text-on-primary border border-primary-container shadow-sm transition-colors active" data-preset="standard">Padrão ABNT (3x2 cm)</button>
+            <button type="button" class="canoa-preset-btn px-3 py-1 rounded-lg text-xs font-semibold bg-surface-container-lowest border border-surface-container hover:bg-surface-container transition-colors" data-preset="wide">Ampla (3,5 cm)</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
+          <div class="flex flex-col gap-1">
+            <label class="text-xs text-on-surface-variant font-medium">Superior</label>
+            <div class="flex items-center gap-1.5 bg-surface-container-lowest p-2 rounded-lg border border-surface-container">
+              <input type="number" id="cfg-margin-top" class="w-full bg-transparent font-bold text-sm text-on-surface focus:outline-none" value="3.0" min="0.4" max="5.0" step="0.1">
+              <span class="text-xs text-outline font-semibold">cm</span>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-xs text-on-surface-variant font-medium">Inferior</label>
+            <div class="flex items-center gap-1.5 bg-surface-container-lowest p-2 rounded-lg border border-surface-container">
+              <input type="number" id="cfg-margin-bottom" class="w-full bg-transparent font-bold text-sm text-on-surface focus:outline-none" value="2.0" min="0.4" max="5.0" step="0.1">
+              <span class="text-xs text-outline font-semibold">cm</span>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-xs text-on-surface-variant font-medium">Esquerda</label>
+            <div class="flex items-center gap-1.5 bg-surface-container-lowest p-2 rounded-lg border border-surface-container">
+              <input type="number" id="cfg-margin-left" class="w-full bg-transparent font-bold text-sm text-on-surface focus:outline-none" value="3.0" min="0.4" max="5.0" step="0.1">
+              <span class="text-xs text-outline font-semibold">cm</span>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-xs text-on-surface-variant font-medium">Direita</label>
+            <div class="flex items-center gap-1.5 bg-surface-container-lowest p-2 rounded-lg border border-surface-container">
+              <input type="number" id="cfg-margin-right" class="w-full bg-transparent font-bold text-sm text-on-surface focus:outline-none" value="2.0" min="0.4" max="5.0" step="0.1">
+              <span class="text-xs text-outline font-semibold">cm</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Diagramação & Opções de Versão da Avaliação -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="p-3.5 rounded-xl bg-surface-container-low border border-surface-container flex flex-col justify-between gap-2.5">
+          <div>
+            <span class="font-bold text-xs text-on-surface">Padrão de Alternativas</span>
+            <p class="text-[11px] text-on-surface-variant">Quantidade em toda a avaliação.</p>
+          </div>
+          <div class="flex items-center gap-1 bg-surface-container-lowest p-1 rounded-lg border border-surface-container">
+            <button type="button" id="btn-modal-alt-4" class="flex-1 py-1 rounded text-xs font-bold bg-primary-container text-on-primary shadow-sm transition-colors active">4 Alts</button>
+            <button type="button" id="btn-modal-alt-5" class="flex-1 py-1 rounded text-xs font-bold text-on-surface-variant transition-colors">5 Alts</button>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-surface-container-low border border-surface-container flex flex-col justify-between gap-2.5">
+          <div>
+            <span class="font-bold text-xs text-on-surface">Diagramação em Colunas</span>
+            <p class="text-[11px] text-on-surface-variant">Economia de páginas e formato oficial.</p>
+          </div>
+          <div class="flex items-center gap-1 bg-surface-container-lowest p-1 rounded-lg border border-surface-container">
+            <button type="button" id="btn-col-1" class="flex-1 py-1 rounded text-xs font-semibold text-on-surface-variant">1 Col</button>
+            <button type="button" id="btn-col-2" class="flex-1 py-1 rounded text-xs font-semibold bg-primary-container text-on-primary shadow-sm active">2 Col</button>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-surface-container-low border border-surface-container flex flex-col justify-between gap-2.5">
+          <div>
+            <span class="font-bold text-xs text-on-surface">Mini Cartão de Respostas</span>
+            <p class="text-[11px] text-on-surface-variant">Gabarito de preenchimento do aluno.</p>
+          </div>
+          <div class="flex items-center gap-2 pt-1">
+            <input type="checkbox" id="chk-answer-sheet" class="w-5 h-5 accent-primary cursor-pointer" checked>
+            <label for="chk-answer-sheet" class="text-xs font-medium text-slate-700 cursor-pointer">Incluir na folha</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dados Escolares e Institucionais -->
+      <div class="flex flex-col gap-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-surface-container-low border border-surface-container">
+          <div>
+            <span class="font-bold text-xs text-on-surface">Usar Cabeçalho Completo na Prova</span>
+            <p class="text-[11px] text-on-surface-variant">Desativado por padrão: exibe apenas o título da avaliação (ideal para provas vinculadas à turma com folha de capa).</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="checkbox" id="chk-include-header" class="w-5 h-5 accent-primary cursor-pointer">
+            <label for="chk-include-header" class="text-xs font-semibold text-slate-700 cursor-pointer">Cabeçalho Completo</label>
+          </div>
+        </div>
+
+        <div id="box-institutional-fields" class="flex flex-col gap-3 transition-all opacity-40 pointer-events-none">
+          <span class="font-bold text-xs text-on-surface">Identificação Institucional</span>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="flex flex-col gap-1">
+              <label class="text-xs text-on-surface-variant">Órgão Mantenedor</label>
+              <input type="text" id="cfg-institution" class="p-2 rounded-lg bg-surface-container-low border border-surface-container text-xs text-on-surface focus:outline-none" value="PREFEITURA MUNICIPAL DE LAGOA DA CANOA - SEMED">
+            </div>
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-xs text-on-surface-variant">Escola / Unidade</label>
+                <span class="text-[10px] text-primary/80 font-normal">rede ou digite</span>
+              </div>
+              <input type="text" id="cfg-school" list="cfg-datalist-schools" class="p-2 rounded-lg bg-surface-container-low border border-surface-container text-xs text-on-surface focus:outline-none" value="ESCOLA MUNICIPAL DE ENSINO FUNDAMENTAL" autocomplete="off">
+              <datalist id="cfg-datalist-schools"></datalist>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="flex flex-col gap-1">
+              <label class="text-xs text-on-surface-variant">Disciplina</label>
+              <select id="cfg-discipline" class="p-2 rounded-lg bg-surface-container-low border border-surface-container text-xs text-on-surface focus:outline-none cursor-pointer">
+                <option value="LÍNGUA PORTUGUESA">Língua Portuguesa</option>
+                <option value="MATEMÁTICA" selected>Matemática</option>
+                <option value="CIÊNCIAS">Ciências</option>
+                <option value="HISTÓRIA">História</option>
+                <option value="GEOGRAFIA">Geografia</option>
+                <option value="LÍNGUA INGLESA">Língua Inglesa</option>
+                <option value="ARTE">Arte</option>
+                <option value="EDUCAÇÃO FÍSICA">Educação Física</option>
+                <option value="ENSINO RELIGIOSO">Ensino Religioso</option>
+                <option value="REDAÇÃO">Redação</option>
+                <option value="LITERATURA">Literatura</option>
+                <option value="BIOLOGIA">Biologia</option>
+                <option value="FÍSICA">Física</option>
+                <option value="QUÍMICA">Química</option>
+                <option value="FILOSOFIA">Filosofia</option>
+                <option value="SOCIOLOGIA">Sociologia</option>
+                <option value="POLIVALENTE / GERAL">Polivalente / Geral</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs text-on-surface-variant">Professor(a)</label>
+              <input type="text" id="cfg-teacher" class="p-2 rounded-lg bg-surface-container-low border border-surface-container text-xs text-on-surface focus:outline-none" placeholder="Nome do Professor">
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs text-on-surface-variant">Ano / Série</label>
+              <input type="text" id="cfg-grade" class="p-2 rounded-lg bg-surface-container-low border border-surface-container text-xs text-on-surface focus:outline-none" value="9º ANO">
+            </div>
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-xs text-on-surface-variant">Turma</label>
+                <span id="cfg-classroom-hint" class="text-[10px] text-on-surface-variant/80 font-normal">rede ou livre</span>
+              </div>
+              <input type="text" id="cfg-classroom" list="cfg-datalist-classrooms" class="p-2 rounded-lg bg-surface-container-low border border-surface-container text-xs text-on-surface focus:outline-none" value="TURMA A" autocomplete="off">
+              <datalist id="cfg-datalist-classrooms"></datalist>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="flex flex-col gap-1">
+              <label class="text-xs text-on-surface-variant">Turno</label>
+              <select id="cfg-shift" class="p-2 rounded-lg bg-surface-container-low border border-surface-container text-xs text-on-surface focus:outline-none">
+                <option value="MATUTINO">Matutino</option>
+                <option value="VESPERTINO">Vespertino</option>
+                <option value="NOTURNO">Noturno</option>
+                <option value="INTEGRAL">Integral</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs text-on-surface-variant">Data da Prova</label>
+              <input type="text" id="cfg-date" class="p-2 rounded-lg bg-surface-container-low border border-surface-container text-xs text-on-surface focus:outline-none" placeholder="DD/MM/AAAA">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rodapé -->
+      <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+        <button type="button" id="btn-save-margins-close" class="btn-press px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[17px]">check</span>
+          <span>Aplicar e Fechar</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+  <!-- ======================================================================
+       MODAL 2: PRÉ-VISUALIZAÇÃO A4 DA PROVA (PDF)
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-preview" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl w-full max-w-5xl h-[92vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+      
+      <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
+            <span class="material-symbols-outlined text-[20px]">picture_as_pdf</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-base leading-tight">Pré-visualização Fiel da Impressão (PDF A4)</h3>
+            <span class="text-xs text-slate-500 font-medium">Renderização oficial com diagramação em colunas e margens reais</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button type="button" id="btn-modal-refresh" class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs">
+            <span class="material-symbols-outlined text-[16px]">refresh</span>
+            <span>Atualizar</span>
+          </button>
+          <button type="button" id="btn-modal-print" class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs">
+            <span class="material-symbols-outlined text-[16px]">print</span>
+            <span>Imprimir</span>
+          </button>
+          <button type="button" id="btn-modal-download-pdf" class="btn-press px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors">
+            <span class="material-symbols-outlined text-[16px]">download</span>
+            <span>Baixar PDF</span>
+          </button>
+          <button type="button" id="btn-close-preview" class="text-slate-400 hover:text-slate-700 hover:bg-slate-200 p-1.5 rounded-lg transition-colors ml-1" title="Fechar (Esc)">
+            <span class="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex-1 bg-slate-100 p-4 overflow-hidden flex items-center justify-center">
+        <iframe id="preview-frame" class="w-full h-full rounded-xl bg-white shadow-md border border-slate-200" title="Prévia da Prova"></iframe>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL: EMITIR PROVA (ESCOLHA DO FORMATO: PDF OU DOCX)
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-emitir-prova" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+      <!-- Cabeçalho -->
+      <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-xs shrink-0">
+            <span class="material-symbols-outlined text-[20px]">print</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-base leading-tight">Emitir Avaliação</h3>
+            <span class="text-xs text-slate-500 font-medium">Selecione o formato desejado para download da prova</span>
+          </div>
+        </div>
+        <button type="button" id="btn-close-emitir-modal" class="text-slate-400 hover:text-slate-700 hover:bg-slate-200 p-1.5 rounded-lg transition-colors" title="Fechar (Esc)">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <!-- Corpo com Seleção de Formato -->
+      <div class="p-6 flex flex-col gap-4">
+        <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Formato do Documento</label>
+        
+        <div class="grid grid-cols-2 gap-3.5" id="emitir-format-cards">
+          <!-- Card PDF -->
+          <div class="emitir-format-card active border-2 border-blue-600 bg-blue-50/60 p-4 rounded-xl cursor-pointer transition-all flex flex-col justify-between hover:shadow-md relative" data-format="pdf" id="card-fmt-pdf">
+            <div class="absolute top-2.5 right-2.5 format-radio-icon">
+              <span class="material-symbols-outlined text-blue-600 text-[20px]">check_circle</span>
+            </div>
+            <div>
+              <div class="w-10 h-10 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center mb-2.5">
+                <span class="material-symbols-outlined text-[24px]">picture_as_pdf</span>
+              </div>
+              <h4 class="font-bold text-slate-900 text-sm mb-1">Documento PDF</h4>
+              <p class="text-[11px] text-slate-500 leading-relaxed">Diagramação A4 milimétrica com fidelidade gráfica máxima, pronta para impressão direta.</p>
+            </div>
+            <div class="mt-3 pt-2.5 border-t border-blue-100/80 flex items-center justify-between">
+              <span class="text-[10px] font-bold text-blue-700 uppercase">.PDF</span>
+              <span class="text-[10px] font-semibold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">Recomendado</span>
+            </div>
+          </div>
+
+          <!-- Card DOCX -->
+          <div class="emitir-format-card border-2 border-slate-200 hover:border-slate-300 bg-white p-4 rounded-xl cursor-pointer transition-all flex flex-col justify-between hover:shadow-md relative" data-format="docx" id="card-fmt-docx">
+            <div class="absolute top-2.5 right-2.5 format-radio-icon">
+              <span class="material-symbols-outlined text-slate-300 text-[20px]">radio_button_unchecked</span>
+            </div>
+            <div>
+              <div class="w-10 h-10 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center mb-2.5">
+                <span class="material-symbols-outlined text-[24px]">description</span>
+              </div>
+              <h4 class="font-bold text-slate-900 text-sm mb-1">Microsoft Word</h4>
+              <p class="text-[11px] text-slate-500 leading-relaxed">Documento editável (.docx) estruturado no padrão oficial, respeitando colunas e margens.</p>
+            </div>
+            <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
+              <span class="text-[10px] font-bold text-slate-600 uppercase">.DOCX</span>
+              <span class="text-[10px] font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">Editável</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center gap-2.5 text-xs text-slate-600">
+          <span class="material-symbols-outlined text-blue-600 text-[18px]">verified</span>
+          <span>A prova será emitida com as <strong>margens</strong> e o <strong>layout</strong> configurados nesta avaliação.</span>
+        </div>
+      </div>
+
+      <!-- Rodapé -->
+      <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <button type="button" id="btn-cancel-emitir-modal" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors">Cancelar</button>
+        <button type="button" id="btn-confirm-emitir-download" class="btn-press px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold flex items-center gap-2 shadow-sm hover:shadow-md transition-all">
+          <span class="material-symbols-outlined text-[18px]" id="emitir-download-icon">download</span>
+          <span id="btn-confirm-emitir-text">Baixar em PDF</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL 3: GABARITO OFICIAL & OMR
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-gabarito" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+      <!-- Cabeçalho -->
+      <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
+            <span class="material-symbols-outlined text-[20px]">fact_check</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-base leading-tight">Gabarito Oficial para Correção por Câmera</h3>
+            <span class="text-xs text-slate-500 font-medium">Chave de respostas para conferência e integração com leitor OMR</span>
+          </div>
+        </div>
+        <button type="button" id="btn-close-gabarito" class="text-slate-400 hover:text-slate-700 hover:bg-slate-200 p-1.5 rounded-lg transition-colors" title="Fechar (Esc)">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <div class="p-6 bg-white flex flex-col gap-3 overflow-y-auto">
+        <p class="text-xs text-slate-500">Chave de respostas calculada com base nas alternativas corretas selecionadas na elaboração:</p>
+        <div class="max-h-72 overflow-y-auto scrollbar-thin rounded-xl border border-slate-200 p-2" id="gabarito-table-container">
+          <!-- Injetado dinamicamente via JS -->
+        </div>
+      </div>
+
+      <!-- Rodapé -->
+      <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <button type="button" id="btn-sync-omr" class="px-4 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-blue-700 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs">
+          <span class="material-symbols-outlined text-[16px]">sync</span>
+          <span>Sincronizar no Banco</span>
+        </button>
+        <button type="button" onclick="document.getElementById('modal-gabarito').classList.remove('active');" class="btn-press px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all">
+          Concluído
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL 4: MINHAS PROVAS SALVAS
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-my-exams" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+      <!-- Cabeçalho -->
+      <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
+            <span class="material-symbols-outlined text-[20px]">folder</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-base leading-tight">Minhas Avaliações Cadastradas</h3>
+            <span class="text-xs text-slate-500 font-medium">Histórico e banco de provas elaboradas no sistema</span>
+          </div>
+        </div>
+        <button type="button" id="btn-close-my-exams" class="text-slate-400 hover:text-slate-700 hover:bg-slate-200 p-1.5 rounded-lg transition-colors" title="Fechar (Esc)">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <!-- Barra de Busca -->
+      <div class="p-4 bg-white border-b border-slate-100 flex flex-col gap-2">
+        <div class="relative">
+          <input type="text" id="my-exams-search" class="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-400 font-medium" placeholder="Buscar por título, série ou componente curricular...">
+          <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px] pointer-events-none">search</span>
+        </div>
+      </div>
+
+      <!-- Lista de Avaliações -->
+      <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-2.5 max-h-[58vh] scrollbar-thin bg-slate-50/50" id="my-exams-list">
+        <div class="p-6 text-center text-xs text-slate-400">Carregando avaliações...</div>
+      </div>
+
+      <!-- Rodapé -->
+      <div class="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <span class="text-xs text-slate-500">Banco de avaliações de Lagoa da Canoa</span>
+        <button type="button" onclick="document.getElementById('modal-my-exams').classList.remove('active');" class="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL DE INSERÇÃO E CONFIGURAÇÃO DE IMAGEM
+       Suporta inserção no Enunciado ou nas Alternativas, tamanho e alinhamento
+       ====================================================================== -->
+  <div id="modal-image-config" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+      <!-- Cabeçalho -->
+      <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
+            <span class="material-symbols-outlined text-[20px]">add_photo_alternate</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-base leading-tight" id="modal-img-title">Configurar Imagem</h3>
+            <span class="text-xs text-slate-500 font-medium" id="modal-img-subtitle">Defina o tamanho, alinhamento e origem da ilustração</span>
+          </div>
+        </div>
+        <button type="button" id="btn-close-img-modal" class="text-slate-400 hover:text-slate-700 hover:bg-slate-200 p-1.5 rounded-lg transition-colors" title="Fechar (Esc)">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <div class="p-6 flex flex-col gap-4 overflow-y-auto bg-white">
+        <!-- Origem da Imagem (Upload ou URL) -->
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Origem da Imagem</label>
+          <div class="flex items-center gap-2">
+            <label class="flex-1 btn-press py-2.5 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all shadow-2xs">
+              <span class="material-symbols-outlined text-[18px]">upload_file</span>
+              <span id="lbl-img-upload">Enviar do Computador</span>
+              <input type="file" id="modal-img-file-input" accept="image/*" class="hidden">
+            </label>
+          </div>
+          <div class="flex items-center gap-2 mt-1">
+            <span class="text-[11px] text-slate-400 font-semibold">ou URL:</span>
+            <input type="url" id="modal-img-url-input" placeholder="https://exemplo.com/imagem.png" class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono">
+          </div>
+        </div>
+
+        <!-- Prévia Visual da Imagem -->
+        <div id="modal-img-preview-box" class="hidden flex flex-col items-center justify-center p-3 rounded-xl bg-slate-50 border border-slate-200 min-h-[120px] relative overflow-hidden">
+          <img id="modal-img-preview-tag" src="" alt="Prévia" class="rounded-lg shadow-2xs transition-all object-contain max-h-44" style="width: 220px;">
+          <span id="modal-img-dimensions-info" class="text-[10px] text-slate-500 font-mono mt-1.5 font-semibold">Largura: 220px</span>
+        </div>
+
+        <!-- Seletor de Posição / Alinhamento -->
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Posição / Alinhamento</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button type="button" class="btn-press btn-modal-img-align flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 transition-all" data-align="left">
+              <span class="material-symbols-outlined text-[17px]">format_align_left</span>
+              <span>Esquerda</span>
+            </button>
+            <button type="button" class="btn-press btn-modal-img-align active flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl border border-blue-600 text-xs font-bold text-white bg-blue-600 shadow-2xs transition-all" data-align="center">
+              <span class="material-symbols-outlined text-[17px]">format_align_center</span>
+              <span>Centro</span>
+            </button>
+            <button type="button" class="btn-press btn-modal-img-align flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 transition-all" data-align="right">
+              <span class="material-symbols-outlined text-[17px]">format_align_right</span>
+              <span>Direita</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Seletor de Tamanho -->
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Tamanho da Imagem</label>
+            <span class="text-xs font-bold text-blue-700 font-mono" id="modal-img-size-label">220px</span>
+          </div>
+          <!-- Presets -->
+          <div class="grid grid-cols-4 gap-1.5">
+            <button type="button" class="btn-press btn-modal-img-preset py-1.5 px-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 transition-all text-center" data-size="120px">P (120px)</button>
+            <button type="button" class="btn-press btn-modal-img-preset active py-1.5 px-2 rounded-lg border border-blue-600 text-xs font-bold text-white bg-blue-600 shadow-2xs transition-all text-center" data-size="220px">M (220px)</button>
+            <button type="button" class="btn-press btn-modal-img-preset py-1.5 px-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 transition-all text-center" data-size="360px">G (360px)</button>
+            <button type="button" class="btn-press btn-modal-img-preset py-1.5 px-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 transition-all text-center" data-size="100%">100%</button>
+          </div>
+          <!-- Slider para controle fino -->
+          <div class="flex items-center gap-2 mt-1">
+            <span class="text-[10px] text-slate-400 font-bold">80px</span>
+            <input type="range" id="modal-img-width-slider" min="80" max="600" step="10" value="220" class="flex-1 accent-blue-600 cursor-pointer">
+            <span class="text-[10px] text-slate-400 font-bold">600px</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rodapé do Modal com Ações -->
+      <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <button type="button" id="btn-modal-img-remove" class="hidden text-rose-600 hover:text-rose-700 text-xs font-bold flex items-center gap-1 px-3 py-2 rounded-xl hover:bg-rose-50 transition-colors">
+          <span class="material-symbols-outlined text-[17px]">delete</span>
+          <span>Remover Imagem</span>
+        </button>
+        <div class="flex items-center gap-2 ml-auto">
+          <button type="button" id="btn-cancel-img-modal" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors">Cancelar</button>
+          <button type="button" id="btn-confirm-img-modal" class="btn-press px-5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs flex items-center gap-1.5 transition-all">
+            <span class="material-symbols-outlined text-[17px]">check</span>
+            <span id="btn-confirm-img-modal-text">Inserir na Questão</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL DE EDIÇÃO MATEMÁTICA VISUAL (ESTILO MATHTYPE / WORD EQUATION)
+       Baseado no conceito de edição visual aberta do Math-Editor / MathLive
+       ====================================================================== -->
+  <div id="modal-math-editor" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+      <!-- Cabeçalho do Editor Visual -->
+      <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
+            <span class="material-symbols-outlined text-[20px]">functions</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-base leading-tight">Editor Visual de Equações & Fórmulas</h3>
+            <span class="text-xs text-slate-500 font-medium">Equações matemáticas de alta fidelidade • Padrão MathType / LaTeX</span>
+          </div>
+        </div>
+        <button type="button" id="btn-close-math-modal" class="text-slate-400 hover:text-slate-700 hover:bg-slate-200 p-1.5 rounded-lg transition-colors" title="Fechar (Esc)">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <!-- Barra de Ferramentas / Ribbon de Símbolos e Estruturas -->
+      <div class="p-3 bg-slate-50 border-b border-slate-200 flex flex-col gap-2.5">
+        <!-- Grupo 1: Estruturas Visuais (Fração, Radical, Potência, Subscrito, Divisão) -->
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <button type="button" class="btn-math-insert-struct px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 hover:border-blue-600 hover:text-blue-600 text-xs font-bold flex items-center gap-1 shadow-xs transition-all text-slate-800" data-cmd="frac" title="Fração com numerador e denominador">
+            <span class="inline-flex flex-col items-center justify-center leading-none text-[11px] font-serif">
+              <span class="border-b border-current px-0.5">a</span>
+              <span class="px-0.5">b</span>
+            </span>
+            <span>Fração</span>
+          </button>
+
+          <button type="button" class="btn-math-insert-struct px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 hover:border-blue-600 hover:text-blue-600 text-xs font-bold flex items-center gap-1 shadow-xs transition-all text-slate-800" data-cmd="sqrt" title="Raiz Quadrada">
+            <span class="text-sm font-serif">√x</span>
+            <span>Radical</span>
+          </button>
+
+          <button type="button" class="btn-math-insert-struct px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 hover:border-blue-600 hover:text-blue-600 text-xs font-bold flex items-center gap-1 shadow-xs transition-all text-slate-800" data-cmd="sqrtn" title="Raiz com Índice">
+            <span class="text-sm font-serif">ⁿ√x</span>
+            <span>Raiz ⁿ√</span>
+          </button>
+
+          <button type="button" class="btn-math-insert-struct px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 hover:border-blue-600 hover:text-blue-600 text-xs font-bold flex items-center gap-1 shadow-xs transition-all text-slate-800" data-cmd="pow" title="Potência / Expoente">
+            <span class="text-sm font-serif">x<sup class="text-[10px]">2</sup></span>
+            <span>Expoente</span>
+          </button>
+
+          <button type="button" class="btn-math-insert-struct px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 hover:border-blue-600 hover:text-blue-600 text-xs font-bold flex items-center gap-1 shadow-xs transition-all text-slate-800" data-cmd="sub" title="Subscrito / Índice">
+            <span class="text-sm font-serif">x<sub class="text-[10px]">2</sub></span>
+            <span>Subscrito</span>
+          </button>
+
+        </div>
+
+        <!-- Grupo 2: Símbolos Rápidos Clicáveis -->
+        <div class="flex items-center gap-1 overflow-x-auto py-1 scrollbar-thin" id="modal-symbols-bar">
+          <!-- Símbolos preenchidos via JS -->
+        </div>
+      </div>
+
+      <!-- Área de Edição Visual WYSIWYG (MathLive math-field) -->
+      <div class="p-5 flex flex-col gap-3">
+        <label class="text-xs font-bold text-slate-700 flex items-center justify-between">
+          <span>Campo de Edição Visual (Digite os dados ou use as setas do teclado):</span>
+          <span class="text-[11px] text-blue-600 font-normal">Nenhum código necessário • 100% visual</span>
+        </label>
+
+
+        <!-- Campo MathLive Principal -->
+        <math-field id="visual-math-field" class="w-full text-2xl font-serif text-slate-900 bg-white border-2 border-blue-500/60 rounded-xl p-3 shadow-inner focus:outline-none focus:border-blue-600 min-h-[90px] flex items-center"></math-field>
+
+        <p class="text-xs text-slate-500 leading-normal">
+          💡 <strong>Dica de navegação:</strong> Digite os números normalmente. Use as setas do teclado (<strong>←, →, ↑, ↓</strong>) ou clique com o mouse para pular entre o numerador, denominador e raiz.
+        </p>
+
+        <!-- Pré-visualização do resultado final renderizado -->
+        <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex flex-col gap-1">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1">
+            <span class="material-symbols-outlined text-[14px]">check_circle</span>
+            Como vai aparecer na folha de prova:
+          </span>
+          <div id="modal-math-live-preview" class="py-1 text-center font-math text-base min-h-[32px] flex items-center justify-center"></div>
+        </div>
+      </div>
+
+      <!-- Rodapé com Ações -->
+      <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <button type="button" id="btn-math-clear-field" class="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 px-3 py-2 rounded-xl hover:bg-rose-50 transition-colors">
+          <span class="material-symbols-outlined text-[16px]">backspace</span>
+          <span>Limpar Campo</span>
+        </button>
+
+        <div class="flex items-center gap-2">
+          <button type="button" id="btn-cancel-math-modal" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors">Cancelar</button>
+          <button type="button" id="btn-confirm-insert-math" class="btn-press px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[17px]">add_task</span>
+            <span>Inserir na Questão</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL: CATÁLOGO OFICIAL DE HABILIDADES BNCC (ENSINO FUNDAMENTAL)
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-bncc-picker" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+      
+      <!-- Cabeçalho do Modal -->
+      <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+            <span class="material-symbols-outlined text-[20px]">menu_book</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-base leading-tight">Catálogo Oficial de Habilidades da BNCC</h3>
+            <span class="text-xs text-slate-500 font-medium">Ensino Fundamental (1º ao 9º Ano) • 1.304 Habilidades</span>
+          </div>
+        </div>
+        <button type="button" id="btn-close-bncc-modal" class="text-slate-400 hover:text-slate-700 hover:bg-slate-200 p-1.5 rounded-lg transition-colors" title="Fechar (Esc)">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <!-- Barra de Filtros e Busca -->
+      <div class="p-4 bg-white border-b border-slate-100 flex flex-col gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          
+          <!-- Filtro de Disciplina -->
+          <div class="flex flex-col gap-1">
+            <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Componente / Disciplina</label>
+            <select id="bncc-modal-filter-discipline" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+              <option value="">Todas as Disciplinas</option>
+            </select>
+          </div>
+
+          <!-- Filtro de Ano Escolar -->
+          <div class="flex flex-col gap-1">
+            <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Ano Escolar</label>
+            <select id="bncc-modal-filter-grade" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+              <option value="">Todos os Anos (1º ao 9º)</option>
+              <option value="1">1º Ano</option>
+              <option value="2">2º Ano</option>
+              <option value="3">3º Ano</option>
+              <option value="4">4º Ano</option>
+              <option value="5">5º Ano</option>
+              <option value="6">6º Ano</option>
+              <option value="7">7º Ano</option>
+              <option value="8">8º Ano</option>
+              <option value="9">9º Ano</option>
+            </select>
+          </div>
+
+          <!-- Campo de Busca Textual -->
+          <div class="flex flex-col gap-1">
+            <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Pesquisar Código ou Conteúdo</label>
+            <div class="relative">
+              <input type="text" id="bncc-modal-search-input" class="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-400" placeholder="Ex: EF09MA06, fração, verbo...">
+              <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[16px] pointer-events-none">search</span>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="flex items-center justify-between text-xs text-slate-500 pt-1">
+          <span id="bncc-modal-results-count">Carregando habilidades...</span>
+          <span class="text-[11px] text-slate-400">Clique em "Selecionar" para inserir o código na questão ativa</span>
+        </div>
+      </div>
+
+      <!-- Lista Rolável de Habilidades da BNCC -->
+      <div id="bncc-modal-cards-list" class="flex-1 overflow-y-auto p-4 flex flex-col gap-2.5 max-h-[55vh] scrollbar-thin bg-slate-50/50">
+        <!-- Renderizado dinamicamente via JS -->
+      </div>
+
+      <!-- Rodapé do Modal -->
+      <div class="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <span class="text-xs text-slate-500">Base oficial de dados: <strong>bncc-dev/bncc-dados</strong></span>
+        <button type="button" id="btn-cancel-bncc-modal" class="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors">Fechar</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL: IMPORTAR QUESTÕES DO BANCO DE QUESTÕES
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-bank-import" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl w-full max-w-4xl max-h-[92vh] shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+      
+      <!-- Cabeçalho -->
+      <div class="px-6 py-4 bg-gradient-to-r from-indigo-50 via-blue-50 to-white border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs shrink-0">
+            <span class="material-symbols-outlined text-[22px]">auto_stories</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-base leading-tight">Banco de Questões da SEMED</h3>
+            <span class="text-xs text-slate-500 font-medium">Selecione questões do acervo para inserir diretamente nesta prova</span>
+          </div>
+        </div>
+        <button type="button" id="btn-close-bank-import-modal" class="text-slate-400 hover:text-slate-700 hover:bg-slate-200 p-1.5 rounded-lg transition-colors" title="Fechar (Esc)">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <!-- Barra de Filtros e Busca -->
+      <div class="p-4 bg-white border-b border-slate-100 flex flex-col gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          
+          <!-- Filtro de Busca Textual -->
+          <div class="flex flex-col gap-1 sm:col-span-2">
+            <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Buscar por Texto / Palavra-Chave</label>
+            <div class="relative">
+              <input type="text" id="bank-import-search-input" class="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-slate-400" placeholder="Ex: Bhaskara, fração, equação, relevo...">
+              <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[16px] pointer-events-none">search</span>
+            </div>
+          </div>
+
+          <!-- Filtro de Disciplina -->
+          <div class="flex flex-col gap-1">
+            <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Disciplina</label>
+            <select id="bank-import-filter-discipline" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+              <option value="">Todas as Disciplinas</option>
+            </select>
+          </div>
+
+          <!-- Filtro de Ano / Série -->
+          <div class="flex flex-col gap-1">
+            <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Ano / Série</label>
+            <select id="bank-import-filter-grade" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+              <option value="">Todos os Anos</option>
+            </select>
+          </div>
+
+        </div>
+
+        <div class="flex items-center justify-between text-xs text-slate-500 pt-1">
+          <span id="bank-import-status-text">Carregando acervo de questões...</span>
+          <div class="flex items-center gap-3">
+            <button type="button" id="btn-bank-select-all" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1">
+              <span class="material-symbols-outlined text-[15px]">select_all</span>
+              <span>Marcar visíveis</span>
+            </button>
+            <button type="button" id="btn-bank-clear-selection" class="text-xs text-slate-500 hover:text-slate-800 font-medium">
+              Desmarcar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lista Rolável com Cards das Questões -->
+      <div id="bank-import-cards-list" class="flex-1 overflow-y-auto p-4 flex flex-col gap-3 max-h-[55vh] scrollbar-thin bg-slate-50/50">
+        <!-- Injetado dinamicamente via JS com KaTeX -->
+      </div>
+
+      <!-- Rodapé com Ações -->
+      <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-slate-700" id="bank-import-selected-count">0 questão selecionada</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" id="btn-cancel-bank-import-modal" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors">Cancelar</button>
+          <button type="button" id="btn-confirm-bank-import" class="btn-press px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-2 disabled:opacity-40 disabled:pointer-events-none" disabled>
+            <span class="material-symbols-outlined text-[18px]">add_circle</span>
+            <span id="btn-confirm-bank-import-text">Importar para a Prova</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: CONFIGURAR E GERAR GABARITO NO SISTEMA DE CORREÇÃO (SIMPLIFICADO)
+       ========================================================================= -->
+  <div id="modal-sync-gabarito" class="modal-overlay z-[110]" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+      
+      <!-- Cabeçalho do Modal -->
+      <div class="px-6 py-4 bg-gradient-to-r from-emerald-50 via-teal-50 to-slate-50 border-b border-emerald-100 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+            <span class="material-symbols-outlined text-[22px]">fact_check</span>
+          </div>
+          <div>
+            <h3 class="font-headline-md font-bold text-slate-900 text-base sm:text-lg leading-tight flex items-center gap-2">
+              <span>Gerar Gabarito OMR no Sistema</span>
+              <span id="sync-gabarito-status-badge" class="hidden px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">Já Vinculado</span>
+            </h3>
+            <p class="text-xs text-slate-500 font-medium">
+              Configuração rápida do gabarito oficial com leitura por câmera e capa padrão SEMED
+            </p>
+          </div>
+        </div>
+        <button type="button" id="btn-close-sync-gabarito" class="text-slate-400 hover:text-slate-700 hover:bg-slate-200/80 p-1.5 rounded-lg transition-colors cursor-pointer" title="Fechar (Esc)">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <!-- Corpo com Scroll do Modal Simplificado -->
+      <div class="p-6 overflow-y-auto max-h-[calc(90vh-140px)] custom-scrollbar flex flex-col gap-4 bg-slate-50/40">
+        
+        <!-- Alerta Edge Case 1: Questões sem resposta correta -->
+        <div id="sync-gabarito-missing-alert" class="hidden bg-rose-50 border border-rose-200 rounded-xl p-4 flex items-start gap-3 transition-all">
+          <span class="material-symbols-outlined text-rose-600 text-[24px] shrink-0 mt-0.5">error</span>
+          <div class="flex-1 text-xs">
+            <strong class="font-bold text-rose-950 text-sm block mb-1">Atenção: Gabarito Incompleto no Elaborador</strong>
+            <span id="sync-gabarito-missing-desc" class="text-rose-800 leading-relaxed block mb-2">
+              As seguintes questões estão sem alternativa correta definida: <strong>Questão 3</strong>.
+            </span>
+            <span class="text-rose-700 font-medium block">
+              Para garantir a precisão da correção automática, marque a resposta correta de cada questão no Elaborador antes de gerar o gabarito.
+            </span>
+          </div>
+        </div>
+
+        <!-- Alerta Informativo: Gabarito Já Existente e Correções -->
+        <div id="sync-gabarito-warning-alert" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex items-start gap-3 transition-all">
+          <span class="material-symbols-outlined text-amber-600 text-[22px] shrink-0 mt-0.5">info</span>
+          <div class="flex-1 text-xs">
+            <strong class="font-bold text-amber-950 block mb-0.5">Gabarito Vinculado Existente</strong>
+            <span id="sync-gabarito-warning-desc" class="text-amber-800 leading-relaxed block">
+              Esta avaliação já possui um gabarito vinculado no sistema. Confirmar irá atualizar as respostas oficiais da prova preservando seu identificador.
+            </span>
+          </div>
+        </div>
+
+        <!-- Card de Resumo da Avaliação Elaborada -->
+        <div class="bg-white border border-slate-200/90 rounded-xl p-4 shadow-2xs">
+          <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2.5">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Dados da Avaliação</span>
+            <div class="flex items-center gap-2">
+              <span id="sync-gabarito-qcount-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                0 Questões
+              </span>
+              <span id="sync-gabarito-pages-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                1 Página
+              </span>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div class="sm:col-span-2">
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">Título do Gabarito *</label>
+              <input type="text" id="sync-gabarito-input-title" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold" placeholder="Título da prova no gabarito">
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">Etapa / Subtítulo</label>
+              <input type="text" id="sync-gabarito-input-subtitle" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Ex: 9º ANO DO ENSINO FUNDAMENTAL">
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-600 mb-1">Turma</label>
+                <input type="text" id="sync-gabarito-input-classroom" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Ex: 9º ANO A">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-600 mb-1">Turno</label>
+                <select id="sync-gabarito-select-shift" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium cursor-pointer">
+                  <option value="MANHÃ">MANHÃ</option>
+                  <option value="TARDE">TARDE</option>
+                  <option value="INTEGRAL">INTEGRAL</option>
+                  <option value="NOITE">NOITE</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-600 mb-1" title="Número de páginas do caderno de prova para cálculo de impressão">Pág. Prova</label>
+                <input type="number" id="sync-gabarito-input-page-count" min="1" max="100" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-center" placeholder="1" value="1">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção: Seleção da Capa Oficial de Lagoa da Canoa -->
+        <div class="bg-white border border-slate-200/90 rounded-xl p-4 shadow-2xs">
+          <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2.5">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-700 block">Modelo de Capa Oficial</span>
+              <span class="text-[11px] text-slate-400">Selecione o design padrão da capa para esta avaliação</span>
+            </div>
+            <span class="material-symbols-outlined text-slate-400 text-[18px]">palette</span>
+          </div>
+
+          <!-- Grade de Modelos de Capa -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5" id="sync-gabarito-cover-options">
+            
+            <!-- Opção 4: Lagoa Serena & Náutico Real (Oficial Padrão) -->
+            <label class="cover-card-label relative flex items-start gap-3 p-3 rounded-xl border border-emerald-500 bg-emerald-50/40 cursor-pointer hover:shadow-xs transition-all">
+              <input type="radio" name="sync_cover_model" value="opcao_4_azul_nautico_lagoa" checked class="mt-0.5 text-emerald-600 focus:ring-emerald-500">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-3 h-3 rounded-full bg-[#1e3a8a] shrink-0"></span>
+                  <span class="text-xs font-bold text-slate-900 leading-tight">Opção 4: Lagoa Serena &amp; Náutico</span>
+                </div>
+                <span class="text-[11px] text-slate-500 block mt-0.5">Azul Marinho Oficial Canoa 2026</span>
+              </div>
+              <span class="badge-recommended text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">Oficial</span>
+            </label>
+
+            <!-- Opção 1: Montanhas & Dourado -->
+            <label class="cover-card-label relative flex items-start gap-3 p-3 rounded-xl border border-slate-200 bg-white cursor-pointer hover:border-slate-300 hover:shadow-xs transition-all">
+              <input type="radio" name="sync_cover_model" value="opcao_1_montanhas_canoa" class="mt-0.5 text-emerald-600 focus:ring-emerald-500">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-3 h-3 rounded-full bg-[#0e2a47] shrink-0"></span>
+                  <span class="text-xs font-bold text-slate-900 leading-tight">Opção 1: Montanhas de Canoa</span>
+                </div>
+                <span class="text-[11px] text-slate-500 block mt-0.5">Navy &amp; Dourado Clássico</span>
+              </div>
+            </label>
+
+            <!-- Opção 2: Rio & Verde Petróleo -->
+            <label class="cover-card-label relative flex items-start gap-3 p-3 rounded-xl border border-slate-200 bg-white cursor-pointer hover:border-slate-300 hover:shadow-xs transition-all">
+              <input type="radio" name="sync_cover_model" value="opcao_2_rio_verde_petroleo" class="mt-0.5 text-emerald-600 focus:ring-emerald-500">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-3 h-3 rounded-full bg-[#0b5d5c] shrink-0"></span>
+                  <span class="text-xs font-bold text-slate-900 leading-tight">Opção 2: Rio São Francisco</span>
+                </div>
+                <span class="text-[11px] text-slate-500 block mt-0.5">Verde Petróleo &amp; Fluvial</span>
+              </div>
+            </label>
+
+            <!-- Opção 3: Pôr do Sol Solar -->
+            <label class="cover-card-label relative flex items-start gap-3 p-3 rounded-xl border border-slate-200 bg-white cursor-pointer hover:border-slate-300 hover:shadow-xs transition-all">
+              <input type="radio" name="sync_cover_model" value="opcao_3_por_do_sol_solar" class="mt-0.5 text-emerald-600 focus:ring-emerald-500">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-3 h-3 rounded-full bg-[#c2410c] shrink-0"></span>
+                  <span class="text-xs font-bold text-slate-900 leading-tight">Opção 3: Pôr do Sol Solar</span>
+                </div>
+                <span class="text-[11px] text-slate-500 block mt-0.5">Solar Laranja &amp; Âmbar</span>
+              </div>
+            </label>
+
+          </div>
+
+          <!-- Campos complementares da capa -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-100 text-xs">
+            <div>
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">Título Principal da Capa</label>
+              <input type="text" id="sync-gabarito-cover-title" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500" value="PROVA CANOA">
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">Subtítulo da Capa</label>
+              <input type="text" id="sync-gabarito-cover-subtitle" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Ex: MATEMÁTICA">
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">Instruções aos Estudantes na Capa</label>
+              <textarea id="sync-gabarito-cover-instructions" rows="2" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 leading-relaxed resize-none">1. Preencha completamente o círculo da resposta correta.
+2. Utilize caneta esferográfica azul ou preta.
+3. Não dobre, rasure ou molhe esta folha de respostas.</textarea>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Rodapé do Modal com Ações -->
+      <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+        <button type="button" id="btn-cancel-sync-gabarito" class="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors cursor-pointer">
+          Cancelar
+        </button>
+        <button type="button" id="btn-confirm-sync-gabarito" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs shadow-xs hover:shadow transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+          <span class="material-symbols-outlined text-[18px]">check_circle</span>
+          <span id="sync-gabarito-btn-label">Criar Gabarito Completo</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: SUCESSO PÓS-CRIAÇÃO DO GABARITO (EDGE CASE 2)
+       ========================================================================= -->
+  <div id="modal-sync-gabarito-success" class="modal-overlay z-[120]" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-emerald-100 overflow-hidden flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200">
+      
+      <div class="flex items-start gap-3.5 mb-4">
+        <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 shadow-xs shrink-0">
+          <span class="material-symbols-outlined text-[28px]">verified</span>
+        </div>
+        <div class="flex-1 min-w-0 pt-0.5">
+          <h3 class="font-headline-md font-bold text-slate-900 text-lg leading-tight">Gabarito OMR Pronto!</h3>
+          <p id="sync-success-message" class="text-xs text-slate-600 mt-1 leading-relaxed">
+            O gabarito oficial foi criado e sincronizado com sucesso no sistema de correção com a capa vinculada.
+          </p>
+        </div>
+      </div>
+
+      <!-- Caixa de Informações Rápidas -->
+      <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 my-1 flex flex-col gap-2 text-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-slate-500">Avaliação:</span>
+          <strong id="sync-success-exam-title" class="font-bold text-slate-800 truncate max-w-[200px]">Matemática</strong>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-slate-500">Total de Questões:</span>
+          <span id="sync-success-questions-count" class="font-bold text-emerald-700">20 questões</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-slate-500">Modelo de Capa:</span>
+          <span id="sync-success-cover-name" class="font-semibold text-slate-700">Opção 4: Lagoa Serena</span>
+        </div>
+      </div>
+
+      <!-- Botões de Ação Imediata (Edge Case 2 - Opção A) -->
+      <div class="flex flex-col gap-2 mt-4 pt-2">
+        <a id="sync-success-btn-pdf" href="#" target="_blank" class="w-full h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer text-center">
+          <span class="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+          <span>Visualizar Folha OMR (PDF)</span>
+        </a>
+        <a href="/" class="w-full h-10 px-4 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer text-center">
+          <span class="material-symbols-outlined text-[18px]">document_scanner</span>
+          <span>Ir para o Painel de Correção</span>
+        </a>
+        <button type="button" id="sync-success-btn-close" class="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer text-center">
+          Continuar Aqui
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Container de Toasts de Notificação -->
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+  <!-- Scripts -->
+  <script src="/static/elaborador.js?v=34"></script>
+</body>
+</html>
