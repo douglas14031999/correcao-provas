@@ -125,8 +125,14 @@
   }
 
   async function apiFetch(url, options = {}) {
+    const defaultHeaders = {
+      ...getAuthHeaders()
+    };
+    if (options.body && typeof options.body === "string" && !(options.headers && options.headers["Content-Type"])) {
+      defaultHeaders["Content-Type"] = "application/json";
+    }
     const headers = {
-      ...getAuthHeaders(),
+      ...defaultHeaders,
       ...(options.headers || {})
     };
     const res = await fetch(url, { ...options, headers });
@@ -4386,6 +4392,7 @@
       try {
         const res = await apiFetch("/api/exam-builder/ai/generate-question", {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             discipline: discipline,
             grade_year: gradeYear,
@@ -4399,8 +4406,15 @@
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          const errMsg = errData.detail || "Erro ao conectar com a API da Groq.";
-          if (errMsg.toLowerCase().includes("chave") && keyWarning) {
+          let errMsg = "Erro ao conectar com a API da Groq.";
+          if (typeof errData.detail === "string") {
+            errMsg = errData.detail;
+          } else if (Array.isArray(errData.detail)) {
+            errMsg = errData.detail.map(d => (d && d.msg) ? `${d.loc ? d.loc.join('.') + ': ' : ''}${d.msg}` : JSON.stringify(d)).join("; ");
+          } else if (errData.detail && typeof errData.detail === "object") {
+            errMsg = JSON.stringify(errData.detail);
+          }
+          if (typeof errMsg === "string" && errMsg.toLowerCase().includes("chave") && keyWarning) {
             keyWarning.classList.remove("hidden");
           }
           throw new Error(errMsg);
@@ -4517,12 +4531,21 @@
       try {
         const res = await apiFetch("/api/exam-builder/ai/save-to-bank", {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(qData)
         });
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || "Erro ao salvar no banco.");
+          let errMsg = "Erro ao salvar no banco.";
+          if (typeof err.detail === "string") {
+            errMsg = err.detail;
+          } else if (Array.isArray(err.detail)) {
+            errMsg = err.detail.map(d => (d && d.msg) ? `${d.loc ? d.loc.join('.') + ': ' : ''}${d.msg}` : JSON.stringify(d)).join("; ");
+          } else if (err.detail && typeof err.detail === "object") {
+            errMsg = JSON.stringify(err.detail);
+          }
+          throw new Error(errMsg);
         }
 
         showToast("Questão salva no Banco de Questões com sucesso!", "success");
