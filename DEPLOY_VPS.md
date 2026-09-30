@@ -202,3 +202,64 @@ sudo certbot --nginx -d seu-dominio.com.br
   - **Usuário:** `admin`
   - **Senha:** `semed2026`
 - **Recomendação de Segurança**: Altere a senha do usuário `admin` na tela de Gestão de Usuários assim que acessar a produção!
+
+---
+
+## 🔄 Como Atualizar a VPS com Novas Versões do Sistema
+
+Sempre que novas versões, melhorias ou correções forem enviadas ao repositório GitHub, você pode atualizar sua VPS de três maneiras simples:
+
+### Opção A: Pela Própria Interface Web (1 Clique - Sem SSH)
+1. Acesse o sistema no navegador e faça login como **Administrador**.
+2. Abra o menu superior e entre em **Backup & Sistema** (ou Configurações de Sistema).
+3. No painel de atualizações, clique no botão **"Atualizar Sistema do GitHub"**.
+4. Confirme a operação. O servidor fará o download do novo código e reiniciará o serviço automaticamente em segundos!
+
+---
+
+### Opção B: Comando Automático em 1 Linha no Terminal SSH (Recomendado)
+Conecte-se na sua VPS via SSH e execute:
+
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/douglas14031999/correcao-provas/main/update.sh)
+```
+
+> [!TIP]
+> Esse script automatizado:
+> - Entra na pasta `/var/www/correcao-provas`
+> - Executa `git reset --hard origin/main` trazendo todos os novos commits
+> - Atualiza as dependências no ambiente virtual Python (`venv`)
+> - Corrige permissões de pastas para o `www-data`
+> - Reinicia o serviço `correcao-provas` e o `nginx`
+> - Valida a saúde da API em tempo real
+
+---
+
+### Opção C: Manualmente Passo a Passo via SSH
+Se preferir rodar cada comando individualmente no terminal da VPS:
+
+```bash
+# 1. Acessar a pasta da aplicação
+cd /var/www/correcao-provas
+
+# 2. Puxar o código mais recente do GitHub
+sudo git fetch origin main
+sudo git reset --hard origin/main
+
+# 3. Atualizar dependências Python no venv
+sudo /var/www/correcao-provas/venv/bin/pip install --upgrade pip
+sudo /var/www/correcao-provas/venv/bin/pip install -r backend/requirements.txt
+
+# 4. Ajustar permissões para o servidor web
+sudo chown -R www-data:www-data /var/www/correcao-provas
+sudo chmod -R 755 /var/www/correcao-provas
+
+# 5. Reiniciar o serviço do sistema e o Nginx
+sudo systemctl daemon-reload
+sudo systemctl restart correcao-provas
+sudo systemctl restart nginx
+
+# 6. Conferir status do serviço
+sudo systemctl status correcao-provas --no-pager
+```
+
