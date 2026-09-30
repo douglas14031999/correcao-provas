@@ -1650,7 +1650,7 @@ const previewQuestionsGrid = document.getElementById("preview-questions-grid");
 // Cor do Gabarito (Header & Question Table)
 let currentSheetColor = "#244061";
 
-function setSheetColor(color) {
+function setSheetColor(color, syncInput = false) {
   if (!color) color = "#244061";
   color = color.trim();
   if (!color.startsWith("#")) color = "#" + color;
@@ -1666,10 +1666,10 @@ function setSheetColor(color) {
   const previewBox = document.getElementById("custom-color-preview-box");
 
   if (picker) picker.value = currentSheetColor;
-  if (hexInput) hexInput.value = currentSheetColor.toUpperCase();
+  if (hexInput && (syncInput || hexInput.value)) hexInput.value = currentSheetColor.toUpperCase();
   if (previewBox) previewBox.style.backgroundColor = currentSheetColor;
 
-  document.querySelectorAll(".color-pill").forEach(pill => {
+  document.querySelectorAll(".color-pill, .color-grid-pill").forEach(pill => {
     if (pill.getAttribute("data-color").toLowerCase() === currentSheetColor) {
       pill.classList.add("active");
     } else {
@@ -1687,17 +1687,17 @@ function setSheetColor(color) {
 }
 
 function initColorPickerEventListeners() {
-  document.querySelectorAll(".color-pill").forEach(pill => {
+  document.querySelectorAll(".color-pill, .color-grid-pill").forEach(pill => {
     pill.addEventListener("click", () => {
       const col = pill.getAttribute("data-color");
-      if (col) setSheetColor(col);
+      if (col) setSheetColor(col, true);
     });
   });
 
   const picker = document.getElementById("exam-color-picker");
   if (picker) {
     picker.addEventListener("input", (e) => {
-      if (e.target.value) setSheetColor(e.target.value);
+      if (e.target.value) setSheetColor(e.target.value, true);
     });
   }
 
@@ -1707,14 +1707,15 @@ function initColorPickerEventListeners() {
       let val = e.target.value.trim();
       if (!val.startsWith("#") && val.length > 0) val = "#" + val;
       if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
-        setSheetColor(val);
+        setSheetColor(val, false);
       }
     });
     hexInput.addEventListener("blur", (e) => {
       let val = e.target.value.trim();
+      if (!val) return; // Leave empty if user didn't enter anything
       if (!val.startsWith("#") && val.length > 0) val = "#" + val;
       if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
-        setSheetColor(val);
+        setSheetColor(val, true);
       } else {
         hexInput.value = currentSheetColor.toUpperCase();
       }
@@ -1736,6 +1737,11 @@ if (btnUploadLogo && examLogoFile) {
       currentLogoSrc = currentLogoBase64;
       if (logoPreviewImg) logoPreviewImg.src = currentLogoSrc;
       if (previewLogoImg) previewLogoImg.src = currentLogoSrc;
+      const logoBadge = document.getElementById("logo-status-badge");
+      if (logoBadge) {
+        logoBadge.textContent = "Ativo";
+        logoBadge.className = "badge-status-pill badge-active";
+      }
       showToast("Logo carregada com sucesso!", "success");
     };
     reader.readAsDataURL(file);
@@ -1748,6 +1754,11 @@ if (btnDefaultLogo) {
     currentLogoSrc = DEFAULT_LOGO_URL;
     if (logoPreviewImg) logoPreviewImg.src = currentLogoSrc;
     if (previewLogoImg) previewLogoImg.src = currentLogoSrc;
+    const logoBadge = document.getElementById("logo-status-badge");
+    if (logoBadge) {
+      logoBadge.textContent = "Ativo";
+      logoBadge.className = "badge-status-pill badge-active";
+    }
     showToast("Logo de Lagoa da Canoa selecionada", "info");
   });
 }
@@ -1758,6 +1769,11 @@ if (btnRemoveLogo) {
     currentLogoSrc = "";
     if (logoPreviewImg) logoPreviewImg.src = "";
     if (previewLogoImg) previewLogoImg.src = "";
+    const logoBadge = document.getElementById("logo-status-badge");
+    if (logoBadge) {
+      logoBadge.textContent = "Sem Logo";
+      logoBadge.className = "badge-status-pill badge-inactive";
+    }
     showToast("Logo removida", "info");
   });
 }
@@ -1787,6 +1803,13 @@ function updateLiveSheetMockup() {
   if (mockupBanner) {
     mockupBanner.style.backgroundColor = currentSheetColor || "#244061";
   }
+
+  // Update Instructions text in preview banners
+  const instrText = (examCoverInstructionsInput?.value?.trim()) || "ORIENTAÇÕES: Preencha totalmente a bolha com caneta azul ou preta.";
+  const previewInstrEl = document.getElementById("preview-instructions-text");
+  if (previewInstrEl) previewInstrEl.textContent = instrText;
+  const coverInstrEl = document.getElementById("cover-instructions-text");
+  if (coverInstrEl) coverInstrEl.textContent = instrText;
 
   // Update Questions Table Mockup
   renderPreviewQuestionsTable();
@@ -2040,7 +2063,106 @@ const examCoverInstructionsInput = document.getElementById("exam-cover-instructi
 if (examCoverModelSelect) examCoverModelSelect.addEventListener("change", updateLiveCoverMockup);
 if (examCoverTitleInput) examCoverTitleInput.addEventListener("input", updateLiveCoverMockup);
 if (examCoverSubtitleInput) examCoverSubtitleInput.addEventListener("input", updateLiveCoverMockup);
-if (examCoverInstructionsInput) examCoverInstructionsInput.addEventListener("input", updateLiveCoverMockup);
+if (examCoverInstructionsInput) examCoverInstructionsInput.addEventListener("input", () => {
+  updateLiveCoverMockup();
+  updateLiveSheetMockup();
+});
+
+// --- Quick Grade and Items Handlers ---
+function initQuickGradePills() {
+  const container = document.getElementById("quick-grade-pills");
+  if (!container) return;
+  const pills = container.querySelectorAll(".quick-pill");
+  pills.forEach(pill => {
+    pill.addEventListener("click", () => {
+      pills.forEach(p => p.classList.remove("active"));
+      pill.classList.add("active");
+      if (examSubtitleInput) {
+        examSubtitleInput.value = pill.getAttribute("data-grade");
+        examSubtitleInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    });
+  });
+
+  if (examSubtitleInput) {
+    examSubtitleInput.addEventListener("input", () => {
+      const val = examSubtitleInput.value.trim().toUpperCase();
+      pills.forEach(pill => {
+        const gradeVal = pill.getAttribute("data-grade").toUpperCase();
+        if (val.includes(gradeVal) || gradeVal.includes(val)) {
+          pill.classList.add("active");
+        } else {
+          pill.classList.remove("active");
+        }
+      });
+    });
+  }
+}
+
+function updateTotalPointsBadge() {
+  const badge = document.getElementById("total-points-badge");
+  if (!badge) return;
+  const rawNumQ = numQuestionsInput ? numQuestionsInput.value.trim() : "";
+  const numQ = parseInt(rawNumQ || (numQuestionsInput ? numQuestionsInput.placeholder : "20")) || 20;
+  const rawPoints = document.getElementById("exam-points-input")?.value?.trim() || "";
+  const pointsPerQ = parseFloat(rawPoints || document.getElementById("exam-points-input")?.placeholder || "1.0") || 1.0;
+  const total = (numQ * pointsPerQ).toFixed(1).replace(".", ",");
+  badge.innerHTML = `
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+    Total: ${total} pts
+  `;
+
+  // Sync quick items pills only if user actually selected or typed a value
+  document.querySelectorAll(".quick-item-pill").forEach(pill => {
+    if (rawNumQ && parseInt(pill.getAttribute("data-count")) === parseInt(rawNumQ)) {
+      pill.classList.add("active");
+    } else {
+      pill.classList.remove("active");
+    }
+  });
+}
+
+function initQuickItemsPills() {
+  const container = document.getElementById("quick-items-pills");
+  if (!container) return;
+  const pills = container.querySelectorAll(".quick-item-pill");
+  pills.forEach(pill => {
+    pill.addEventListener("click", () => {
+      const count = parseInt(pill.getAttribute("data-count")) || 20;
+      if (numQuestionsInput) {
+        numQuestionsInput.value = count;
+        numQuestionsInput.dispatchEvent(new Event("input", { bubbles: true }));
+        numQuestionsInput.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      pills.forEach(p => p.classList.remove("active"));
+      pill.classList.add("active");
+      updateTotalPointsBadge();
+    });
+  });
+
+  if (numQuestionsInput) {
+    numQuestionsInput.addEventListener("input", updateTotalPointsBadge);
+    numQuestionsInput.addEventListener("change", updateTotalPointsBadge);
+  }
+  const pointsInput = document.getElementById("exam-points-input");
+  if (pointsInput) {
+    pointsInput.addEventListener("input", updateTotalPointsBadge);
+    pointsInput.addEventListener("change", updateTotalPointsBadge);
+  }
+}
+
+// Auto-init quick pills
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
+    initQuickGradePills();
+    initQuickItemsPills();
+    updateTotalPointsBadge();
+  });
+} else {
+  initQuickGradePills();
+  initQuickItemsPills();
+  updateTotalPointsBadge();
+}
 
 // --- Create & Edit Exam Logic ---
 function resetCreateForm() {
@@ -2051,9 +2173,14 @@ function resetCreateForm() {
   currentLogoSrc = DEFAULT_LOGO_URL;
   if (logoPreviewImg) logoPreviewImg.src = currentLogoSrc;
   if (previewLogoImg) previewLogoImg.src = currentLogoSrc;
+  const logoBadge = document.getElementById("logo-status-badge");
+  if (logoBadge) {
+    logoBadge.textContent = "Ativo";
+    logoBadge.className = "badge-status-pill badge-active";
+  }
 
   if (editModeBanner) editModeBanner.style.display = "none";
-  if (createCardTitle) createCardTitle.textContent = "Nova Prova";
+  if (createCardTitle) createCardTitle.textContent = "Configuração da Prova";
   if (createCardDesc) createCardDesc.textContent = "";
   if (saveExamBtn) {
     saveExamBtn.innerHTML = `
@@ -2066,15 +2193,25 @@ function resetCreateForm() {
     `;
   }
 
+  if (examTitleInput) examTitleInput.value = "";
+  if (examSubtitleInput) examSubtitleInput.value = "";
   if (examCoverModelSelect) examCoverModelSelect.value = "opcao_4_azul_nautico_lagoa";
-  if (examCoverTitleInput) examCoverTitleInput.value = "PROVA CANOA";
+  if (examCoverTitleInput) examCoverTitleInput.value = "";
   if (examCoverSubtitleInput) examCoverSubtitleInput.value = "";
-  if (examCoverInstructionsInput) examCoverInstructionsInput.value = "";
+  if (examCoverInstructionsInput) examCoverInstructionsInput.value = "ORIENTAÇÕES: Preencha totalmente a bolha com caneta azul ou preta.";
   const pageCountInput = document.getElementById("exam-page-count-input");
-  if (pageCountInput) pageCountInput.value = 1;
+  if (pageCountInput) pageCountInput.value = "";
+  if (numQuestionsInput) numQuestionsInput.value = "";
+  const ptsInput = document.getElementById("exam-points-input");
+  if (ptsInput) ptsInput.value = "1";
+  const colorInput = document.getElementById("exam-color-input");
+  if (colorInput) colorInput.value = "";
+  document.querySelectorAll(".quick-pill").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".quick-item-pill").forEach(p => p.classList.remove("active"));
 
   initAnswerKeyMatrix();
-  setSheetColor("#244061");
+  setSheetColor("#244061", false);
+  updateTotalPointsBadge();
   updateLiveSheetMockup();
 }
 
@@ -2130,6 +2267,7 @@ async function startEditingExam(examId) {
     }
 
     initAnswerKeyMatrix();
+    updateTotalPointsBadge();
     updateLiveSheetMockup();
 
     // Switch to create tab
@@ -2269,10 +2407,10 @@ createExamForm.addEventListener("submit", async (e) => {
   const classroom = (document.getElementById("exam-class-input")?.value || "").trim();
   const shift = (document.getElementById("exam-shift-input")?.value || "").trim();
 
-  const numQuestions = parseInt(numQuestionsInput.value);
+  const numQuestions = parseInt(numQuestionsInput?.value) || parseInt(numQuestionsInput?.placeholder) || 20;
   const numAlternatives = parseInt(numOptionsSelect.value);
-  const points = parseFloat(document.getElementById("exam-points-input").value) || 1.0;
-  const pageCount = parseInt(document.getElementById("exam-page-count-input")?.value) || 1;
+  const points = parseFloat(document.getElementById("exam-points-input")?.value) || parseFloat(document.getElementById("exam-points-input")?.placeholder) || 1.0;
+  const pageCount = parseInt(document.getElementById("exam-page-count-input")?.value) || parseInt(document.getElementById("exam-page-count-input")?.placeholder) || 1;
 
   saveExamBtn.disabled = true;
   saveExamBtn.innerHTML = '<div class="spinner"></div><span>Salvando...</span>';
@@ -2293,7 +2431,7 @@ createExamForm.addEventListener("submit", async (e) => {
       cover_model: document.getElementById("exam-cover-model-select")?.value || "opcao_4_azul_nautico_lagoa",
       cover_title: (document.getElementById("exam-cover-title-input")?.value || "").trim() || "PROVA CANOA",
       cover_subtitle: (document.getElementById("exam-cover-subtitle-input")?.value || "").trim(),
-      cover_instructions: (document.getElementById("exam-cover-instructions-input")?.value || "").trim(),
+      cover_instructions: (document.getElementById("exam-cover-instructions-input")?.value || "").trim() || "ORIENTAÇÕES: Preencha totalmente a bolha com caneta azul ou preta.",
       page_count: pageCount
     };
 
@@ -2401,6 +2539,96 @@ async function loadSchools() {
   }
 }
 
+let currentSchoolsYearFilter = "all";
+
+function onSchoolsYearFilterChange() {
+  const select = document.getElementById("schools-year-filter");
+  currentSchoolsYearFilter = select ? select.value : "all";
+  const searchInput = document.getElementById("schools-search-input");
+  const query = searchInput ? searchInput.value.trim() : "";
+  renderSchoolsGrid(query);
+}
+
+// Formats exam badge label as "[COMPONENTE CURRICULAR] - [SÉRIE]"
+function formatExamBadgeLabel(exam, classroom = null) {
+  if (!exam) return "";
+
+  // 1. Componente Curricular
+  let component = "";
+  if (exam.builder_discipline && exam.builder_discipline.trim()) {
+    component = exam.builder_discipline.trim().toUpperCase();
+  }
+
+  const rawTitle = (exam.title || "").trim();
+  const rawSubtitle = (exam.subtitle || "").trim();
+
+  if (!component) {
+    const knownDisciplines = [
+      "LÍNGUA PORTUGUESA", "PORTUGUÊS", "MATEMÁTICA", "CIÊNCIAS DA NATUREZA", "CIÊNCIAS",
+      "HISTÓRIA", "GEOGRAFIA", "LÍNGUA INGLESA", "INGLÊS", "ARTE", "ARTES",
+      "EDUCAÇÃO FÍSICA", "ENSINO RELIGIOSO", "REDAÇÃO", "FÍSICA", "QUÍMICA", "BIOLOGIA"
+    ];
+    for (const disc of knownDisciplines) {
+      const regex = new RegExp(`\\b${disc}\\b`, "i");
+      if (regex.test(rawTitle) || regex.test(rawSubtitle)) {
+        component = disc.toUpperCase();
+        break;
+      }
+    }
+
+    if (!component && rawTitle) {
+      const parts = rawTitle.split(/\s*[-–—|]\s*/);
+      if (parts.length > 1) {
+        component = parts[parts.length - 1].trim().toUpperCase();
+      } else {
+        component = rawTitle.toUpperCase();
+      }
+    }
+  }
+
+  // 2. Série / Ano Escolar
+  let grade = "";
+  if (exam.builder_grade_year && exam.builder_grade_year.trim()) {
+    grade = exam.builder_grade_year.trim().toUpperCase();
+  }
+
+  if (!grade && rawSubtitle) {
+    const gradeMatch = rawSubtitle.match(/\b([1-9])\s*[º°ªo\.]?\s*ANO\b/i);
+    if (gradeMatch) {
+      grade = `${gradeMatch[1]}º ANO`;
+    } else {
+      const specialMatch = rawSubtitle.match(/\b(EJA|EDUCAÇÃO INFANTIL|INFANTIL)\b/i);
+      if (specialMatch) grade = specialMatch[1].toUpperCase();
+    }
+  }
+
+  if (!grade && rawTitle) {
+    const gradeMatch = rawTitle.match(/\b([1-9])\s*[º°ªo\.]?\s*ANO\b/i);
+    if (gradeMatch) {
+      grade = `${gradeMatch[1]}º ANO`;
+    }
+  }
+
+  if (!grade && classroom) {
+    let rawClGrade = (classroom.grade_year || classroom.name || "").trim();
+    const clGradeMatch = rawClGrade.match(/\b([1-9])\s*[º°ªo\.]?\s*ANO\b/i);
+    if (clGradeMatch) {
+      grade = `${clGradeMatch[1]}º ANO`;
+    } else if (classroom.grade_year && classroom.grade_year.trim()) {
+      grade = classroom.grade_year.trim().toUpperCase();
+    }
+  }
+
+  if (component && grade) {
+    return `${component} - ${grade}`;
+  } else if (component) {
+    return component;
+  } else if (grade) {
+    return `${rawTitle || "SIMULADO"} - ${grade}`;
+  }
+  return rawTitle || "SIMULADO";
+}
+
 function renderSchoolsGrid(filterTerm = "") {
   const container = document.getElementById("schools-container");
   if (!container) return;
@@ -2436,22 +2664,28 @@ function renderSchoolsGrid(filterTerm = "") {
 
   let matchedSchools = [];
   let totalMatchedClassrooms = 0;
+  const yearFilter = currentSchoolsYearFilter || "all";
 
-  if (term) {
+  if (term || yearFilter !== "all") {
     schoolsList.forEach(school => {
-      const schoolNameMatch = matchesSearchTokens(school.name, term);
+      const schoolNameMatch = term ? matchesSearchTokens(school.name, term) : false;
       const matchedClassrooms = (school.classrooms || []).filter(cl => {
-        return matchesSearchTokens([cl.name, cl.grade_year, cl.shift, school.name], term);
+        if (yearFilter !== "all") {
+          const y = String(cl.academic_year || "2026").trim();
+          if (y !== yearFilter) return false;
+        }
+        if (term && !schoolNameMatch) {
+          return matchesSearchTokens([cl.name, cl.grade_year, cl.shift, cl.academic_year, school.name], term);
+        }
+        return true;
       });
 
-      if (schoolNameMatch) {
-        matchedSchools.push(school);
-        totalMatchedClassrooms += (school.classrooms ? school.classrooms.length : 0);
-      } else if (matchedClassrooms.length > 0) {
+      if (schoolNameMatch || matchedClassrooms.length > 0) {
         matchedSchools.push({
           ...school,
           classrooms: matchedClassrooms,
-          classroom_count: matchedClassrooms.length
+          classroom_count: matchedClassrooms.length,
+          student_count: matchedClassrooms.reduce((acc, c) => acc + (c.student_count || 0), 0)
         });
         totalMatchedClassrooms += matchedClassrooms.length;
       }
@@ -2459,7 +2693,8 @@ function renderSchoolsGrid(filterTerm = "") {
 
     if (statsEl) {
       statsEl.style.display = "inline-flex";
-      statsEl.innerHTML = `<span><strong>${matchedSchools.length}</strong> escola(s) e <strong>${totalMatchedClassrooms}</strong> turma(s) encontrada(s)</span>`;
+      const yearText = yearFilter !== "all" ? ` (Ano ${yearFilter})` : "";
+      statsEl.innerHTML = `<span><strong>${matchedSchools.length}</strong> escola(s) e <strong>${totalMatchedClassrooms}</strong> turma(s) encontrada(s)${yearText}</span>`;
     }
   } else {
     matchedSchools = schoolsList;
@@ -2469,9 +2704,9 @@ function renderSchoolsGrid(filterTerm = "") {
   if (matchedSchools.length === 0) {
     container.innerHTML = `
       <div style="grid-column: 1/-1; text-align: center; padding: 2.5rem 1.5rem; background: #ffffff; border: 1px dashed #cbd5e1; border-radius: var(--radius-md);">
-        <p style="font-size: 0.95rem; font-weight: 600; color: #1e293b; margin-bottom: 0.35rem;">Nenhuma escola ou turma encontrada para "${escapeHtml(term)}"</p>
-        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.85rem;">Tente pesquisar por outro nome de escola, série (ex: 9º Ano) ou turno.</p>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="clearSchoolsSearch()">Limpar busca</button>
+        <p style="font-size: 0.95rem; font-weight: 600; color: #1e293b; margin-bottom: 0.35rem;">Nenhuma escola ou turma encontrada</p>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.85rem;">Tente selecionar outro Ano Letivo ou pesquisar por outro termo.</p>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="clearSchoolsSearch()">Limpar filtros</button>
       </div>
     `;
     return;
@@ -2489,7 +2724,11 @@ function renderSchoolsGrid(filterTerm = "") {
         const hasBuilderExams = builderExams.length > 0;
 
         const linkedBadges = (cl.linked_exams && cl.linked_exams.length > 0)
-          ? cl.linked_exams.map(e => `<span class="cl-exam-chip" title="${escapeHtml(e.title)}">${escapeHtml(e.title)}</span>`).join("")
+          ? cl.linked_exams.map(e => {
+              const label = formatExamBadgeLabel(e, cl);
+              const fullTitle = `${e.title || ''}${e.subtitle ? ' (' + e.subtitle + ')' : ''}`;
+              return `<span class="cl-exam-chip" title="${escapeHtml(fullTitle)}">${escapeHtml(label)}</span>`;
+            }).join("")
           : `<button type="button" class="cl-no-exams-btn" onclick="openLinkExamsModal('${cl.id}')" title="Clique para vincular simulados a esta turma">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                 <span>Vincular simulado</span>
@@ -2538,6 +2777,10 @@ function renderSchoolsGrid(filterTerm = "") {
           }
         }
 
+        const displayYear = cl.academic_year 
+          ? `<span class="cl-shift" style="background:#e0e7ff; color:#3730a3; font-weight:700; border: 1px solid #c7d2fe;" title="Ano Letivo: ${escapeHtml(cl.academic_year)}">${escapeHtml(cl.academic_year)}</span>` 
+          : '';
+
         return `
           <div class="classroom-row">
             <div class="cl-col-main">
@@ -2545,6 +2788,7 @@ function renderSchoolsGrid(filterTerm = "") {
               <div class="cl-tags-wrap">
                 ${displayGrade}
                 ${displayShift}
+                ${displayYear}
               </div>
             </div>
 
@@ -2554,7 +2798,7 @@ function renderSchoolsGrid(filterTerm = "") {
 
             <div class="cl-col-students">
               <button type="button" class="cl-student-toggle-btn" onclick="toggleStudentList('${cl.id}')" title="Ver lista de alunos">
-                <strong>${cl.student_count || 0}</strong> alunos ▾
+                <strong id="cl-student-count-${cl.id}">${cl.student_count || 0}</strong> alunos ▾
               </button>
             </div>
 
@@ -2611,7 +2855,7 @@ function renderSchoolsGrid(filterTerm = "") {
         `;
       }).join("");
     } else {
-      classListHtml = `<div style="font-size: 0.85rem; color: var(--text-secondary); text-align: center; padding: 1.5rem;">Nenhuma turma cadastrada nesta escola.</div>`;
+      classListHtml = `<div style="font-size: 0.85rem; color: var(--text-secondary); text-align: center; padding: 1.5rem;">Nenhuma turma cadastrada nesta escola para os filtros selecionados.</div>`;
     }
 
     card.innerHTML = `
@@ -2639,6 +2883,10 @@ function renderSchoolsGrid(filterTerm = "") {
             <button type="button" class="btn btn-secondary btn-sm" onclick="openExportReportModal('school', 'school_performance', 'pdf', '${school.id}')" title="Exportar Relatório Consolidado da Escola">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               <span>Relatório</span>
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="openNewClassroomModal('${school.id}', '${escapeHtml(school.name)}')" title="Cadastrar nova turma nesta escola">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              <span>Nova Turma</span>
             </button>
             <button type="button" class="btn btn-secondary btn-sm" onclick="openCsvModal('${school.id}')">
               Importar CSV
@@ -2698,45 +2946,302 @@ async function toggleStudentList(classId) {
   }
 
   el.style.display = "block";
+  el.innerHTML = '<div style="text-align: center; padding: 0.75rem; color: var(--text-secondary); font-size: 0.85rem;">Carregando alunos...</div>';
+  await reloadClassroomStudentsList(classId);
+}
+
+// Reload students list for a specific classroom and re-render interactive items
+async function reloadClassroomStudentsList(classId) {
+  const el = document.getElementById(`students-collapse-${classId}`);
+  if (!el) return;
+
   try {
-    const res = await fetch(`/api/classrooms/${classId}`);
-    if (!res.ok) throw new Error("Falha ao carregar alunos");
+    const res = await fetch(`/api/classrooms/${classId}`, {
+      headers: { ...getAuthHeaders() }
+    });
+    if (!res.ok) throw new Error("Falha ao carregar alunos da turma");
     const data = await res.json();
     const students = data.students || [];
 
+    // Dynamically update the count in badge and state
+    updateClassroomBadgeCount(classId, students.length);
+
+    let listRowsHtml = "";
     if (students.length === 0) {
-      el.innerHTML = '<div style="padding: 0.5rem; color: var(--text-secondary);">Nenhum aluno cadastrado.</div>';
-      return;
+      listRowsHtml = `<div style="padding: 0.85rem; color: var(--text-secondary); text-align: center; font-size: 0.85rem; background: #ffffff; border-radius: 6px; border: 1px dashed #cbd5e1;">Nenhum aluno cadastrado nesta turma ainda. Cadastre o primeiro no formulário acima!</div>`;
+    } else {
+      listRowsHtml = `
+        <ul class="students-list-mini" style="display: flex; flex-direction: column; gap: 0.35rem; max-height: 280px; overflow-y: auto; padding: 2px;">
+          ${students.map((s, idx) => {
+            const parts = (s.name || "").trim().split(/\s+/).filter(Boolean);
+            const initials = parts.length === 1
+              ? parts[0].substring(0, 2).toUpperCase()
+              : ((parts[0] ? parts[0][0] : "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
+
+            const safeStudentName = escapeHtml(s.name || '').replace(/'/g, "\\'");
+
+            return `
+              <li style="display: flex; align-items: center; justify-content: space-between; padding: 0.45rem 0.75rem; border-radius: 6px; background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+                <div style="display: flex; align-items: center; gap: 0.6rem; min-width: 0;">
+                  <span style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: #0f2942; color: #ffffff; font-size: 0.68rem; font-weight: 700; flex-shrink: 0;">
+                    ${initials || "AL"}
+                  </span>
+                  <span style="font-size: 0.84rem; font-weight: 600; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(s.name)}">
+                    ${idx + 1}. ${escapeHtml(s.name)}
+                  </span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; margin-left: 0.5rem;">
+                  <span class="student-reg-num" style="font-family: monospace; font-size: 0.75rem; color: #64748b; background: #f8fafc; padding: 2px 7px; border-radius: 4px; border: 1px solid #e2e8f0;" title="Matrícula / Código">
+                    ${escapeHtml(s.registration || "-")}
+                  </span>
+                  ${currentUserProfile && (currentUserProfile.role === "admin" || currentUserProfile.role === "coordenador") ? `
+                  <button type="button" class="btn-icon-subtle" onclick="openEditStudentModal('${s.id}', '${classId}', '${safeStudentName}', '${escapeHtml(s.registration || '').replace(/'/g, "\\'")}')" title="Editar dados do aluno" style="background: none; border: none; color: #2563eb; cursor: pointer; padding: 4px 6px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; transition: background 0.15s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='none'">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                  </button>
+                  <button type="button" class="btn-icon-danger" onclick="deleteStudentConfirm('${s.id}', '${classId}', '${safeStudentName}')" title="Excluir aluno da turma" style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 4px 6px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; transition: background 0.15s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                  </button>` : ''}
+                </div>
+              </li>
+            `;
+          }).join("")}
+        </ul>
+      `;
     }
 
-    el.innerHTML = `
-      <ul class="students-list-mini" style="display: flex; flex-direction: column; gap: 0.25rem; max-height: 240px; overflow-y: auto;">
-        ${students.map((s, idx) => {
-      const parts = (s.name || "").trim().split(/\s+/).filter(Boolean);
-      const initials = parts.length === 1
-        ? parts[0].substring(0, 2).toUpperCase()
-        : ((parts[0] ? parts[0][0] : "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
+    const canManageStudents = !currentUserProfile || currentUserProfile.role === "admin" || currentUserProfile.role === "coordenador";
+    const addStudentBarHtml = canManageStudents ? `
+      <form onsubmit="quickAddStudent(event, '${classId}')" style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; padding: 0.65rem 0.85rem; background: #f1f5f9; border-radius: 8px; margin-bottom: 0.75rem; border: 1px solid #cbd5e1;">
+        <span style="font-size: 0.78rem; font-weight: 700; color: #334155; text-transform: uppercase; display: flex; align-items: center; gap: 4px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+          Adicionar Aluno:
+        </span>
+        <input type="text" id="quick-student-name-${classId}" class="form-input form-input-sm" placeholder="Nome Completo do Aluno *" style="flex: 2; min-width: 170px; height: 32px; font-size: 0.82rem; background: #ffffff;" required autocomplete="off">
+        <input type="text" id="quick-student-reg-${classId}" class="form-input form-input-sm" placeholder="Matrícula / Cód. (opcional)" style="flex: 1; min-width: 120px; height: 32px; font-size: 0.82rem; background: #ffffff;" autocomplete="off">
+        <button type="submit" class="btn btn-primary btn-sm" id="btn-quick-add-${classId}" style="height: 32px; padding: 0 0.85rem; font-size: 0.8rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>Cadastrar</span>
+        </button>
+      </form>
+    ` : '';
 
-      return `
-          <li style="display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0.65rem; border-radius: 6px; background: #f8fafc; border: 1px solid #e2e8f0;">
-            <div style="display: flex; align-items: center; gap: 0.55rem; min-width: 0;">
-              <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #0f2942; color: #ffffff; font-size: 0.65rem; font-weight: 700; flex-shrink: 0;">
-                ${initials || "AL"}
-              </span>
-              <span style="font-size: 0.825rem; font-weight: 600; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                ${idx + 1}. ${s.name}
-              </span>
-            </div>
-            <span class="student-reg-num" style="font-family: monospace; font-size: 0.75rem; color: #64748b; background: #ffffff; padding: 2px 7px; border-radius: 4px; border: 1px solid #e2e8f0; flex-shrink: 0; margin-left: 0.5rem;">
-              ${s.registration || "-"}
-            </span>
-          </li>
-        `;
-    }).join("")}
-      </ul>
+    el.innerHTML = `
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.75rem; margin-top: 0.5rem;">
+        ${addStudentBarHtml}
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem; padding: 0 0.2rem;">
+          <span style="font-size: 0.76rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Estudantes Enturmados (${students.length})</span>
+          <span style="font-size: 0.74rem; color: #94a3b8;">Total: ${students.length} aluno(s)</span>
+        </div>
+        ${listRowsHtml}
+      </div>
     `;
   } catch (err) {
-    el.innerHTML = `<div style="padding: 0.5rem; color: var(--danger);">${err.message}</div>`;
+    el.innerHTML = `<div style="padding: 0.75rem; color: var(--danger); font-size: 0.85rem;">Erro ao carregar lista de alunos: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// Quick Add Student directly inside the classroom card
+async function quickAddStudent(event, classId) {
+  if (event && event.preventDefault) event.preventDefault();
+  const nameInput = document.getElementById(`quick-student-name-${classId}`);
+  const regInput = document.getElementById(`quick-student-reg-${classId}`);
+  const submitBtn = document.getElementById(`btn-quick-add-${classId}`);
+  if (!nameInput) return;
+
+  const name = nameInput.value.trim();
+  const registration = regInput ? regInput.value.trim() : "";
+
+  if (!name) {
+    showToast("Por favor, preencha o nome do aluno.", "warning");
+    nameInput.focus();
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = "<span>Salvando...</span>";
+  }
+
+  try {
+    const res = await fetch(`/api/classrooms/${classId}/students`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify({ name, registration })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Erro ao adicionar aluno.");
+    }
+
+    nameInput.value = "";
+    if (regInput) regInput.value = "";
+    showToast(`Aluno "${name}" adicionado com sucesso!`, "success");
+    await reloadClassroomStudentsList(classId);
+    nameInput.focus();
+  } catch (err) {
+    showToast(err.message, "error");
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <span>Cadastrar</span>
+      `;
+    }
+  }
+}
+
+// Delete student confirmation and deletion
+async function deleteStudentConfirm(studentId, classId, studentName) {
+  if (currentUserProfile && currentUserProfile.role !== "admin" && currentUserProfile.role !== "coordenador") {
+    showToast("Você não possui permissão para excluir alunos.", "warning");
+    return;
+  }
+
+  const confirmed = await showConfirmModal({
+    title: "Remover Aluno",
+    html: `
+      <div style="font-size: 0.95rem; color: #1e293b; line-height: 1.5;">
+        Deseja realmente remover o aluno <strong style="color: #0f172a;">"${escapeHtml(studentName || 'este aluno')}"</strong> desta turma?
+      </div>
+      <div style="margin-top: 0.5rem; font-size: 0.8rem; color: #64748b;">
+        As notas e gabaritos já vinculados a este aluno permanecerão no histórico, mas ele não constará mais nesta turma.
+      </div>
+    `,
+    confirmText: "Sim, Remover",
+    cancelText: "Cancelar",
+    type: "danger"
+  });
+
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch(`/api/students/${studentId}`, {
+      method: "DELETE",
+      headers: { ...getAuthHeaders() }
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Erro ao excluir aluno.");
+    }
+
+    showToast("Aluno removido com sucesso.", "success");
+    await reloadClassroomStudentsList(classId);
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+
+// Immediately update the classroom student badge and school student total
+function updateClassroomBadgeCount(classId, newCount) {
+  const countEl = document.getElementById(`cl-student-count-${classId}`);
+  if (countEl) {
+    countEl.textContent = newCount;
+  }
+  if (Array.isArray(schoolsList)) {
+    for (const sch of schoolsList) {
+      const cl = (sch.classrooms || []).find(c => c.id === classId);
+      if (cl) {
+        cl.student_count = newCount;
+        sch.student_count = (sch.classrooms || []).reduce((acc, c) => acc + (c.student_count || 0), 0);
+        break;
+      }
+    }
+  }
+}
+
+// Edit Student Modal Functions
+function openEditStudentModal(studentId, classId, studentName, studentReg) {
+  const modal = document.getElementById("edit-student-modal");
+  const idInput = document.getElementById("edit-student-id-input");
+  const classIdInput = document.getElementById("edit-student-class-id-input");
+  const nameInput = document.getElementById("edit-student-name-input");
+  const regInput = document.getElementById("edit-student-reg-input");
+  const subtitle = document.getElementById("edit-student-subtitle");
+
+  if (idInput) idInput.value = studentId;
+  if (classIdInput) classIdInput.value = classId;
+  if (nameInput) nameInput.value = studentName || "";
+  if (regInput) regInput.value = (studentReg && studentReg !== "-") ? studentReg : "";
+  if (subtitle) subtitle.textContent = studentName ? `Editando: ${studentName}` : "Atualização cadastral do estudante";
+
+  if (modal) {
+    modal.style.display = "flex";
+    setTimeout(() => { if (nameInput) nameInput.focus(); }, 50);
+  }
+}
+
+function closeEditStudentModal() {
+  const modal = document.getElementById("edit-student-modal");
+  if (modal) modal.style.display = "none";
+}
+
+async function handleSaveStudentEdit(event) {
+  if (event && event.preventDefault) event.preventDefault();
+
+  const idInput = document.getElementById("edit-student-id-input");
+  const classIdInput = document.getElementById("edit-student-class-id-input");
+  const nameInput = document.getElementById("edit-student-name-input");
+  const regInput = document.getElementById("edit-student-reg-input");
+  const saveBtn = document.getElementById("btn-save-edit-student");
+
+  const studentId = idInput ? idInput.value.trim() : "";
+  const classId = classIdInput ? classIdInput.value.trim() : "";
+  const name = nameInput ? nameInput.value.trim() : "";
+  const registration = regInput ? regInput.value.trim() : "";
+
+  if (!studentId) {
+    showToast("Identificação do aluno não encontrada.", "error");
+    return;
+  }
+  if (!name) {
+    showToast("Por favor, preencha o nome do aluno.", "warning");
+    if (nameInput) nameInput.focus();
+    return;
+  }
+
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = "<span>Salvando...</span>";
+  }
+
+  try {
+    const res = await fetch(`/api/students/${studentId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify({ name, registration })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Erro ao atualizar dados do aluno.");
+    }
+
+    showToast("Dados do aluno atualizados com sucesso!", "success");
+    closeEditStudentModal();
+    if (classId) {
+      await reloadClassroomStudentsList(classId);
+    }
+  } catch (err) {
+    showToast(err.message, "error");
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>Salvar Aluno</span>
+      `;
+    }
   }
 }
 
@@ -2753,6 +3258,100 @@ function openNewSchoolModal() {
 function closeNewSchoolModal() {
   const modal = document.getElementById("new-school-modal");
   if (modal) modal.style.display = "none";
+}
+
+// Manual Classroom Modal Functions
+function openNewClassroomModal(schoolId, schoolName = null) {
+  const modal = document.getElementById("new-classroom-modal");
+  const schoolIdInput = document.getElementById("new-classroom-school-id");
+  const schoolNameLabel = document.getElementById("new-classroom-school-name");
+  const nameInput = document.getElementById("new-classroom-name-input");
+  const gradeSelect = document.getElementById("new-classroom-grade-select");
+  const shiftSelect = document.getElementById("new-classroom-shift-select");
+  const yearInput = document.getElementById("new-classroom-year-input");
+
+  if (!schoolName && Array.isArray(schoolsList)) {
+    const s = schoolsList.find(x => x.id === schoolId);
+    if (s) schoolName = s.name;
+  }
+
+  if (schoolIdInput) schoolIdInput.value = schoolId;
+  if (schoolNameLabel) schoolNameLabel.textContent = schoolName ? `Escola: ${schoolName}` : "Escola";
+  if (nameInput) nameInput.value = "";
+  if (gradeSelect) gradeSelect.value = "8º ANO";
+  if (shiftSelect) shiftSelect.value = "MANHÃ";
+  if (yearInput) {
+    yearInput.value = (currentSchoolsYearFilter && currentSchoolsYearFilter !== "all") ? currentSchoolsYearFilter : "2026";
+  }
+
+  if (modal) {
+    modal.style.display = "flex";
+    setTimeout(() => { if (nameInput) nameInput.focus(); }, 50);
+  }
+}
+
+function closeNewClassroomModal() {
+  const modal = document.getElementById("new-classroom-modal");
+  if (modal) modal.style.display = "none";
+}
+
+async function handleNewClassroomSubmit(event) {
+  if (event && event.preventDefault) event.preventDefault();
+
+  const schoolId = (document.getElementById("new-classroom-school-id")?.value || "").trim();
+  const name = (document.getElementById("new-classroom-name-input")?.value || "").trim();
+  const gradeYear = (document.getElementById("new-classroom-grade-select")?.value || "").trim();
+  const shift = (document.getElementById("new-classroom-shift-select")?.value || "").trim();
+  const academicYear = (document.getElementById("new-classroom-year-input")?.value || "2026").trim();
+  const submitBtn = document.getElementById("btn-save-new-classroom");
+
+  if (!schoolId) {
+    showToast("Identificação da escola não informada.", "error");
+    return;
+  }
+  if (!name) {
+    showToast("Por favor, preencha o nome da turma.", "warning");
+    document.getElementById("new-classroom-name-input")?.focus();
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = "<span>Cadastrando...</span>";
+  }
+
+  try {
+    const res = await fetch("/api/classrooms", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify({
+        school_id: schoolId,
+        name: name,
+        grade_year: gradeYear,
+        shift: shift,
+        academic_year: academicYear
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Erro ao cadastrar turma.");
+    }
+
+    showToast(`Turma "${name}" cadastrada com sucesso!`, "success");
+    closeNewClassroomModal();
+    await loadSchools();
+  } catch (err) {
+    showToast(err.message, "error");
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = "<span>Cadastrar Turma</span>";
+    }
+  }
 }
 
 async function deleteSchoolConfirm(schoolId, schoolName = null) {
@@ -3226,7 +3825,7 @@ async function saveLinkedExams() {
 }
 
 // Edit Classroom Modal Functions
-function openEditClassroomModal(classId, className = null, shift = null, gradeYear = null, schoolName = null) {
+function openEditClassroomModal(classId, className = null, shift = null, gradeYear = null, schoolName = null, academicYear = null) {
   if (classId && Array.isArray(schoolsList)) {
     for (const s of schoolsList) {
       const c = (s.classrooms || []).find(item => item.id === classId);
@@ -3234,6 +3833,7 @@ function openEditClassroomModal(classId, className = null, shift = null, gradeYe
         if (!className) className = c.name;
         if (!shift) shift = c.shift;
         if (!gradeYear) gradeYear = c.grade_year;
+        if (!academicYear) academicYear = c.academic_year;
         if (!schoolName) schoolName = s.name;
         break;
       }
@@ -3246,11 +3846,13 @@ function openEditClassroomModal(classId, className = null, shift = null, gradeYe
   const gradeSelect = document.getElementById("edit-classroom-grade-select");
   const gradeCustomWrap = document.getElementById("edit-classroom-grade-custom-wrap");
   const gradeCustomInput = document.getElementById("edit-classroom-grade-custom-input");
+  const yearInput = document.getElementById("edit-classroom-year-input");
   const schoolSubtitle = document.getElementById("edit-classroom-school-subtitle");
 
   if (idInput) idInput.value = classId;
   if (nameInput) nameInput.value = className || "";
   if (schoolSubtitle) schoolSubtitle.textContent = schoolName ? `Escola: ${schoolName}` : "Dados da Turma";
+  if (yearInput) yearInput.value = academicYear || "2026";
 
   // Shift normalization
   if (shiftSelect) {
@@ -3937,6 +4539,9 @@ async function loadClassroomReportPage(classId, examId) {
     if (elMaxScoreSub) elMaxScoreSub.textContent = `de ${maxScore.toFixed(1)} pontos`;
     if (elAvgPct) elAvgPct.textContent = `${avgPct}%`;
 
+    // 1.1 Render SALVEAL Pedagogical Analytics (Níveis de Aprendizagem & Habilidades)
+    renderSalvealClassroomAnalytics(data);
+
     // 2. Render Podium Top 3
     renderPodium(data.students || [], maxScore);
 
@@ -4015,6 +4620,513 @@ function renderPodium(students, maxScore) {
   }).join("");
 
   container.innerHTML = `<div class="top-students-grid">${cardsHtml}</div>`;
+}
+
+// --- SALVEAL / PEDAGOGICAL ANALYTICS (NÍVEIS DE APRENDIZAGEM & HABILIDADES) ---
+let currentSalvealReportData = null;
+
+function renderSalvealClassroomAnalytics(data) {
+  currentSalvealReportData = data;
+  if (!data) return;
+
+  const exam = data.exam || {};
+  const cycleTitle = exam.title || "Simulado";
+  const gradedCount = data.graded_students || 0;
+
+  // 1. Atualizar títulos de ciclo nos cards
+  const elEvalCycle = document.getElementById("salveal-eval-cycle");
+  const elAdeqCycle = document.getElementById("salveal-adeq-cycle");
+  if (elEvalCycle) elEvalCycle.textContent = cycleTitle;
+  if (elAdeqCycle) elAdeqCycle.textContent = cycleTitle;
+
+  // 2. Card: Estudantes avaliados
+  const elEvalCount = document.getElementById("salveal-eval-count");
+  if (elEvalCount) elEvalCount.textContent = gradedCount;
+
+  // 3. Card: Estudantes com aprendizagem adequada & Distribuição
+  const levels = data.learning_levels || {
+    defasagem: { count: 0, percentage: 0, students: [] },
+    intermediario: { count: 0, percentage: 0, students: [] },
+    adequado: { count: 0, percentage: 0, students: [] }
+  };
+
+  const adeqPct = levels.adequado ? (levels.adequado.percentage || 0) : 0;
+  const defPct = levels.defasagem ? (levels.defasagem.percentage || 0) : 0;
+  const interPct = levels.intermediario ? (levels.intermediario.percentage || 0) : 0;
+
+  const elAdeqPct = document.getElementById("salveal-adeq-pct");
+  if (elAdeqPct) elAdeqPct.textContent = `${adeqPct}%`;
+
+  // Barra horizontal segmentada
+  const segDef = document.getElementById("salveal-seg-defasagem");
+  const segInter = document.getElementById("salveal-seg-intermediario");
+  const segAdeq = document.getElementById("salveal-seg-adequado");
+
+  if (segDef) segDef.style.width = gradedCount > 0 ? `${defPct}%` : "0%";
+  if (segInter) segInter.style.width = gradedCount > 0 ? `${interPct}%` : "0%";
+  if (segAdeq) segAdeq.style.width = gradedCount > 0 ? `${adeqPct}%` : "0%";
+
+  // Legendas com contagens
+  const elSubDef = document.getElementById("salveal-sub-defasagem");
+  const elPctDef = document.getElementById("salveal-pct-defasagem");
+  const elSubInter = document.getElementById("salveal-sub-intermediario");
+  const elPctInter = document.getElementById("salveal-pct-intermediario");
+  const elSubAdeq = document.getElementById("salveal-sub-adequado");
+  const elPctAdeq = document.getElementById("salveal-pct-adequado");
+
+  const defCount = levels.defasagem ? (levels.defasagem.count || 0) : 0;
+  const interCount = levels.intermediario ? (levels.intermediario.count || 0) : 0;
+  const adeqCount = levels.adequado ? (levels.adequado.count || 0) : 0;
+
+  if (elSubDef) elSubDef.textContent = `${defCount} estudantes`;
+  if (elPctDef) elPctDef.textContent = `${defPct}%`;
+  if (elSubInter) elSubInter.textContent = `${interCount} estudantes`;
+  if (elPctInter) elPctInter.textContent = `${interPct}%`;
+  if (elSubAdeq) elSubAdeq.textContent = `${adeqCount} estudantes`;
+  if (elPctAdeq) elPctAdeq.textContent = `${adeqPct}%`;
+
+  // 4. Seção: Percentual de acerto por habilidade
+  const skillsList = data.skills_stats || data.skills_performance || [];
+  const filterSelect = document.getElementById("salveal-filter-skills");
+  if (filterSelect) {
+    const currentVal = filterSelect.value || "all";
+    filterSelect.innerHTML = '<option value="all">Todos</option>';
+    skillsList.forEach(s => {
+      const qCode = s.habilidade_code ? s.habilidade_code.replace('H', 'Q') : `Q ${s.question < 10 ? '0' + s.question : s.question}`;
+      const opt = document.createElement("option");
+      opt.value = s.question;
+      opt.textContent = `${qCode} (${s.skill_code}) - ${Math.round(s.accuracy_percentage)}%`;
+      if (String(s.question) === String(currentVal)) opt.selected = true;
+      filterSelect.appendChild(opt);
+    });
+  }
+
+  const gridContainer = document.getElementById("salveal-skills-grid");
+  if (gridContainer) {
+    if (skillsList.length === 0) {
+      gridContainer.innerHTML = '<div style="padding: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; width: 100%;">Nenhuma questão/habilidade vinculada a este simulado.</div>';
+    } else {
+      gridContainer.innerHTML = skillsList.map(s => {
+        const roundedPct = Math.round(s.accuracy_percentage || 0);
+        const tier = s.tier || 'low';
+        const tierHyphen = tier.replace('_', '-');
+        const qCode = s.habilidade_code ? s.habilidade_code.replace('H', 'Q') : `Q ${s.question < 10 ? '0' + s.question : s.question}`;
+        return `
+          <div class="salveal-skill-badge badge-tier-${tierHyphen} badge-tier-${tier}" 
+               data-question="${s.question}" 
+               onclick="openSingleSkillDetailModal(${s.question})"
+               title="${qCode} (${s.skill_code}): ${roundedPct}% de acerto (${s.status_label || ''})">
+            <span class="skill-badge-h">${qCode}</span>
+            <span class="skill-badge-code">(${s.skill_code})</span>
+            <span class="skill-badge-pct">${roundedPct}%</span>
+          </div>
+        `;
+      }).join("");
+    }
+  }
+}
+
+// Filtro de habilidades
+function filterSalvealSkills(selectedVal) {
+  const gridContainer = document.getElementById("salveal-skills-grid");
+  if (!gridContainer) return;
+
+  const badges = gridContainer.querySelectorAll(".salveal-skill-badge");
+  badges.forEach(b => {
+    if (selectedVal === "all" || b.getAttribute("data-question") === String(selectedVal)) {
+      b.classList.remove("dimmed");
+    } else {
+      b.classList.add("dimmed");
+    }
+  });
+}
+
+// Estado global para exportação CSV de modais
+let currentActiveStudentsModalData = null;
+let currentSingleSkillDetailData = null;
+
+// Modal de Estudantes por Nível (Ver mais)
+function openSalvealStudentsModal(filterType) {
+  const modal = document.getElementById("modal-salveal-students");
+  const titleEl = document.getElementById("salveal-students-modal-title");
+  const subEl = document.getElementById("salveal-students-modal-sub");
+  const tbody = document.getElementById("salveal-students-modal-tbody");
+  if (!modal || !tbody) return;
+
+  if (!currentSalvealReportData) {
+    showToast("Dados do relatório não disponíveis.", "warning");
+    return;
+  }
+
+  const allStudents = currentSalvealReportData.students || [];
+  const graded = allStudents.filter(s => s.status === "CORRIGIDO" && s.percentage !== null);
+  const levels = currentSalvealReportData.learning_levels || {};
+
+  let targetStudents = [];
+  let title = "Estudantes Avaliados";
+  let sub = "Listagem completa de estudantes que realizaram a avaliação";
+
+  if (filterType === "defasagem") {
+    title = "Estudantes em Nível de Defasagem (< 50%)";
+    sub = "Alunos que necessitam de intervenção pedagógica prioritária e recuperação";
+    targetStudents = (levels.defasagem && levels.defasagem.students) || graded.filter(s => s.percentage < 50);
+  } else if (filterType === "intermediario") {
+    title = "Estudantes em Aprendizado Intermediário (50% a 69%)";
+    sub = "Alunos em desenvolvimento de habilidades básicas que podem evoluir para adequado";
+    targetStudents = (levels.intermediario && levels.intermediario.students) || graded.filter(s => s.percentage >= 50 && s.percentage < 70);
+  } else if (filterType === "adequado") {
+    title = "Estudantes com Aprendizagem Adequada (≥ 70%)";
+    sub = "Alunos que consolidaram as habilidades e competências essenciais avaliadas";
+    targetStudents = (levels.adequado && levels.adequado.students) || graded.filter(s => s.percentage >= 70);
+  } else {
+    targetStudents = [...graded];
+  }
+
+  // Ordenar por percentual decrescente para ranking claro
+  targetStudents.sort((a, b) => (b.percentage || 0) - (a.percentage || 0));
+
+  if (titleEl) titleEl.textContent = title;
+  if (subEl) subEl.textContent = sub;
+
+  if (targetStudents.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhum estudante encontrado nesta categoria.</td></tr>';
+  } else {
+    tbody.innerHTML = targetStudents.map((st, idx) => {
+      const pct = typeof st.percentage === "number" ? st.percentage.toFixed(1) : "-";
+      const score = typeof st.score === "number" ? st.score.toFixed(1) : "-";
+      
+      let badgeHtml = "";
+      if (st.percentage < 50) {
+        badgeHtml = '<span class="status-badge" style="background: #fee2e2; color: #b91c1c; font-weight: 700; border: 1px solid #fecaca;">Defasagem</span>';
+      } else if (st.percentage < 70) {
+        badgeHtml = '<span class="status-badge" style="background: #ffedd5; color: #c2410c; font-weight: 700; border: 1px solid #fed7aa;">Intermediário</span>';
+      } else {
+        badgeHtml = '<span class="status-badge" style="background: #ccfbf1; color: #0f766e; font-weight: 700; border: 1px solid #99f6e4;">Adequado</span>';
+      }
+
+      // Indicador de Pódio
+      let rankDisplay = `${idx + 1}º`;
+      if (idx === 0) rankDisplay = `<span style="font-weight: 800; color: #d97706;" title="1º Lugar">🥇 1º</span>`;
+      else if (idx === 1) rankDisplay = `<span style="font-weight: 800; color: #64748b;" title="2º Lugar">🥈 2º</span>`;
+      else if (idx === 2) rankDisplay = `<span style="font-weight: 800; color: #b45309;" title="3º Lugar">🥉 3º</span>`;
+
+      return `
+        <tr>
+          <td style="text-align: center; font-weight: 700; color: var(--text-muted);">${rankDisplay}</td>
+          <td style="font-weight: 700; color: var(--text-primary);">${st.name}</td>
+          <td style="text-align: center; color: var(--text-secondary); font-family: monospace;">${st.registration || "-"}</td>
+          <td style="text-align: center; font-weight: 700;">${score}</td>
+          <td style="text-align: center; font-weight: 800; color: var(--text-primary); font-size: 0.95rem;">${pct}%</td>
+          <td style="text-align: center;">${badgeHtml}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  currentActiveStudentsModalData = {
+    examTitle: currentSalvealReportData?.exam?.title || "Simulado",
+    title,
+    students: targetStudents
+  };
+
+  modal.style.display = "flex";
+}
+
+// Modal de Habilidades (Ver mais)
+function openSalvealSkillsModal() {
+  const modal = document.getElementById("modal-salveal-skills");
+  const tbody = document.getElementById("salveal-skills-modal-tbody");
+  if (!modal || !tbody) return;
+
+  if (!currentSalvealReportData) {
+    showToast("Dados do relatório não disponíveis.", "warning");
+    return;
+  }
+
+  const skillsList = currentSalvealReportData.skills_stats || currentSalvealReportData.skills_performance || [];
+  if (skillsList.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhuma habilidade cadastrada para este simulado.</td></tr>';
+  } else {
+    tbody.innerHTML = skillsList.map(s => {
+      const roundedPct = Math.round(s.accuracy_percentage || 0);
+      const tierKey = (s.tier || 'low').replace('_', '-');
+      let tierBadge = "";
+      let dotColor = "#ea5a47";
+
+      if (tierKey === "low") {
+        dotColor = "#ea5a47";
+        tierBadge = '<span class="status-badge" style="background: #fee2e2; color: #b91c1c; font-weight: 700; border: 1px solid #fecaca;">Até 40% (Crítico)</span>';
+      } else if (tierKey === "med-low") {
+        dotColor = "#fca374";
+        tierBadge = '<span class="status-badge" style="background: #ffedd5; color: #c2410c; font-weight: 700; border: 1px solid #fed7aa;">41 a 60% (Básico)</span>';
+      } else if (tierKey === "med-high") {
+        dotColor = "#9fe3ea";
+        tierBadge = '<span class="status-badge" style="background: #e0f2fe; color: #0369a1; font-weight: 700; border: 1px solid #bae6fd;">61 a 80% (Intermediário)</span>';
+      } else {
+        dotColor = "#00b8d4";
+        tierBadge = '<span class="status-badge" style="background: #ccfbf1; color: #0f766e; font-weight: 700; border: 1px solid #99f6e4;">Acima de 80% (Adequado)</span>';
+      }
+
+      const qCode = s.habilidade_code ? s.habilidade_code.replace('H', 'Q') : `Q ${s.question < 10 ? '0' + s.question : s.question}`;
+      const descText = s.skill_description || s.statement || "Habilidade da matriz de referência do simulado";
+      const descSnippet = `<div style="font-size: 0.8rem; color: var(--text-primary); max-width: 380px; line-height: 1.35; white-space: normal;">${descText}</div>`;
+
+      return `
+        <tr style="cursor: pointer; transition: background 0.15s ease;" onclick="openSingleSkillDetailModal(${s.question})" title="Clique para ver o diagnóstico completo dos alunos nesta questão">
+          <td style="text-align: center;">
+            <div style="display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 800; color: var(--text-primary);">
+              <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${dotColor};"></span>
+              ${qCode}
+            </div>
+          </td>
+          <td style="text-align: center; font-weight: 700; font-family: monospace; color: var(--primary);">${s.skill_code}</td>
+          <td>${descSnippet}</td>
+          <td style="text-align: center; font-weight: 700;">${s.correct_count} / ${s.total_graded}</td>
+          <td style="text-align: center;">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.25rem;">
+              <span style="font-weight: 800; font-size: 0.95rem; color: var(--text-primary);">${roundedPct}%</span>
+              <div style="width: 70px; height: 5px; background: #e2e8f0; border-radius: 3px; overflow: hidden;">
+                <div style="width: ${roundedPct}%; height: 100%; background: ${dotColor}; border-radius: 3px;"></div>
+              </div>
+            </div>
+          </td>
+          <td style="text-align: center;">${tierBadge}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  modal.style.display = "flex";
+}
+
+// Modal de Detalhe Completo de uma Habilidade / Item (Popup ao clicar no badge)
+function openSingleSkillDetailModal(questionNum) {
+  const modal = document.getElementById("modal-single-skill-detail");
+  if (!modal) return;
+  if (!currentSalvealReportData) {
+    showToast("Dados do relatório não disponíveis.", "warning");
+    return;
+  }
+
+  const skillsList = currentSalvealReportData.skills_stats || currentSalvealReportData.skills_performance || [];
+  const s = skillsList.find(item => item.question === questionNum);
+  if (!s) {
+    showToast("Habilidade não encontrada para a questão " + questionNum, "warning");
+    return;
+  }
+
+  const exam = currentSalvealReportData.exam || {};
+  const answerKey = exam.answer_key || {};
+  const correctAns = answerKey[String(questionNum)] || s.correct_answer || "-";
+  const roundedPct = Math.round(s.accuracy_percentage || 0);
+
+  // Título, Badge e Subtítulo
+  const titleEl = document.getElementById("single-skill-modal-title");
+  const badgeEl = document.getElementById("single-skill-modal-badge");
+  const subEl = document.getElementById("single-skill-modal-sub");
+  
+  const qCode = s.habilidade_code ? s.habilidade_code.replace('H', 'Q') : `Q ${s.question < 10 ? '0' + s.question : s.question}`;
+  if (titleEl) titleEl.textContent = `${qCode} (${s.skill_code})`;
+  if (subEl) subEl.textContent = `${exam.title || 'Simulado'} • Questão ${questionNum} • ${s.status_label || ''}`;
+
+  if (badgeEl) {
+    const tierNorm = (s.tier || 'low').replace('_', '-');
+    badgeEl.className = `status-badge badge-tier-${tierNorm}`;
+    badgeEl.textContent = `${roundedPct}% • ${s.status_label || s.tier_label || ''}`;
+  }
+
+  // KPIs
+  const pctEl = document.getElementById("single-skill-stat-pct");
+  const hitsEl = document.getElementById("single-skill-stat-hits");
+  const keyEl = document.getElementById("single-skill-stat-correct-key");
+  const diffBox = document.getElementById("single-skill-compare-diff-box");
+
+  if (pctEl) pctEl.textContent = `${roundedPct}%`;
+  if (hitsEl) hitsEl.textContent = `${s.correct_count} / ${s.total_graded}`;
+  if (keyEl) keyEl.textContent = correctAns;
+  if (diffBox) diffBox.style.display = "none"; // Oculta bloco de diff no relatório individual
+
+  // Descrição da Habilidade (BNCC)
+  const stmtLabel = document.getElementById("single-skill-statement-label");
+  const stmtText = document.getElementById("single-skill-statement-text");
+  if (stmtLabel) stmtLabel.textContent = s.discipline ? `Descrição da Habilidade (${s.discipline})` : "Descrição da Habilidade (BNCC)";
+  if (stmtText) {
+    stmtText.textContent = s.skill_description || s.statement || `Item avaliativo nº ${questionNum} do simulado focado no descritor/habilidade ${s.skill_code}.`;
+  }
+
+  // Tabela de Alunos
+  const summaryEl = document.getElementById("single-skill-students-summary");
+  const tbody = document.getElementById("single-skill-students-tbody");
+
+  const students = currentSalvealReportData.students || [];
+  const gradedStudents = students.filter(st => st.status === "CORRIGIDO");
+
+  if (summaryEl) {
+    summaryEl.textContent = `${gradedStudents.length} estudantes responderam`;
+  }
+
+  const mappedStudents = gradedStudents.map((st, idx) => {
+    const sub = st.submission || {};
+    const detectedMap = sub.detected_answers || {};
+    const qStr = String(questionNum);
+    const chosen = detectedMap[qStr] || "-";
+
+    let resultBadge = "";
+    let rowBg = "";
+    let statusText = "Errou";
+
+    if (!chosen || chosen === "-" || chosen === "BLANK") {
+      resultBadge = '<span class="status-badge" style="background:#f1f5f9; color:#64748b; font-weight:700;">Em Branco</span>';
+      statusText = "Em Branco";
+    } else if (chosen === "DOUBLE") {
+      resultBadge = '<span class="status-badge" style="background:#ffedd5; color:#c2410c; font-weight:700;">Dupla Marcação</span>';
+      rowBg = "background: #fffbeb;";
+      statusText = "Dupla Marcação";
+    } else if (chosen === correctAns) {
+      resultBadge = '<span class="status-badge" style="background:#ccfbf1; color:#0f766e; font-weight:700; border: 1px solid #99f6e4;">✓ Acertou</span>';
+      statusText = "Acertou";
+    } else {
+      resultBadge = '<span class="status-badge" style="background:#fee2e2; color:#b91c1c; font-weight:700; border: 1px solid #fecaca;">✗ Errou</span>';
+      rowBg = "background: #fef2f2;";
+      statusText = "Errou";
+    }
+
+    return {
+      rank: idx + 1,
+      name: st.name,
+      registration: st.registration || "-",
+      chosen,
+      status: statusText,
+      rowHtml: `
+        <tr style="${rowBg}">
+          <td style="text-align:center; font-weight:700; color:var(--text-muted);">${idx + 1}</td>
+          <td style="font-weight:700; color:var(--text-primary);">${st.name}</td>
+          <td style="text-align:center; color:var(--text-secondary); font-family:monospace;">${st.registration || "-"}</td>
+          <td style="text-align:center; font-weight:800; font-size:1.05rem; color:${chosen === correctAns ? '#059669' : '#dc2626'};">${chosen}</td>
+          <td style="text-align:center;">${resultBadge}</td>
+        </tr>
+      `
+    };
+  });
+
+  if (tbody) {
+    if (mappedStudents.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 1.5rem; color: var(--text-muted);">Nenhum estudante avaliado com resposta detectada.</td></tr>';
+    } else {
+      tbody.innerHTML = mappedStudents.map(m => m.rowHtml).join("");
+    }
+  }
+
+  // Set context for CSV export
+  currentSingleSkillDetailData = {
+    questionNum,
+    qCode,
+    skillCode: s.skill_code,
+    description: s.skill_description || s.statement || "",
+    correctAns,
+    examTitle: exam.title || "Simulado",
+    students: mappedStudents
+  };
+
+  modal.style.display = "flex";
+}
+
+// Modal de Edição da Matriz de Habilidades
+function openEditSkillsMatrixModal() {
+  const modal = document.getElementById("modal-edit-skills-matrix");
+  const container = document.getElementById("skills-matrix-inputs-container");
+  if (!modal || !container) return;
+
+  if (!currentSalvealReportData || !currentSalvealReportData.exam) {
+    showToast("Nenhum simulado carregado para editar a matriz.", "warning");
+    return;
+  }
+
+  const exam = currentSalvealReportData.exam;
+  const numQuestions = exam.num_questions || 20;
+  const skillsList = currentSalvealReportData.skills_stats || [];
+  const existingMap = exam.skills_matrix || {};
+
+  container.innerHTML = "";
+  for (let q = 1; q <= numQuestions; q++) {
+    const qStr = String(q);
+    const statItem = skillsList.find(s => s.question === q);
+    const defaultVal = existingMap[qStr] || (statItem ? statItem.skill_code : `Item ${q}`);
+    const cleanVal = (defaultVal === `Item ${q}`) ? "" : defaultVal;
+
+    const row = document.createElement("div");
+    row.className = "matrix-input-row";
+    row.innerHTML = `
+      <label class="matrix-input-label" for="matrix-q-${q}">H ${q < 10 ? '0' + q : q}:</label>
+      <input type="text" id="matrix-q-${q}" class="matrix-input-field" 
+             value="${cleanVal}" 
+             placeholder="ex: 2EF08_M ou EF01LP01" 
+             data-q="${q}">
+    `;
+    container.appendChild(row);
+  }
+
+  modal.style.display = "flex";
+}
+
+// Salvar Matriz de Habilidades
+async function saveSkillsMatrix() {
+  const container = document.getElementById("skills-matrix-inputs-container");
+  if (!container || !currentSalvealReportData || !currentSalvealReportData.exam) return;
+
+  const examId = currentSalvealReportData.exam.id;
+  const inputs = container.querySelectorAll(".matrix-input-field");
+  const matrixObj = {};
+
+  inputs.forEach(inp => {
+    const q = inp.getAttribute("data-q");
+    const val = inp.value.trim();
+    if (val) {
+      matrixObj[q] = val;
+    }
+  });
+
+  const btnSave = document.getElementById("btn-save-skills-matrix");
+  if (btnSave) {
+    btnSave.disabled = true;
+    btnSave.textContent = "Salvando...";
+  }
+
+  try {
+    const res = await fetch(`/api/exams/${examId}/skills-matrix`, {
+      method: "PUT",
+      headers: { 
+        "Content-Type": "application/json",
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify({ skills: matrixObj })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Erro ao salvar matriz de habilidades");
+    }
+
+    showToast("Matriz de habilidades salva com sucesso!", "success");
+    closeSalvealModal("modal-edit-skills-matrix");
+
+    // Recarregar relatório com os novos códigos
+    if (activeReportClassId && activeReportExamId) {
+      await loadClassroomReportPage(activeReportClassId, activeReportExamId);
+    }
+  } catch (err) {
+    showToast(`Erro ao salvar: ${err.message}`, "error");
+  } finally {
+    if (btnSave) {
+      btnSave.disabled = false;
+      btnSave.textContent = "Salvar Matriz";
+    }
+  }
+}
+
+function closeSalvealModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) modal.style.display = "none";
 }
 
 // Render Questions Accuracy Chart (Bar Chart)
@@ -4502,6 +5614,9 @@ async function loadClassroomComparison(classId, exam1Id, exam2Id) {
     const q = searchInput ? searchInput.value.trim() : "";
     renderComparisonStudentsTable(data.students || [], q);
 
+    // 7. Render SALVEAL Pedagogical Analytics for Comparison
+    renderSalvealComparisonAnalytics(data);
+
   } catch (err) {
     console.error("Erro ao carregar comparativo:", err);
     if (tbody) {
@@ -4758,6 +5873,886 @@ function renderComparisonStudentsTable(students, filterQuery) {
     tbody.appendChild(tr);
     tbody.appendChild(detailTr);
   });
+}
+
+// ==========================================================================
+// SALVEAL / PEDAGOGICAL ANALYTICS FOR COMPARISON
+// ==========================================================================
+
+function renderSalvealComparisonAnalytics(data) {
+  if (!data) return;
+
+  const ex1 = data.exam1 || {};
+  const ex2 = data.exam2 || {};
+  const rep1 = data.rep1 || {};
+  const rep2 = data.rep2 || {};
+
+  const title1 = ex1.title || "Gabarito A";
+  const title2 = ex2.title || "Gabarito B";
+
+  // 1. Títulos dos blocos e dos cards
+  const elTitleA = document.getElementById("salveal-comp-title-a");
+  const elEvalNameA = document.getElementById("salveal-comp-eval-name-a");
+  const elAdeqNameA = document.getElementById("salveal-comp-adeq-name-a");
+  if (elTitleA) elTitleA.textContent = title1;
+  if (elEvalNameA) elEvalNameA.textContent = title1;
+  if (elAdeqNameA) elAdeqNameA.textContent = title1;
+
+  const elTitleB = document.getElementById("salveal-comp-title-b");
+  const elEvalNameB = document.getElementById("salveal-comp-eval-name-b");
+  const elAdeqNameB = document.getElementById("salveal-comp-adeq-name-b");
+  if (elTitleB) elTitleB.textContent = title2;
+  if (elEvalNameB) elEvalNameB.textContent = title2;
+  if (elAdeqNameB) elAdeqNameB.textContent = title2;
+
+  // 2. Gabarito A: Avaliados e Níveis de Aprendizagem
+  const gradedCount1 = (data.summary && data.summary.graded_students1 !== undefined) ? data.summary.graded_students1 : (rep1.graded_students || 0);
+  const levels1 = data.learning_levels1 || rep1.learning_levels || {
+    defasagem: { count: 0, percentage: 0, students: [] },
+    intermediario: { count: 0, percentage: 0, students: [] },
+    adequado: { count: 0, percentage: 0, students: [] }
+  };
+
+  const adeqPct1 = levels1.adequado ? (levels1.adequado.percentage || 0) : 0;
+  const defPct1 = levels1.defasagem ? (levels1.defasagem.percentage || 0) : 0;
+  const interPct1 = levels1.intermediario ? (levels1.intermediario.percentage || 0) : 0;
+  const defCount1 = levels1.defasagem ? (levels1.defasagem.count || 0) : 0;
+  const interCount1 = levels1.intermediario ? (levels1.intermediario.count || 0) : 0;
+  const adeqCount1 = levels1.adequado ? (levels1.adequado.count || 0) : 0;
+
+  const elEvalCountA = document.getElementById("salveal-comp-eval-count-a");
+  if (elEvalCountA) elEvalCountA.textContent = gradedCount1;
+
+  const elAdeqPctA = document.getElementById("salveal-comp-adeq-pct-a");
+  if (elAdeqPctA) elAdeqPctA.textContent = `${adeqPct1}%`;
+
+  const segDefA = document.getElementById("salveal-comp-seg-def-a");
+  const segInterA = document.getElementById("salveal-comp-seg-inter-a");
+  const segAdeqA = document.getElementById("salveal-comp-seg-adeq-a");
+  if (segDefA) segDefA.style.width = gradedCount1 > 0 ? `${defPct1}%` : "0%";
+  if (segInterA) segInterA.style.width = gradedCount1 > 0 ? `${interPct1}%` : "0%";
+  if (segAdeqA) segAdeqA.style.width = gradedCount1 > 0 ? `${adeqPct1}%` : "0%";
+
+  const subDefA = document.getElementById("salveal-comp-sub-def-a");
+  const pctDefA = document.getElementById("salveal-comp-pct-def-a");
+  const subInterA = document.getElementById("salveal-comp-sub-inter-a");
+  const pctInterA = document.getElementById("salveal-comp-pct-inter-a");
+  const subAdeqA = document.getElementById("salveal-comp-sub-adeq-a");
+  const pctAdeqA = document.getElementById("salveal-comp-pct-adeq-a");
+
+  if (subDefA) subDefA.textContent = `${defCount1} estudantes`;
+  if (pctDefA) pctDefA.textContent = `${defPct1}%`;
+  if (subInterA) subInterA.textContent = `${interCount1} estudantes`;
+  if (pctInterA) pctInterA.textContent = `${interPct1}%`;
+  if (subAdeqA) subAdeqA.textContent = `${adeqCount1} estudantes`;
+  if (pctAdeqA) pctAdeqA.textContent = `${adeqPct1}%`;
+
+  // 3. Gabarito B: Avaliados e Níveis de Aprendizagem
+  const gradedCount2 = (data.summary && data.summary.graded_students2 !== undefined) ? data.summary.graded_students2 : (rep2.graded_students || 0);
+  const levels2 = data.learning_levels2 || rep2.learning_levels || {
+    defasagem: { count: 0, percentage: 0, students: [] },
+    intermediario: { count: 0, percentage: 0, students: [] },
+    adequado: { count: 0, percentage: 0, students: [] }
+  };
+
+  const adeqPct2 = levels2.adequado ? (levels2.adequado.percentage || 0) : 0;
+  const defPct2 = levels2.defasagem ? (levels2.defasagem.percentage || 0) : 0;
+  const interPct2 = levels2.intermediario ? (levels2.intermediario.percentage || 0) : 0;
+  const defCount2 = levels2.defasagem ? (levels2.defasagem.count || 0) : 0;
+  const interCount2 = levels2.intermediario ? (levels2.intermediario.count || 0) : 0;
+  const adeqCount2 = levels2.adequado ? (levels2.adequado.count || 0) : 0;
+
+  const elEvalCountB = document.getElementById("salveal-comp-eval-count-b");
+  if (elEvalCountB) elEvalCountB.textContent = gradedCount2;
+
+  const elAdeqPctB = document.getElementById("salveal-comp-adeq-pct-b");
+  if (elAdeqPctB) elAdeqPctB.textContent = `${adeqPct2}%`;
+
+  const segDefB = document.getElementById("salveal-comp-seg-def-b");
+  const segInterB = document.getElementById("salveal-comp-seg-inter-b");
+  const segAdeqB = document.getElementById("salveal-comp-seg-adeq-b");
+  if (segDefB) segDefB.style.width = gradedCount2 > 0 ? `${defPct2}%` : "0%";
+  if (segInterB) segInterB.style.width = gradedCount2 > 0 ? `${interPct2}%` : "0%";
+  if (segAdeqB) segAdeqB.style.width = gradedCount2 > 0 ? `${adeqPct2}%` : "0%";
+
+  const subDefB = document.getElementById("salveal-comp-sub-def-b");
+  const pctDefB = document.getElementById("salveal-comp-pct-def-b");
+  const subInterB = document.getElementById("salveal-comp-sub-inter-b");
+  const pctInterB = document.getElementById("salveal-comp-pct-inter-b");
+  const subAdeqB = document.getElementById("salveal-comp-sub-adeq-b");
+  const pctAdeqB = document.getElementById("salveal-comp-pct-adeq-b");
+
+  if (subDefB) subDefB.textContent = `${defCount2} estudantes`;
+  if (pctDefB) pctDefB.textContent = `${defPct2}%`;
+  if (subInterB) subInterB.textContent = `${interCount2} estudantes`;
+  if (pctInterB) pctInterB.textContent = `${interPct2}%`;
+  if (subAdeqB) subAdeqB.textContent = `${adeqCount2} estudantes`;
+  if (pctAdeqB) pctAdeqB.textContent = `${adeqPct2}%`;
+
+  // 4. Seção Comparativa de Habilidades (Grade e Filtro)
+  const skills1 = data.skills_stats1 || (rep1 && rep1.skills_stats) || [];
+  const skills2 = data.skills_stats2 || (rep2 && rep2.skills_stats) || [];
+  const totalQ = Math.max(skills1.length, skills2.length, ex1.num_questions || 0, ex2.num_questions || 0);
+
+  const filterSelect = document.getElementById("salveal-comp-filter-skills");
+  if (filterSelect) {
+    const currentVal = filterSelect.value || "all";
+    filterSelect.innerHTML = '<option value="all">Todas as questões/habilidades</option>';
+    for (let q = 1; q <= totalQ; q++) {
+      const s1 = skills1.find(s => s.question === q);
+      const s2 = skills2.find(s => s.question === q);
+      const qCode = (s1 && s1.skill_code) || (s2 && s2.skill_code) || `Item ${q}`;
+      const opt = document.createElement("option");
+      opt.value = q;
+      const hCode = `H ${q < 10 ? '0' + q : q}`;
+      opt.textContent = `${hCode} (${qCode})`;
+      if (String(q) === String(currentVal)) opt.selected = true;
+      filterSelect.appendChild(opt);
+    }
+  }
+
+  // Atualizar títulos dos blocos de habilidades
+  const elSkillsTitleA = document.getElementById("salveal-comp-skills-title-a");
+  const elSkillsTitleB = document.getElementById("salveal-comp-skills-title-b");
+  if (elSkillsTitleA) elSkillsTitleA.textContent = title1;
+  if (elSkillsTitleB) elSkillsTitleB.textContent = title2;
+
+  // Bloco Gabarito A: Grade de Habilidades
+  const gridA = document.getElementById("salveal-compare-skills-grid-a");
+  if (gridA) {
+    if (skills1.length === 0) {
+      gridA.innerHTML = '<div style="padding: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; width: 100%;">Nenhuma habilidade cadastrada para este simulado.</div>';
+    } else {
+      gridA.innerHTML = skills1.map(s => {
+        const roundedPct = Math.round(s.accuracy_percentage || 0);
+        const tier = s.tier || 'low';
+        const tierHyphen = tier.replace('_', '-');
+        const qCode = s.habilidade_code ? s.habilidade_code.replace('H', 'Q') : `Q ${s.question < 10 ? '0' + s.question : s.question}`;
+        return `
+          <div class="salveal-skill-badge badge-tier-${tierHyphen} badge-tier-${tier}" 
+               data-question="${s.question}" 
+               onclick="openSingleCompareSkillDetail('a', ${s.question})"
+               title="${title1} - ${qCode} (${s.skill_code}): ${roundedPct}% de acerto (${s.status_label || ''})">
+            <span class="skill-badge-h">${qCode}</span>
+            <span class="skill-badge-code">(${s.skill_code})</span>
+            <span class="skill-badge-pct">${roundedPct}%</span>
+          </div>
+        `;
+      }).join("");
+    }
+  }
+
+  // Bloco Gabarito B: Grade de Habilidades
+  const gridB = document.getElementById("salveal-compare-skills-grid-b");
+  if (gridB) {
+    if (skills2.length === 0) {
+      gridB.innerHTML = '<div style="padding: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; width: 100%;">Nenhuma habilidade cadastrada para este simulado.</div>';
+    } else {
+      gridB.innerHTML = skills2.map(s => {
+        const roundedPct = Math.round(s.accuracy_percentage || 0);
+        const tier = s.tier || 'low';
+        const tierHyphen = tier.replace('_', '-');
+        const qCode = s.habilidade_code ? s.habilidade_code.replace('H', 'Q') : `Q ${s.question < 10 ? '0' + s.question : s.question}`;
+        return `
+          <div class="salveal-skill-badge badge-tier-${tierHyphen} badge-tier-${tier}" 
+               data-question="${s.question}" 
+               onclick="openSingleCompareSkillDetail('b', ${s.question})"
+               title="${title2} - ${qCode} (${s.skill_code}): ${roundedPct}% de acerto (${s.status_label || ''})">
+            <span class="skill-badge-h">${qCode}</span>
+            <span class="skill-badge-code">(${s.skill_code})</span>
+            <span class="skill-badge-pct">${roundedPct}%</span>
+          </div>
+        `;
+      }).join("");
+    }
+  }
+}
+
+// Filtro de habilidades no Comparativo (filtra em ambos os blocos)
+function filterSalvealCompareSkills(selectedVal) {
+  const gridA = document.getElementById("salveal-compare-skills-grid-a");
+  const gridB = document.getElementById("salveal-compare-skills-grid-b");
+
+  [gridA, gridB].forEach(grid => {
+    if (!grid) return;
+    const badges = grid.querySelectorAll(".salveal-skill-badge");
+    badges.forEach(b => {
+      if (selectedVal === "all" || b.getAttribute("data-question") === String(selectedVal)) {
+        b.classList.remove("dimmed");
+      } else {
+        b.classList.add("dimmed");
+      }
+    });
+  });
+}
+
+// Modal de Detalhe Completo de uma Habilidade no Comparativo (Popup ao clicar no badge)
+function openSingleCompareSkillDetail(side, questionNum) {
+  if (!currentComparisonData) return;
+  const modal = document.getElementById("modal-single-skill-detail");
+  if (!modal) return;
+
+  const ex1 = currentComparisonData.exam1 || {};
+  const ex2 = currentComparisonData.exam2 || {};
+  const rep1 = currentComparisonData.rep1 || {};
+  const rep2 = currentComparisonData.rep2 || {};
+  const skills1 = currentComparisonData.skills_stats1 || rep1.skills_stats || [];
+  const skills2 = currentComparisonData.skills_stats2 || rep2.skills_stats || [];
+
+  const s1 = skills1.find(s => s.question === questionNum);
+  const s2 = skills2.find(s => s.question === questionNum);
+
+  const isA = side === 'a';
+  const targetExam = isA ? ex1 : ex2;
+  const targetRep = isA ? rep1 : rep2;
+  const targetS = isA ? s1 : s2;
+  const otherS = isA ? s2 : s1;
+
+  if (!targetS) {
+    showToast(`Habilidade não encontrada para a questão ${questionNum}`, "warning");
+    return;
+  }
+
+  const hCode = `Q ${questionNum < 10 ? '0' + questionNum : questionNum}`;
+  const code = targetS.skill_code || (otherS && otherS.skill_code) || `Item ${questionNum}`;
+  const accCurrent = Math.round(targetS.accuracy_percentage || 0);
+  const accOther = otherS ? Math.round(otherS.accuracy_percentage || 0) : null;
+  const correctAns = (targetExam.answer_key && targetExam.answer_key[String(questionNum)]) || targetS.correct_answer || "-";
+
+  // Título e Subtítulo
+  const titleEl = document.getElementById("single-skill-modal-title");
+  const badgeEl = document.getElementById("single-skill-modal-badge");
+  const subEl = document.getElementById("single-skill-modal-sub");
+  
+  if (titleEl) titleEl.textContent = `${hCode} (${code})`;
+  if (subEl) subEl.textContent = `Comparativo • ${targetExam.title || (isA ? 'Gabarito A' : 'Gabarito B')} • Questão ${questionNum}`;
+
+  if (badgeEl) {
+    const tierNorm = (targetS.tier || 'low').replace('_', '-');
+    badgeEl.className = `status-badge badge-tier-${tierNorm}`;
+    badgeEl.textContent = `${accCurrent}% • ${targetS.status_label || targetS.tier_label || ''}`;
+  }
+
+  // KPIs
+  const pctEl = document.getElementById("single-skill-stat-pct");
+  const hitsEl = document.getElementById("single-skill-stat-hits");
+  const keyEl = document.getElementById("single-skill-stat-correct-key");
+  const diffBox = document.getElementById("single-skill-compare-diff-box");
+  const diffLabel = document.getElementById("single-skill-diff-label");
+  const diffVal = document.getElementById("single-skill-stat-compare-diff");
+
+  if (pctEl) pctEl.textContent = `${accCurrent}%`;
+  if (hitsEl) hitsEl.textContent = `${targetS.correct_count} / ${targetS.total_graded}`;
+  if (keyEl) keyEl.textContent = correctAns;
+
+  if (diffBox && diffVal && diffLabel) {
+    diffBox.style.display = "block";
+    if (accOther !== null) {
+      const delta = accCurrent - accOther;
+      const sign = delta > 0 ? "+" : "";
+      const otherName = isA ? (ex2.title ? ex2.title.slice(0, 16) + '...' : 'Gabarito B') : (ex1.title ? ex1.title.slice(0, 16) + '...' : 'Gabarito A');
+      diffLabel.textContent = `vs ${otherName}`;
+      diffVal.textContent = `${sign}${delta}%`;
+      diffVal.style.color = delta >= 0 ? "#059669" : "#dc2626";
+    } else {
+      diffLabel.textContent = "Outro Gabarito";
+      diffVal.textContent = "N/A";
+    }
+  }
+
+  // Descrição da Habilidade (BNCC)
+  const stmtLabel = document.getElementById("single-skill-statement-label");
+  const stmtText = document.getElementById("single-skill-statement-text");
+  if (stmtLabel) stmtLabel.textContent = "Descrição da Habilidade (BNCC)";
+  if (stmtText) {
+    stmtText.textContent = targetS.skill_description || (otherS && otherS.skill_description) || targetS.statement || (otherS && otherS.statement) || `Habilidade avaliada no item ${questionNum} (${code}).`;
+  }
+
+  // Tabela de Estudantes do Lado Selecionado
+  const summaryEl = document.getElementById("single-skill-students-summary");
+  const tbody = document.getElementById("single-skill-students-tbody");
+  const students = targetRep.students || [];
+  const gradedStudents = students.filter(st => st.status === "CORRIGIDO");
+
+  if (summaryEl) {
+    summaryEl.textContent = `${gradedStudents.length} estudantes avaliados em ${targetExam.title || (isA ? 'Gabarito A' : 'Gabarito B')}`;
+  }
+
+  if (tbody) {
+    if (gradedStudents.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 1.5rem; color: var(--text-muted);">Nenhum estudante avaliado neste gabarito.</td></tr>';
+    } else {
+      tbody.innerHTML = gradedStudents.map((st, idx) => {
+        const sub = st.submission || {};
+        const detectedMap = sub.detected_answers || {};
+        const qStr = String(questionNum);
+        const chosen = detectedMap[qStr] || "-";
+
+        let resultBadge = "";
+        let rowBg = "";
+
+        if (!chosen || chosen === "-" || chosen === "BLANK") {
+          resultBadge = '<span class="status-badge" style="background:#f1f5f9; color:#64748b; font-weight:700;">Em Branco</span>';
+        } else if (chosen === "DOUBLE") {
+          resultBadge = '<span class="status-badge" style="background:#ffedd5; color:#c2410c; font-weight:700;">Dupla Marcação</span>';
+          rowBg = "background: #fffbeb;";
+        } else if (chosen === correctAns) {
+          resultBadge = '<span class="status-badge" style="background:#ccfbf1; color:#0f766e; font-weight:700; border: 1px solid #99f6e4;">✓ Acertou</span>';
+        } else {
+          resultBadge = '<span class="status-badge" style="background:#fee2e2; color:#b91c1c; font-weight:700; border: 1px solid #fecaca;">✗ Errou</span>';
+          rowBg = "background: #fef2f2;";
+        }
+
+        return `
+          <tr style="${rowBg}">
+            <td style="text-align:center; font-weight:700; color:var(--text-muted);">${idx + 1}</td>
+            <td style="font-weight:700; color:var(--text-primary);">${st.name}</td>
+            <td style="text-align:center; color:var(--text-secondary); font-family:monospace;">${st.registration || "-"}</td>
+            <td style="text-align:center; font-weight:800; font-size:1.05rem; color:${chosen === correctAns ? '#059669' : '#dc2626'};">${chosen}</td>
+            <td style="text-align:center;">${resultBadge}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+  }
+
+  modal.style.display = "flex";
+}
+
+// Modal de Estudantes por Nível no Comparativo (Lado A ou B)
+function openSalvealCompareStudentsModal(side, filterType) {
+  const modal = document.getElementById("modal-salveal-students");
+  const titleEl = document.getElementById("salveal-students-modal-title");
+  const subEl = document.getElementById("salveal-students-modal-sub");
+  const tbody = document.getElementById("salveal-students-modal-tbody");
+  if (!modal || !tbody) return;
+
+  if (!currentComparisonData) {
+    showToast("Dados do comparativo não disponíveis.", "warning");
+    return;
+  }
+
+  const isA = side === 'a';
+  const targetExam = isA ? (currentComparisonData.exam1 || {}) : (currentComparisonData.exam2 || {});
+  const targetRep = isA ? (currentComparisonData.rep1 || {}) : (currentComparisonData.rep2 || {});
+  const targetLevels = isA 
+    ? (currentComparisonData.learning_levels1 || targetRep.learning_levels || {}) 
+    : (currentComparisonData.learning_levels2 || targetRep.learning_levels || {});
+
+  const exTitle = targetExam.title || (isA ? "Gabarito A" : "Gabarito B");
+  const allStudents = targetRep.students || [];
+  const graded = allStudents.filter(s => s.status === "CORRIGIDO" && s.percentage !== null);
+
+  let targetStudents = [];
+  let title = `${exTitle}: Estudantes Avaliados`;
+  let sub = `Listagem completa de estudantes que realizaram a avaliação (${exTitle})`;
+
+  if (filterType === "defasagem") {
+    title = `${exTitle}: Estudantes em Nível de Defasagem (< 50%)`;
+    sub = `Alunos que necessitam de intervenção pedagógica prioritária e recuperação`;
+    targetStudents = (targetLevels.defasagem && targetLevels.defasagem.students) || graded.filter(s => s.percentage < 50);
+  } else if (filterType === "intermediario") {
+    title = `${exTitle}: Estudantes em Aprendizado Intermediário (50% a 69%)`;
+    sub = `Alunos em desenvolvimento de habilidades básicas que podem evoluir para adequado`;
+    targetStudents = (targetLevels.intermediario && targetLevels.intermediario.students) || graded.filter(s => s.percentage >= 50 && s.percentage < 70);
+  } else if (filterType === "adequado") {
+    title = `${exTitle}: Estudantes com Aprendizagem Adequada (≥ 70%)`;
+    sub = `Alunos que consolidaram as habilidades e competências essenciais avaliadas`;
+    targetStudents = (targetLevels.adequado && targetLevels.adequado.students) || graded.filter(s => s.percentage >= 70);
+  } else {
+    targetStudents = [...graded];
+  }
+
+  // Ordenar por percentual decrescente para ranking claro
+  targetStudents.sort((a, b) => (b.percentage || 0) - (a.percentage || 0));
+
+  if (titleEl) titleEl.textContent = title;
+  if (subEl) subEl.textContent = sub;
+
+  if (targetStudents.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhum estudante encontrado nesta categoria.</td></tr>';
+  } else {
+    tbody.innerHTML = targetStudents.map((st, idx) => {
+      const pct = typeof st.percentage === "number" ? st.percentage.toFixed(1) : "-";
+      const score = typeof st.score === "number" ? st.score.toFixed(1) : "-";
+      
+      let badgeHtml = "";
+      if (st.percentage < 50) {
+        badgeHtml = '<span class="status-badge" style="background: #fee2e2; color: #b91c1c; font-weight: 700; border: 1px solid #fecaca;">Defasagem</span>';
+      } else if (st.percentage < 70) {
+        badgeHtml = '<span class="status-badge" style="background: #ffedd5; color: #c2410c; font-weight: 700; border: 1px solid #fed7aa;">Intermediário</span>';
+      } else {
+        badgeHtml = '<span class="status-badge" style="background: #ccfbf1; color: #0f766e; font-weight: 700; border: 1px solid #99f6e4;">Adequado</span>';
+      }
+
+      // Indicador de Pódio
+      let rankDisplay = `${idx + 1}º`;
+      if (idx === 0) rankDisplay = `<span style="font-weight: 800; color: #d97706;" title="1º Lugar">🥇 1º</span>`;
+      else if (idx === 1) rankDisplay = `<span style="font-weight: 800; color: #64748b;" title="2º Lugar">🥈 2º</span>`;
+      else if (idx === 2) rankDisplay = `<span style="font-weight: 800; color: #b45309;" title="3º Lugar">🥉 3º</span>`;
+
+      return `
+        <tr>
+          <td style="text-align: center; font-weight: 700; color: var(--text-muted);">${rankDisplay}</td>
+          <td style="font-weight: 700; color: var(--text-primary);">${st.name}</td>
+          <td style="text-align: center; color: var(--text-secondary); font-family: monospace;">${st.registration || "-"}</td>
+          <td style="text-align: center; font-weight: 700;">${score}</td>
+          <td style="text-align: center; font-weight: 800; color: var(--text-primary); font-size: 0.95rem;">${pct}%</td>
+          <td style="text-align: center;">${badgeHtml}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  currentActiveStudentsModalData = {
+    examTitle: exTitle,
+    title,
+    students: targetStudents
+  };
+
+  modal.style.display = "flex";
+}
+
+let currentCompareSkillsActiveSide = 'a';
+
+function switchCompareSkillsExam(side) {
+  openSalvealCompareSkillsModal(side);
+}
+
+// Modal Detalhado de Habilidades por Prova Analisada (Ver mais)
+function openSalvealCompareSkillsModal(activeSide = 'a') {
+  currentCompareSkillsActiveSide = activeSide || 'a';
+  const modal = document.getElementById("modal-salveal-compare-skills");
+  const tbody = document.getElementById("salveal-comp-skills-modal-tbody");
+  const titleEl = document.getElementById("salveal-comp-skills-modal-title");
+  const subEl = document.getElementById("salveal-comp-skills-modal-sub");
+  const tabA = document.getElementById("tab-comp-skills-exam-a");
+  const tabB = document.getElementById("tab-comp-skills-exam-b");
+  const tabTitleA = document.getElementById("tab-comp-skills-title-a");
+  const tabTitleB = document.getElementById("tab-comp-skills-title-b");
+  if (!modal || !tbody) return;
+
+  if (!currentComparisonData) {
+    showToast("Dados do comparativo não disponíveis.", "warning");
+    return;
+  }
+
+  const ex1 = currentComparisonData.exam1 || {};
+  const ex2 = currentComparisonData.exam2 || {};
+  const title1 = ex1.title || "Gabarito A";
+  const title2 = ex2.title || "Gabarito B";
+
+  if (tabTitleA) tabTitleA.textContent = title1;
+  if (tabTitleB) tabTitleB.textContent = title2;
+
+  const isA = currentCompareSkillsActiveSide === 'a';
+  const targetTitle = isA ? title1 : title2;
+  const targetSkills = isA 
+    ? (currentComparisonData.skills_stats1 || (currentComparisonData.rep1 && currentComparisonData.rep1.skills_stats) || [])
+    : (currentComparisonData.skills_stats2 || (currentComparisonData.rep2 && currentComparisonData.rep2.skills_stats) || []);
+
+  if (titleEl) titleEl.textContent = `Diagnóstico de Habilidades: ${targetTitle}`;
+  if (subEl) subEl.textContent = `Mapeamento pedagógico item a item da avaliação analisada (${targetTitle})`;
+
+  // Atualizar estilo visual das tabs
+  if (tabA && tabB) {
+    if (isA) {
+      tabA.className = "btn btn-primary btn-sm";
+      tabA.style.boxShadow = "0 1px 3px rgba(37,99,235,0.3)";
+      tabB.className = "btn btn-secondary btn-sm";
+      tabB.style.boxShadow = "none";
+    } else {
+      tabB.className = "btn btn-primary btn-sm";
+      tabB.style.boxShadow = "0 1px 3px rgba(16,185,129,0.3)";
+      tabA.className = "btn btn-secondary btn-sm";
+      tabA.style.boxShadow = "none";
+    }
+  }
+
+  if (targetSkills.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhuma habilidade cadastrada para esta prova analisada.</td></tr>';
+  } else {
+    tbody.innerHTML = targetSkills.map(s => {
+      const qCode = s.habilidade_code ? s.habilidade_code.replace('H', 'Q') : `Q ${s.question < 10 ? '0' + s.question : s.question}`;
+      const roundedPct = Math.round(s.accuracy_percentage || 0);
+      const tierKey = (s.tier || 'low').replace('_', '-');
+      let tierBadge = "";
+      let dotColor = "#ea5a47";
+
+      if (tierKey === "low") {
+        dotColor = "#ea5a47";
+        tierBadge = '<span class="status-badge" style="background: #fee2e2; color: #b91c1c; font-weight: 700; border: 1px solid #fecaca;">Até 40% (Crítico)</span>';
+      } else if (tierKey === "med-low") {
+        dotColor = "#fca374";
+        tierBadge = '<span class="status-badge" style="background: #ffedd5; color: #c2410c; font-weight: 700; border: 1px solid #fed7aa;">41 a 60% (Básico)</span>';
+      } else if (tierKey === "med-high") {
+        dotColor = "#9fe3ea";
+        tierBadge = '<span class="status-badge" style="background: #e0f2fe; color: #0369a1; font-weight: 700; border: 1px solid #bae6fd;">61 a 80% (Intermediário)</span>';
+      } else {
+        dotColor = "#00b8d4";
+        tierBadge = '<span class="status-badge" style="background: #ccfbf1; color: #0f766e; font-weight: 700; border: 1px solid #99f6e4;">Acima de 80% (Adequado)</span>';
+      }
+
+      const descText = s.skill_description || s.statement || "Habilidade da matriz de referência do simulado";
+      const descSnippet = `<div style="font-size: 0.8rem; color: var(--text-primary); max-width: 420px; line-height: 1.35; white-space: normal;">${descText}</div>`;
+
+      return `
+        <tr style="cursor: pointer; transition: background 0.15s ease;" onclick="openSingleCompareSkillDetail('${currentCompareSkillsActiveSide}', ${s.question})" title="Clique para ver o diagnóstico dos alunos nesta questão">
+          <td style="text-align: center;">
+            <div style="display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 800; color: var(--text-primary);">
+              <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${dotColor};"></span>
+              ${qCode}
+            </div>
+          </td>
+          <td style="text-align: center; font-weight: 700; font-family: monospace; color: var(--primary);">${s.skill_code}</td>
+          <td>${descSnippet}</td>
+          <td style="text-align: center; font-weight: 700;">${s.correct_count} / ${s.total_graded}</td>
+          <td style="text-align: center;">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.25rem;">
+              <span style="font-weight: 800; font-size: 0.95rem; color: var(--text-primary);">${roundedPct}%</span>
+              <div style="width: 70px; height: 5px; background: #e2e8f0; border-radius: 3px; overflow: hidden;">
+                <div style="width: ${roundedPct}%; height: 100%; background: ${dotColor}; border-radius: 3px;"></div>
+              </div>
+            </div>
+          </td>
+          <td style="text-align: center;">${tierBadge}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  modal.style.display = "flex";
+}
+
+// Modal de Detalhe Individual da Habilidade a partir do Comparativo
+function openSingleCompareSkillDetail(side, questionNum) {
+  const modal = document.getElementById("modal-single-skill-detail");
+  if (!modal) return;
+  if (!currentComparisonData) {
+    showToast("Dados do comparativo não disponíveis.", "warning");
+    return;
+  }
+
+  const isA = side === 'a';
+  const targetExam = isA ? (currentComparisonData.exam1 || {}) : (currentComparisonData.exam2 || {});
+  const otherExam = isA ? (currentComparisonData.exam2 || {}) : (currentComparisonData.exam1 || {});
+  const targetRep = isA ? (currentComparisonData.rep1 || {}) : (currentComparisonData.rep2 || {});
+  const targetSkills = isA 
+    ? (currentComparisonData.skills_stats1 || (targetRep.skills_stats || []))
+    : (currentComparisonData.skills_stats2 || (targetRep.skills_stats || []));
+  const otherSkills = isA 
+    ? (currentComparisonData.skills_stats2 || (currentComparisonData.rep2 && currentComparisonData.rep2.skills_stats) || [])
+    : (currentComparisonData.skills_stats1 || (currentComparisonData.rep1 && currentComparisonData.rep1.skills_stats) || []);
+
+  const s = targetSkills.find(item => item.question === questionNum);
+  if (!s) {
+    showToast("Habilidade não encontrada para a questão " + questionNum, "warning");
+    return;
+  }
+
+  const otherItem = otherSkills.find(item => item.question === questionNum);
+
+  const answerKey = targetExam.answer_key || {};
+  const correctAns = answerKey[String(questionNum)] || s.correct_answer || "-";
+  const roundedPct = Math.round(s.accuracy_percentage || 0);
+
+  // Título, Badge e Subtítulo
+  const titleEl = document.getElementById("single-skill-modal-title");
+  const badgeEl = document.getElementById("single-skill-modal-badge");
+  const subEl = document.getElementById("single-skill-modal-sub");
+  
+  const qCode = s.habilidade_code ? s.habilidade_code.replace('H', 'Q') : `Q ${s.question < 10 ? '0' + s.question : s.question}`;
+  if (titleEl) titleEl.textContent = `${qCode} (${s.skill_code})`;
+  if (subEl) subEl.textContent = `${targetExam.title || (isA ? 'Gabarito A' : 'Gabarito B')} • Questão ${questionNum} • ${s.status_label || ''}`;
+
+  if (badgeEl) {
+    const tierNorm = (s.tier || 'low').replace('_', '-');
+    badgeEl.className = `status-badge badge-tier-${tierNorm}`;
+    badgeEl.textContent = `${roundedPct}% • ${s.status_label || s.tier_label || ''}`;
+  }
+
+  // KPIs
+  const pctEl = document.getElementById("single-skill-stat-pct");
+  const hitsEl = document.getElementById("single-skill-stat-hits");
+  const keyEl = document.getElementById("single-skill-stat-correct-key");
+  const diffBox = document.getElementById("single-skill-compare-diff-box");
+  const diffLabel = document.getElementById("single-skill-diff-label");
+  const diffVal = document.getElementById("single-skill-stat-compare-diff");
+
+  if (pctEl) pctEl.textContent = `${roundedPct}%`;
+  if (hitsEl) hitsEl.textContent = `${s.correct_count} / ${s.total_graded}`;
+  if (keyEl) keyEl.textContent = correctAns;
+
+  if (diffBox && otherItem) {
+    diffBox.style.display = "block";
+    const otherPct = Math.round(otherItem.accuracy_percentage || 0);
+    const diff = roundedPct - otherPct;
+    const sign = diff > 0 ? "+" : "";
+    if (diffLabel) diffLabel.textContent = `Comparativo vs ${otherExam.title || (isA ? 'Gabarito B' : 'Gabarito A')}`;
+    if (diffVal) {
+      diffVal.textContent = `${sign}${diff}%`;
+      diffVal.style.color = diff > 0 ? "#059669" : (diff < 0 ? "#dc2626" : "#1d4ed8");
+    }
+  } else if (diffBox) {
+    diffBox.style.display = "none";
+  }
+
+  // Descrição da Habilidade (BNCC)
+  const stmtLabel = document.getElementById("single-skill-statement-label");
+  const stmtText = document.getElementById("single-skill-statement-text");
+  if (stmtLabel) stmtLabel.textContent = s.discipline ? `Descrição da Habilidade (${s.discipline})` : "Descrição da Habilidade (BNCC)";
+  if (stmtText) {
+    stmtText.textContent = s.skill_description || s.statement || `Item avaliativo nº ${questionNum} do simulado focado no descritor/habilidade ${s.skill_code}.`;
+  }
+
+  // Tabela de Alunos
+  const summaryEl = document.getElementById("single-skill-students-summary");
+  const tbody = document.getElementById("single-skill-students-tbody");
+
+  const students = targetRep.students || [];
+  const gradedStudents = students.filter(st => st.status === "CORRIGIDO");
+
+  if (summaryEl) {
+    summaryEl.textContent = `${gradedStudents.length} estudantes responderam (${targetExam.title || (isA ? 'Gabarito A' : 'Gabarito B')})`;
+  }
+
+  const mappedStudents = gradedStudents.map((st, idx) => {
+    const sub = st.submission || {};
+    const detectedMap = sub.detected_answers || {};
+    const qStr = String(questionNum);
+    const chosen = detectedMap[qStr] || "-";
+
+    let resultBadge = "";
+    let rowBg = "";
+    let statusText = "Errou";
+
+    if (!chosen || chosen === "-" || chosen === "BLANK") {
+      resultBadge = '<span class="status-badge" style="background:#f1f5f9; color:#64748b; font-weight:700;">Em Branco</span>';
+      statusText = "Em Branco";
+    } else if (chosen === "DOUBLE") {
+      resultBadge = '<span class="status-badge" style="background:#ffedd5; color:#c2410c; font-weight:700;">Dupla Marcação</span>';
+      rowBg = "background: #fffbeb;";
+      statusText = "Dupla Marcação";
+    } else if (chosen === correctAns) {
+      resultBadge = '<span class="status-badge" style="background:#ccfbf1; color:#0f766e; font-weight:700; border: 1px solid #99f6e4;">✓ Acertou</span>';
+      statusText = "Acertou";
+    } else {
+      resultBadge = '<span class="status-badge" style="background:#fee2e2; color:#b91c1c; font-weight:700; border: 1px solid #fecaca;">✗ Errou</span>';
+      rowBg = "background: #fef2f2;";
+      statusText = "Errou";
+    }
+
+    return {
+      rank: idx + 1,
+      name: st.name,
+      registration: st.registration || "-",
+      chosen,
+      status: statusText,
+      rowHtml: `
+        <tr style="${rowBg}">
+          <td style="text-align:center; font-weight:700; color:var(--text-muted);">${idx + 1}</td>
+          <td style="font-weight:700; color:var(--text-primary);">${st.name}</td>
+          <td style="text-align:center; color:var(--text-secondary); font-family:monospace;">${st.registration || "-"}</td>
+          <td style="text-align:center; font-weight:800; font-size:1.05rem; color:${chosen === correctAns ? '#059669' : '#dc2626'};">${chosen}</td>
+          <td style="text-align:center;">${resultBadge}</td>
+        </tr>
+      `
+    };
+  });
+
+  if (tbody) {
+    if (mappedStudents.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 1.5rem; color: var(--text-muted);">Nenhum estudante avaliado com resposta detectada.</td></tr>';
+    } else {
+      tbody.innerHTML = mappedStudents.map(m => m.rowHtml).join("");
+    }
+  }
+
+  // Salvar contexto para exportação CSV
+  currentSingleSkillDetailData = {
+    questionNum,
+    qCode,
+    skillCode: s.skill_code,
+    description: s.skill_description || s.statement || "",
+    correctAns,
+    examTitle: targetExam.title || (isA ? "Gabarito_A" : "Gabarito_B"),
+    students: mappedStudents
+  };
+
+  modal.style.display = "flex";
+}
+
+// Utilitário universal para download de arquivo CSV (Compatível com Excel pt-BR)
+function downloadCsv(filename, headers, rows) {
+  const BOM = "\uFEFF";
+  const separator = ";";
+  
+  const escapeCell = (val) => {
+    if (val === null || val === undefined) return '""';
+    const str = String(val).replace(/"/g, '""');
+    return `"${str}"`;
+  };
+
+  const csvLines = [
+    headers.map(escapeCell).join(separator),
+    ...rows.map(row => row.map(escapeCell).join(separator))
+  ];
+
+  const blob = new Blob([BOM + csvLines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename.endsWith(".csv") ? filename : filename + ".csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+// 1. Exportar CSV do Modal de Estudantes por Nível / Geral
+function exportSalvealStudentsCsv() {
+  if (!currentActiveStudentsModalData || !currentActiveStudentsModalData.students || currentActiveStudentsModalData.students.length === 0) {
+    showToast("Nenhum estudante encontrado para exportar.", "warning");
+    return;
+  }
+
+  const headers = ["Posição", "Nome do Estudante", "Matrícula", "Nota / Acertos", "Aproveitamento (%)", "Nível de Aprendizagem"];
+  const rows = currentActiveStudentsModalData.students.map((st, idx) => {
+    const pct = typeof st.percentage === "number" ? st.percentage.toFixed(1) : "-";
+    const score = typeof st.score === "number" ? st.score.toFixed(1) : "-";
+    let level = "Adequado";
+    if (st.percentage < 50) level = "Defasagem";
+    else if (st.percentage < 70) level = "Intermediário";
+    return [
+      `${idx + 1}º`,
+      st.name || "",
+      st.registration || "-",
+      score,
+      pct,
+      level
+    ];
+  });
+
+  const cleanExam = (currentActiveStudentsModalData.examTitle || "simulado").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const cleanFilter = (currentActiveStudentsModalData.title || "estudantes").replace(/[^a-zA-Z0-9_-]/g, "_");
+  downloadCsv(`estudantes_${cleanExam}_${cleanFilter}`, headers, rows);
+  showToast("CSV de estudantes exportado com sucesso!", "success");
+}
+
+// 2. Exportar CSV do Diagnóstico de Habilidades (Simulado Único)
+function exportSalvealSkillsCsv() {
+  if (!currentSalvealReportData) {
+    showToast("Dados do relatório não disponíveis.", "warning");
+    return;
+  }
+
+  const skills = currentSalvealReportData.skills_stats || currentSalvealReportData.skills_performance || [];
+  if (skills.length === 0) {
+    showToast("Nenhuma habilidade cadastrada para exportação.", "warning");
+    return;
+  }
+
+  const headers = ["Item", "Código Matriz", "Descrição da Habilidade", "Acertos", "Total Avaliado", "Taxa (%)", "Classificação"];
+  const rows = skills.map(s => {
+    const qCode = s.habilidade_code ? s.habilidade_code.replace('H', 'Q') : `Q ${s.question < 10 ? '0' + s.question : s.question}`;
+    const pct = Math.round(s.accuracy_percentage || 0);
+    const tier = (s.tier || "low").replace("_", "-");
+    let tierLabel = "Até 40% (Crítico)";
+    if (tier === "med-low") tierLabel = "41 a 60% (Básico)";
+    else if (tier === "med-high") tierLabel = "61 a 80% (Intermediário)";
+    else if (tier === "high") tierLabel = "Acima de 80% (Adequado)";
+
+    const desc = s.skill_description || s.statement || "";
+    return [
+      qCode,
+      s.skill_code || "",
+      desc,
+      s.correct_count ?? 0,
+      s.total_graded ?? 0,
+      pct,
+      tierLabel
+    ];
+  });
+
+  const examTitle = (currentSalvealReportData.exam?.title || "simulado").replace(/[^a-zA-Z0-9_-]/g, "_");
+  downloadCsv(`habilidades_${examTitle}`, headers, rows);
+  showToast("CSV de habilidades exportado com sucesso!", "success");
+}
+
+// 3. Exportar CSV do Detalhe Individual da Habilidade / Questão
+function exportSingleSkillDetailCsv() {
+  if (!currentSingleSkillDetailData) {
+    showToast("Nenhum detalhe de habilidade aberto para exportação.", "warning");
+    return;
+  }
+
+  const { qCode, skillCode, correctAns, examTitle, students } = currentSingleSkillDetailData;
+  if (!students || students.length === 0) {
+    showToast("Nenhum estudante para exportar nesta questão.", "warning");
+    return;
+  }
+
+  const headers = ["Nº", "Nome do Estudante", "Matrícula", "Item", "Código Matriz", "Gabarito Oficial", "Resposta Marcada", "Resultado"];
+  const rows = students.map(st => [
+    st.rank,
+    st.name,
+    st.registration,
+    qCode,
+    skillCode,
+    correctAns,
+    st.chosen,
+    st.status
+  ]);
+
+  const cleanExam = (examTitle || "simulado").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const cleanQ = (qCode || "questao").replace(/[^a-zA-Z0-9_-]/g, "_");
+  downloadCsv(`detalhe_${cleanQ}_${cleanExam}`, headers, rows);
+  showToast(`CSV do ${qCode} exportado com sucesso!`, "success");
+}
+
+// 4. Exportar CSV do Diagnóstico de Habilidades do Comparativo (Prova Analisada Ativa)
+function exportSalvealCompareSkillsCsv() {
+  if (!currentComparisonData) {
+    showToast("Dados do comparativo não disponíveis.", "warning");
+    return;
+  }
+
+  const isA = currentCompareSkillsActiveSide === 'a';
+  const targetExam = isA ? (currentComparisonData.exam1 || {}) : (currentComparisonData.exam2 || {});
+  const targetSkills = isA 
+    ? (currentComparisonData.skills_stats1 || (currentComparisonData.rep1 && currentComparisonData.rep1.skills_stats) || [])
+    : (currentComparisonData.skills_stats2 || (currentComparisonData.rep2 && currentComparisonData.rep2.skills_stats) || []);
+
+  if (targetSkills.length === 0) {
+    showToast("Nenhuma habilidade para exportar nesta prova analisada.", "warning");
+    return;
+  }
+
+  const headers = ["Item", "Código Matriz", "Descrição da Habilidade", "Acertos", "Total Avaliado", "Taxa (%)", "Classificação"];
+  const rows = targetSkills.map(s => {
+    const qCode = s.habilidade_code ? s.habilidade_code.replace('H', 'Q') : `Q ${s.question < 10 ? '0' + s.question : s.question}`;
+    const pct = Math.round(s.accuracy_percentage || 0);
+    const tier = (s.tier || "low").replace("_", "-");
+    let tierLabel = "Até 40% (Crítico)";
+    if (tier === "med-low") tierLabel = "41 a 60% (Básico)";
+    else if (tier === "med-high") tierLabel = "61 a 80% (Intermediário)";
+    else if (tier === "high") tierLabel = "Acima de 80% (Adequado)";
+
+    const desc = s.skill_description || s.statement || "";
+    return [
+      qCode,
+      s.skill_code || "",
+      desc,
+      s.correct_count ?? 0,
+      s.total_graded ?? 0,
+      pct,
+      tierLabel
+    ];
+  });
+
+  const cleanExam = (targetExam.title || (isA ? "Gabarito_A" : "Gabarito_B")).replace(/[^a-zA-Z0-9_-]/g, "_");
+  downloadCsv(`habilidades_comparativo_${cleanExam}`, headers, rows);
+  showToast("CSV de habilidades comparativo exportado com sucesso!", "success");
 }
 
 // Backward compatibility alias for modal calls
@@ -5346,10 +7341,12 @@ function initSchoolBatchEventListeners() {
       const shiftSelect = document.getElementById("edit-classroom-shift-select");
       const gradeSelect = document.getElementById("edit-classroom-grade-select");
       const gradeCustomInput = document.getElementById("edit-classroom-grade-custom-input");
+      const yearInput = document.getElementById("edit-classroom-year-input");
 
       const classId = idInput ? idInput.value : null;
       const name = nameInput ? nameInput.value.trim() : "";
       const shift = shiftSelect ? shiftSelect.value : "MANHÃ";
+      const academicYear = yearInput ? yearInput.value.trim() : "2026";
       let gradeYear = gradeSelect ? gradeSelect.value : "";
       if (gradeYear === "OUTRO" && gradeCustomInput) {
         gradeYear = gradeCustomInput.value.trim();
@@ -5374,7 +7371,7 @@ function initSchoolBatchEventListeners() {
             "Content-Type": "application/json",
             ...getAuthHeaders()
           },
-          body: JSON.stringify({ name, shift, grade_year: gradeYear })
+          body: JSON.stringify({ name, shift, grade_year: gradeYear, academic_year: academicYear })
         });
         if (!res.ok) {
           const err = await res.json();
@@ -6416,6 +8413,17 @@ async function handleLogoUpload(file) {
 // Expose modal and page functions to global window for inline onclick handlers
 window.openNewSchoolModal = openNewSchoolModal;
 window.closeNewSchoolModal = closeNewSchoolModal;
+window.openNewClassroomModal = openNewClassroomModal;
+window.closeNewClassroomModal = closeNewClassroomModal;
+window.handleNewClassroomSubmit = handleNewClassroomSubmit;
+window.quickAddStudent = quickAddStudent;
+window.deleteStudentConfirm = deleteStudentConfirm;
+window.openEditStudentModal = openEditStudentModal;
+window.closeEditStudentModal = closeEditStudentModal;
+window.handleSaveStudentEdit = handleSaveStudentEdit;
+window.reloadClassroomStudentsList = reloadClassroomStudentsList;
+window.updateClassroomBadgeCount = updateClassroomBadgeCount;
+window.onSchoolsYearFilterChange = onSchoolsYearFilterChange;
 window.deleteSchoolConfirm = deleteSchoolConfirm;
 window.deleteClassroomConfirm = deleteClassroomConfirm;
 window.openCsvModal = openCsvModal;

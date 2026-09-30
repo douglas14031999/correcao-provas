@@ -94,6 +94,14 @@ if os.path.exists(FRONTEND_DIR):
             return FileResponse(pr_path)
         raise HTTPException(status_code=404, detail="Página do banco de provas não encontrada")
 
+    @app.get("/manual")
+    @app.get("/docs")
+    async def serve_manual():
+        m_path = os.path.join(FRONTEND_DIR, "manual.html")
+        if os.path.exists(m_path):
+            return FileResponse(m_path)
+        raise HTTPException(status_code=404, detail="Manual de documentação não encontrado")
+
     @app.get("/manifest.json")
     async def serve_manifest():
         manifest_path = os.path.join(FRONTEND_DIR, "manifest.json")

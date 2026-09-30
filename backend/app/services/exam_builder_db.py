@@ -842,6 +842,13 @@ def sync_builder_exam_to_main_exams(exam_id: str, custom_params: Optional[Dict[s
     template_json = json.dumps(template_data) if isinstance(template_data, dict) else (template_data or "{}")
     now = datetime.now().isoformat()
     
+    skills_matrix_dict = {}
+    for q in questions:
+        q_num = str(q.get("question_number", 1))
+        bncc = (q.get("bncc_code") or "").strip()
+        skills_matrix_dict[q_num] = bncc
+    skills_matrix_json = json.dumps(skills_matrix_dict)
+
     if not is_update:
         cursor.execute("""
             INSERT INTO exams (
@@ -849,8 +856,8 @@ def sync_builder_exam_to_main_exams(exam_id: str, custom_params: Optional[Dict[s
                 points_per_question, answer_key, weights, subtitle, school_name,
                 classroom, shift, logo_path, created_at, header_color,
                 cover_model, cover_title, cover_subtitle, cover_instructions,
-                sheet_template, page_count
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                sheet_template, page_count, skills_matrix
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             target_exam_id,
             title,
@@ -872,7 +879,8 @@ def sync_builder_exam_to_main_exams(exam_id: str, custom_params: Optional[Dict[s
             cover_subtitle,
             cover_instructions,
             template_json,
-            page_count
+            page_count,
+            skills_matrix_json
         ))
     else:
         cursor.execute("""
@@ -881,14 +889,14 @@ def sync_builder_exam_to_main_exams(exam_id: str, custom_params: Optional[Dict[s
                 num_questions = ?, num_alternatives = ?, points_per_question = ?,
                 answer_key = ?, weights = ?, header_color = ?, cover_model = ?,
                 cover_title = ?, cover_subtitle = ?, cover_instructions = ?,
-                sheet_template = ?, page_count = ?
+                sheet_template = ?, page_count = ?, skills_matrix = ?
             WHERE id = ?
         """, (
             title, subtitle, school_name, classroom, shift,
             num_questions, num_alternatives, points_per_q,
             json.dumps(answer_key_dict), json.dumps(weights_dict), header_color,
             cover_model, cover_title, cover_subtitle, cover_instructions,
-            template_json, page_count,
+            template_json, page_count, skills_matrix_json,
             target_exam_id
         ))
 

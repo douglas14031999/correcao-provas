@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css?v=1789790090">
+  <link rel="stylesheet" href="/static/styles.css?v=2026092809">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -87,6 +87,13 @@
 
       <div class="login-card-footer">
         <span class="login-hint-text">Acesso restrito</span>
+        <a href="/static/manual.html" target="_blank" class="login-manual-link" title="Abrir Manual de Uso e Documentação da Plataforma">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+          </svg>
+          <span>Manual de Uso &amp; Documentação</span>
+        </a>
       </div>
     </div>
   </div>
@@ -221,6 +228,18 @@
                   <span class="nav-dd-desc">Métricas por ano escolar</span>
                 </div>
               </button>
+
+              <div class="nav-dd-separator"></div>
+
+              <a href="/static/manual.html" target="_blank" class="nav-dropdown-item" id="menu-item-manual" onclick="closeAdminDropdown();" style="text-decoration: none;">
+                <div class="nav-dd-icon icon-teal">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                </div>
+                <div class="nav-dd-text">
+                  <span class="nav-dd-title">Manual do Sistema</span>
+                  <span class="nav-dd-desc">Documentação e tutoriais</span>
+                </div>
+              </a>
             </div>
           </div>
 
@@ -409,6 +428,19 @@
             <span class="mobile-item-desc">Métricas por ano escolar</span>
           </div>
         </button>
+
+        <a href="/static/manual.html" target="_blank" class="mobile-drawer-item" onclick="closeMobileMenu();" style="text-decoration: none;">
+          <div class="mobile-item-icon-box icon-teal">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+            </svg>
+          </div>
+          <div class="mobile-item-info">
+            <span class="mobile-item-title">Manual do Sistema</span>
+            <span class="mobile-item-desc">Documentação e tutoriais</span>
+          </div>
+        </a>
       </div>
     </div>
 
@@ -1044,6 +1076,18 @@
           <kbd class="search-kbd-hint" title="Pressione / para buscar">/</kbd>
           <button type="button" id="schools-search-clear" class="search-box-clear" title="Limpar busca (Esc)" style="display: none;">✕</button>
         </div>
+
+        <!-- Filtro por Ano Letivo -->
+        <div class="filter-box-wrap" style="display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0;">
+          <label for="schools-year-filter" style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Ano Letivo:</label>
+          <select id="schools-year-filter" class="form-select form-select-sm" style="min-width: 140px; font-weight: 700; border-radius: 8px; height: 38px;" onchange="onSchoolsYearFilterChange()">
+            <option value="all">Todos os Anos</option>
+            <option value="2026" selected>2026</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+          </select>
+        </div>
+
         <div id="schools-search-stats" class="search-stats-badge" style="display: none;"></div>
       </div>
 
@@ -1169,6 +1213,138 @@
             <span class="kpi-label">Aproveitamento</span>
             <div class="kpi-value kpi-emerald" id="page-rep-avg-pct">0%</div>
             <span class="kpi-subtext">Acertos gerais</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SALVEAL / PEDAGOGICAL ANALYTICS SECTION (Níveis de Aprendizagem & Habilidades) -->
+      <div class="salveal-analytics-section" id="salveal-analytics-section">
+        <!-- Top 2 Overview Cards Grid -->
+        <div class="salveal-cards-grid">
+          <!-- Card 1: Estudantes Avaliados -->
+          <div class="salveal-card" id="salveal-card-evaluated">
+            <div class="salveal-card-header">
+              <span class="salveal-card-cycle" id="salveal-eval-cycle">Simulado</span>
+            </div>
+            <div class="salveal-card-body">
+              <span class="salveal-card-title">Estudantes avaliados</span>
+              <div class="salveal-big-value" id="salveal-eval-count">0</div>
+            </div>
+            <div class="salveal-card-footer">
+              <button type="button" class="btn-salveal-link" onclick="openSalvealStudentsModal('evaluated')">Ver mais</button>
+            </div>
+          </div>
+
+          <!-- Card 2: Estudantes com aprendizagem adequada & Distribuição -->
+          <div class="salveal-card" id="salveal-card-adequate">
+            <div class="salveal-card-header">
+              <span class="salveal-card-cycle" id="salveal-adeq-cycle">Simulado</span>
+            </div>
+            <div class="salveal-card-body">
+              <span class="salveal-card-title">Estudantes com aprendizagem adequada</span>
+              <div class="salveal-big-value" id="salveal-adeq-pct">0%</div>
+
+              <div class="salveal-dist-container">
+                <div class="salveal-dist-label">Distribuição dos estudantes por níveis de aprendizagem</div>
+                <!-- Segmented horizontal progress bar -->
+                <div class="salveal-progress-bar" id="salveal-progress-bar">
+                  <div class="salveal-bar-segment segment-defasagem" id="salveal-seg-defasagem" style="width: 0%;" title="Defasagem"></div>
+                  <div class="salveal-bar-segment segment-intermediario" id="salveal-seg-intermediario" style="width: 0%;" title="Aprendizado intermediário"></div>
+                  <div class="salveal-bar-segment segment-adequado" id="salveal-seg-adequado" style="width: 0%;" title="Aprendizado adequado"></div>
+                </div>
+
+                <!-- Legend with counts and percentages -->
+                <div class="salveal-dist-legend">
+                  <div class="salveal-legend-row" onclick="openSalvealStudentsModal('defasagem')" title="Clique para ver estudantes em defasagem">
+                    <div class="legend-left">
+                      <span class="salveal-dot dot-defasagem"></span>
+                      <div class="legend-texts">
+                        <span class="legend-level-name">Defasagem</span>
+                        <span class="legend-level-sub" id="salveal-sub-defasagem">0 estudantes</span>
+                      </div>
+                    </div>
+                    <div class="legend-right">
+                      <span class="legend-pct" id="salveal-pct-defasagem">0%</span>
+                    </div>
+                  </div>
+
+                  <div class="salveal-legend-row" onclick="openSalvealStudentsModal('intermediario')" title="Clique para ver estudantes em aprendizado intermediário">
+                    <div class="legend-left">
+                      <span class="salveal-dot dot-intermediario"></span>
+                      <div class="legend-texts">
+                        <span class="legend-level-name">Aprendizado intermediário</span>
+                        <span class="legend-level-sub" id="salveal-sub-intermediario">0 estudantes</span>
+                      </div>
+                    </div>
+                    <div class="legend-right">
+                      <span class="legend-pct" id="salveal-pct-intermediario">0%</span>
+                    </div>
+                  </div>
+
+                  <div class="salveal-legend-row" onclick="openSalvealStudentsModal('adequado')" title="Clique para ver estudantes com aprendizado adequado">
+                    <div class="legend-left">
+                      <span class="salveal-dot dot-adequado"></span>
+                      <div class="legend-texts">
+                        <span class="legend-level-name">Aprendizado adequado</span>
+                        <span class="legend-level-sub" id="salveal-sub-adequado">0 estudantes</span>
+                      </div>
+                    </div>
+                    <div class="legend-right">
+                      <span class="legend-pct" id="salveal-pct-adequado">0%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: Percentual de acerto por habilidade -->
+        <div class="salveal-skills-box">
+          <div class="salveal-skills-header">
+            <h3 class="salveal-section-title">Percentual de acerto por habilidade</h3>
+            <div class="salveal-skills-actions">
+              <button type="button" class="btn-salveal-ver-mais" onclick="openSalvealSkillsModal()">Ver mais</button>
+              <button type="button" class="btn-salveal-ver-mais btn-salveal-edit-matrix" onclick="openEditSkillsMatrixModal()" title="Editar ou definir códigos das habilidades das questões">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 3px;"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                <span>Matriz de Habilidades</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Dropdown Filter: Acerto por habilidade -->
+          <div class="salveal-filter-wrapper">
+            <label for="salveal-filter-skills" class="salveal-filter-label">Acerto por habilidade</label>
+            <select id="salveal-filter-skills" class="salveal-filter-select" onchange="filterSalvealSkills(this.value)">
+              <option value="all">Todos</option>
+            </select>
+          </div>
+
+          <!-- Container of Skill Cards -->
+          <div class="salveal-skills-grid-container">
+            <div class="salveal-skills-grid" id="salveal-skills-grid">
+              <!-- Dynamically populated cards -->
+            </div>
+
+            <!-- Legend -->
+            <div class="salveal-skills-legend">
+              <div class="skill-legend-item">
+                <span class="skill-leg-dot dot-tier-low"></span>
+                <span>Até 40%</span>
+              </div>
+              <div class="skill-legend-item">
+                <span class="skill-leg-dot dot-tier-med-low"></span>
+                <span>De 41 até 60%</span>
+              </div>
+              <div class="skill-legend-item">
+                <span class="skill-leg-dot dot-tier-med-high"></span>
+                <span>De 61 até 80%</span>
+              </div>
+              <div class="skill-legend-item">
+                <span class="skill-leg-dot dot-tier-high"></span>
+                <span>Acima de 80%</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1301,6 +1477,265 @@
           </div>
         </div>
 
+        <!-- COMPARATIVE SALVEAL / PEDAGOGICAL ANALYTICS SECTION -->
+        <div class="salveal-analytics-section" id="salveal-compare-analytics-section">
+          <!-- Overview Comparison Cards (Gabarito A vs Gabarito B) -->
+          <div class="salveal-compare-double-grid">
+            <!-- Bloco Gabarito A -->
+            <div class="salveal-compare-block">
+              <div class="salveal-compare-exam-header" style="border-left: 4px solid #2563eb;">
+                <span class="exam-color-indicator exam-a-dot" style="display: inline-block;"></span>
+                <span class="salveal-compare-exam-title" id="salveal-comp-title-a">Gabarito A</span>
+              </div>
+              <div class="salveal-cards-grid" style="grid-template-columns: 1fr;">
+                <!-- Card Estudantes Avaliados (Gabarito A) -->
+                <div class="salveal-card">
+                  <div class="salveal-card-header">
+                    <span class="salveal-card-cycle" id="salveal-comp-eval-name-a">Gabarito A</span>
+                  </div>
+                  <div class="salveal-card-body">
+                    <span class="salveal-card-title">Estudantes avaliados</span>
+                    <div class="salveal-big-value" id="salveal-comp-eval-count-a">0</div>
+                  </div>
+                  <div class="salveal-card-footer">
+                    <button type="button" class="btn-salveal-link" onclick="openSalvealCompareStudentsModal('a', 'evaluated')">Ver mais</button>
+                  </div>
+                </div>
+
+                <!-- Card Aprendizagem Adequada (Gabarito A) -->
+                <div class="salveal-card">
+                  <div class="salveal-card-header">
+                    <span class="salveal-card-cycle" id="salveal-comp-adeq-name-a">Gabarito A</span>
+                  </div>
+                  <div class="salveal-card-body">
+                    <span class="salveal-card-title">Estudantes com aprendizagem adequada</span>
+                    <div class="salveal-big-value" id="salveal-comp-adeq-pct-a">0%</div>
+
+                    <div class="salveal-dist-container">
+                      <div class="salveal-dist-label">Distribuição por níveis de aprendizagem</div>
+                      <div class="salveal-progress-bar">
+                        <div class="salveal-bar-segment segment-defasagem" id="salveal-comp-seg-def-a" style="width: 0%;" title="Defasagem"></div>
+                        <div class="salveal-bar-segment segment-intermediario" id="salveal-comp-seg-inter-a" style="width: 0%;" title="Aprendizado intermediário"></div>
+                        <div class="salveal-bar-segment segment-adequado" id="salveal-comp-seg-adeq-a" style="width: 0%;" title="Aprendizado adequado"></div>
+                      </div>
+
+                      <div class="salveal-dist-legend">
+                        <div class="salveal-legend-row" onclick="openSalvealCompareStudentsModal('a', 'defasagem')" title="Ver alunos em defasagem">
+                          <div class="legend-left">
+                            <span class="salveal-dot dot-defasagem"></span>
+                            <div class="legend-texts">
+                              <span class="legend-level-name">Defasagem</span>
+                              <span class="legend-level-sub" id="salveal-comp-sub-def-a">0 estudantes</span>
+                            </div>
+                          </div>
+                          <div class="legend-right">
+                            <span class="legend-pct" id="salveal-comp-pct-def-a">0%</span>
+                          </div>
+                        </div>
+
+                        <div class="salveal-legend-row" onclick="openSalvealCompareStudentsModal('a', 'intermediario')" title="Ver alunos em aprendizado intermediário">
+                          <div class="legend-left">
+                            <span class="salveal-dot dot-intermediario"></span>
+                            <div class="legend-texts">
+                              <span class="legend-level-name">Aprendizado intermediário</span>
+                              <span class="legend-level-sub" id="salveal-comp-sub-inter-a">0 estudantes</span>
+                            </div>
+                          </div>
+                          <div class="legend-right">
+                            <span class="legend-pct" id="salveal-comp-pct-inter-a">0%</span>
+                          </div>
+                        </div>
+
+                        <div class="salveal-legend-row" onclick="openSalvealCompareStudentsModal('a', 'adequado')" title="Ver alunos com aprendizado adequado">
+                          <div class="legend-left">
+                            <span class="salveal-dot dot-adequado"></span>
+                            <div class="legend-texts">
+                              <span class="legend-level-name">Aprendizado adequado</span>
+                              <span class="legend-level-sub" id="salveal-comp-sub-adeq-a">0 estudantes</span>
+                            </div>
+                          </div>
+                          <div class="legend-right">
+                            <span class="legend-pct" id="salveal-comp-pct-adeq-a">0%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bloco Gabarito B -->
+            <div class="salveal-compare-block">
+              <div class="salveal-compare-exam-header" style="border-left: 4px solid #10b981;">
+                <span class="exam-color-indicator exam-b-dot" style="display: inline-block;"></span>
+                <span class="salveal-compare-exam-title" id="salveal-comp-title-b">Gabarito B</span>
+              </div>
+              <div class="salveal-cards-grid" style="grid-template-columns: 1fr;">
+                <!-- Card Estudantes Avaliados (Gabarito B) -->
+                <div class="salveal-card">
+                  <div class="salveal-card-header">
+                    <span class="salveal-card-cycle" id="salveal-comp-eval-name-b">Gabarito B</span>
+                  </div>
+                  <div class="salveal-card-body">
+                    <span class="salveal-card-title">Estudantes avaliados</span>
+                    <div class="salveal-big-value" id="salveal-comp-eval-count-b">0</div>
+                  </div>
+                  <div class="salveal-card-footer">
+                    <button type="button" class="btn-salveal-link" onclick="openSalvealCompareStudentsModal('b', 'evaluated')">Ver mais</button>
+                  </div>
+                </div>
+
+                <!-- Card Aprendizagem Adequada (Gabarito B) -->
+                <div class="salveal-card">
+                  <div class="salveal-card-header">
+                    <span class="salveal-card-cycle" id="salveal-comp-adeq-name-b">Gabarito B</span>
+                  </div>
+                  <div class="salveal-card-body">
+                    <span class="salveal-card-title">Estudantes com aprendizagem adequada</span>
+                    <div class="salveal-big-value" id="salveal-comp-adeq-pct-b">0%</div>
+
+                    <div class="salveal-dist-container">
+                      <div class="salveal-dist-label">Distribuição por níveis de aprendizagem</div>
+                      <div class="salveal-progress-bar">
+                        <div class="salveal-bar-segment segment-defasagem" id="salveal-comp-seg-def-b" style="width: 0%;" title="Defasagem"></div>
+                        <div class="salveal-bar-segment segment-intermediario" id="salveal-comp-seg-inter-b" style="width: 0%;" title="Aprendizado intermediário"></div>
+                        <div class="salveal-bar-segment segment-adequado" id="salveal-comp-seg-adeq-b" style="width: 0%;" title="Aprendizado adequado"></div>
+                      </div>
+
+                      <div class="salveal-dist-legend">
+                        <div class="salveal-legend-row" onclick="openSalvealCompareStudentsModal('b', 'defasagem')" title="Ver alunos em defasagem">
+                          <div class="legend-left">
+                            <span class="salveal-dot dot-defasagem"></span>
+                            <div class="legend-texts">
+                              <span class="legend-level-name">Defasagem</span>
+                              <span class="legend-level-sub" id="salveal-comp-sub-def-b">0 estudantes</span>
+                            </div>
+                          </div>
+                          <div class="legend-right">
+                            <span class="legend-pct" id="salveal-comp-pct-def-b">0%</span>
+                          </div>
+                        </div>
+
+                        <div class="salveal-legend-row" onclick="openSalvealCompareStudentsModal('b', 'intermediario')" title="Ver alunos em aprendizado intermediário">
+                          <div class="legend-left">
+                            <span class="salveal-dot dot-intermediario"></span>
+                            <div class="legend-texts">
+                              <span class="legend-level-name">Aprendizado intermediário</span>
+                              <span class="legend-level-sub" id="salveal-comp-sub-inter-b">0 estudantes</span>
+                            </div>
+                          </div>
+                          <div class="legend-right">
+                            <span class="legend-pct" id="salveal-comp-pct-inter-b">0%</span>
+                          </div>
+                        </div>
+
+                        <div class="salveal-legend-row" onclick="openSalvealCompareStudentsModal('b', 'adequado')" title="Ver alunos com aprendizado adequado">
+                          <div class="legend-left">
+                            <span class="salveal-dot dot-adequado"></span>
+                            <div class="legend-texts">
+                              <span class="legend-level-name">Aprendizado adequado</span>
+                              <span class="legend-level-sub" id="salveal-comp-sub-adeq-b">0 estudantes</span>
+                            </div>
+                          </div>
+                          <div class="legend-right">
+                            <span class="legend-pct" id="salveal-comp-pct-adeq-b">0%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Seção Comparativa: Percentual de Acerto por Habilidade -->
+          <div class="salveal-skills-box">
+            <div class="salveal-skills-header">
+              <h3 class="salveal-section-title">Percentual de acerto por habilidade (Comparativo)</h3>
+              <div class="salveal-skills-actions">
+                <button type="button" class="btn-salveal-ver-mais" onclick="openSalvealCompareSkillsModal('a')">Ver mais</button>
+              </div>
+            </div>
+
+            <!-- Filtro centralizado -->
+            <div class="salveal-filter-wrapper">
+              <label for="salveal-comp-filter-skills" class="salveal-filter-label">Acerto por habilidade</label>
+              <select id="salveal-comp-filter-skills" class="salveal-filter-select" onchange="filterSalvealCompareSkills(this.value)">
+                <option value="all">Todas as questões/habilidades</option>
+              </select>
+            </div>
+
+            <!-- Dois Blocos de Habilidades Lado a Lado (um para cada gabarito) -->
+            <div class="salveal-compare-skills-two-blocks">
+              <!-- Bloco Gabarito A -->
+              <div class="salveal-skills-grid-container salveal-skills-block">
+                <div class="salveal-skills-block-header" style="border-left: 4px solid #2563eb; display: flex; justify-content: space-between; align-items: center;">
+                  <div style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden;">
+                    <span class="exam-color-indicator exam-a-dot" style="display: inline-block; flex-shrink: 0;"></span>
+                    <span class="salveal-compare-exam-title" id="salveal-comp-skills-title-a" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Gabarito A</span>
+                  </div>
+                  <button type="button" class="btn-salveal-ver-mais" style="font-size: 0.75rem; padding: 0.25rem 0.65rem; margin-left: 0.5rem; flex-shrink: 0;" onclick="openSalvealCompareSkillsModal('a')">Ver mais</button>
+                </div>
+                <div class="salveal-skills-grid" id="salveal-compare-skills-grid-a">
+                  <!-- Badges do Gabarito A -->
+                </div>
+                <div class="salveal-skills-legend">
+                  <div class="skill-legend-item">
+                    <span class="skill-leg-dot dot-tier-low"></span>
+                    <span>Até 40%</span>
+                  </div>
+                  <div class="skill-legend-item">
+                    <span class="skill-leg-dot dot-tier-med-low"></span>
+                    <span>De 41 até 60%</span>
+                  </div>
+                  <div class="skill-legend-item">
+                    <span class="skill-leg-dot dot-tier-med-high"></span>
+                    <span>De 61 até 80%</span>
+                  </div>
+                  <div class="skill-legend-item">
+                    <span class="skill-leg-dot dot-tier-high"></span>
+                    <span>Acima de 80%</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bloco Gabarito B -->
+              <div class="salveal-skills-grid-container salveal-skills-block">
+                <div class="salveal-skills-block-header" style="border-left: 4px solid #10b981; display: flex; justify-content: space-between; align-items: center;">
+                  <div style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden;">
+                    <span class="exam-color-indicator exam-b-dot" style="display: inline-block; flex-shrink: 0;"></span>
+                    <span class="salveal-compare-exam-title" id="salveal-comp-skills-title-b" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Gabarito B</span>
+                  </div>
+                  <button type="button" class="btn-salveal-ver-mais" style="font-size: 0.75rem; padding: 0.25rem 0.65rem; margin-left: 0.5rem; flex-shrink: 0;" onclick="openSalvealCompareSkillsModal('b')">Ver mais</button>
+                </div>
+                <div class="salveal-skills-grid" id="salveal-compare-skills-grid-b">
+                  <!-- Badges do Gabarito B -->
+                </div>
+                <div class="salveal-skills-legend">
+                  <div class="skill-legend-item">
+                    <span class="skill-leg-dot dot-tier-low"></span>
+                    <span>Até 40%</span>
+                  </div>
+                  <div class="skill-legend-item">
+                    <span class="skill-leg-dot dot-tier-med-low"></span>
+                    <span>De 41 até 60%</span>
+                  </div>
+                  <div class="skill-legend-item">
+                    <span class="skill-leg-dot dot-tier-med-high"></span>
+                    <span>De 61 até 80%</span>
+                  </div>
+                  <div class="skill-legend-item">
+                    <span class="skill-leg-dot dot-tier-high"></span>
+                    <span>Acima de 80%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Grouped Bar Chart: Questions Accuracy Side-by-Side -->
         <div class="chart-box-card" style="margin-bottom: 1.5rem;">
           <div class="chart-header">
@@ -1354,9 +1789,10 @@
         
         <!-- Left: Form Controls -->
         <div class="create-exam-card">
-          <div class="card-header">
+          <div class="exam-config-header">
             <div>
-              <h2 class="card-title" id="create-card-title">Nova Prova</h2>
+              <h2 class="exam-config-title" id="create-card-title">Configuração da Prova</h2>
+              <p class="exam-config-subtitle">Preencha os campos para compor a capa e gerar o gabarito OMR oficial sincronizado.</p>
             </div>
           </div>
 
@@ -1371,157 +1807,235 @@
 
           <form id="create-exam-form" class="exam-form">
             
-            <!-- Section 1: Header & Visual Identity -->
-            <div class="form-section-title">Cabeçalho</div>
-            
-            <div class="form-row">
-              <div class="form-group flex-2">
-                <label for="exam-title-input">Título: *</label>
-                <input type="text" id="exam-title-input" class="form-input" value="PROVA CANOA 2026 – LÍNGUA PORTUGUESA" placeholder="Ex: SIMULADO 2026" required>
-              </div>
-              <div class="form-group flex-1">
-                <label for="exam-subtitle-input">Subtítulo / Série:</label>
-                <input type="text" id="exam-subtitle-input" class="form-input" value="2º ANO DO ENSINO FUNDAMENTAL" placeholder="Ex: 2º ANO">
-              </div>
-            </div>
-
-            <!-- Logo Selector Box -->
-            <div class="logo-selector-card">
-              <div class="logo-preview-box">
-                <img id="logo-preview-img" src="/static/assets/logo_lagoa_da_canoa.png" alt="Logo Selecionada">
-              </div>
-              <div class="logo-controls">
-                <span class="logo-title">Logo da Prova</span>
-                <div class="logo-buttons">
-                  <input type="file" id="exam-logo-file" accept="image/png, image/jpeg, image/svg+xml" style="display: none;">
-                  <button type="button" class="btn btn-secondary btn-sm" id="btn-upload-logo">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                      <polyline points="17 8 12 3 7 8"></polyline>
-                      <line x1="12" y1="3" x2="12" y2="15"></line>
-                    </svg>
-                    <span>Alterar</span>
-                  </button>
-                  <button type="button" class="btn btn-secondary btn-sm" id="btn-default-logo">
-                    <span>Padrão Canoa</span>
-                  </button>
-                  <button type="button" class="btn btn-secondary btn-sm" id="btn-remove-logo" style="color: var(--danger);">
-                    <span>Sem Logo</span>
-                  </button>
+            <!-- CARD 1: CABEÇALHO DA PROVA -->
+            <div class="exam-section-card">
+              <div class="section-card-header">
+                <div class="section-card-title-group">
+                  <span class="section-num-badge">1</span>
+                  <h3 class="section-card-title">CABEÇALHO DA PROVA</h3>
                 </div>
+                <span class="section-card-meta">* Campos obrigatórios</span>
               </div>
-            </div>
+              
+              <div class="form-group mb-3">
+                <label for="exam-title-input" class="form-label-bold">Título da Prova *</label>
+                <input type="text" id="exam-title-input" class="form-input form-input-lg" placeholder="Ex: PROVA CANOA 2026 – LÍNGUA PORTUGUESA" required>
+              </div>
 
-            <!-- Exam Color Selection -->
-            <div class="form-section-title">Cor do Gabarito</div>
-            <div class="form-row">
-              <div class="form-group flex-1">
-                <label>Cor de Destaque da Folha (Cabeçalho e Tabela):</label>
-                <div class="color-picker-wrapper">
-                  <div class="color-preset-pills" id="color-preset-pills">
-                    <button type="button" class="color-pill active" data-color="#244061" title="Azul Institucional Canoa">
-                      <span class="color-pill-dot" style="background-color: #244061;"></span>
-                      <span class="color-pill-name">Azul Padrão</span>
-                    </button>
-                    <button type="button" class="color-pill" data-color="#1e3a8a" title="Azul Cobalto">
-                      <span class="color-pill-dot" style="background-color: #1e3a8a;"></span>
-                      <span class="color-pill-name">Azul Cobalto</span>
-                    </button>
-                    <button type="button" class="color-pill" data-color="#0f766e" title="Verde Petróleo">
-                      <span class="color-pill-dot" style="background-color: #0f766e;"></span>
-                      <span class="color-pill-name">Verde Petróleo</span>
-                    </button>
-                    <button type="button" class="color-pill" data-color="#15803d" title="Verde Esmeralda">
-                      <span class="color-pill-dot" style="background-color: #15803d;"></span>
-                      <span class="color-pill-name">Verde Esmeralda</span>
-                    </button>
-                    <button type="button" class="color-pill" data-color="#7c2d12" title="Terracota / Tijolo">
-                      <span class="color-pill-dot" style="background-color: #7c2d12;"></span>
-                      <span class="color-pill-name">Terracota</span>
-                    </button>
-                    <button type="button" class="color-pill" data-color="#831843" title="Bordô / Vinho">
-                      <span class="color-pill-dot" style="background-color: #831843;"></span>
-                      <span class="color-pill-name">Bordô</span>
-                    </button>
-                    <button type="button" class="color-pill" data-color="#334155" title="Grafite / Ardósia">
-                      <span class="color-pill-dot" style="background-color: #334155;"></span>
-                      <span class="color-pill-name">Grafite</span>
-                    </button>
-                    <button type="button" class="color-pill" data-color="#0f172a" title="Preto Carbono">
-                      <span class="color-pill-dot" style="background-color: #0f172a;"></span>
-                      <span class="color-pill-name">Preto</span>
-                    </button>
+              <div class="form-group mb-3">
+                <div class="form-label-row">
+                  <label for="exam-subtitle-input" class="form-label-bold">Subtítulo / Série & Turma</label>
+                  <div class="quick-grade-pills" id="quick-grade-pills">
+                    <button type="button" class="quick-pill" data-grade="2º ANO DO ENSINO FUNDAMENTAL">2º Ano</button>
+                    <button type="button" class="quick-pill" data-grade="5º ANO DO ENSINO FUNDAMENTAL">5º Ano</button>
+                    <button type="button" class="quick-pill" data-grade="9º ANO DO ENSINO FUNDAMENTAL">9º Ano</button>
                   </div>
-                  <div class="custom-color-control">
-                    <label class="custom-color-btn" for="exam-color-picker" title="Escolher cor personalizada">
-                      <input type="color" id="exam-color-picker" value="#244061">
-                      <span class="custom-color-preview-box" id="custom-color-preview-box" style="background-color: #244061;"></span>
-                      <span class="custom-color-label">Personalizada</span>
-                    </label>
-                    <input type="text" id="exam-color-input" class="form-input color-hex-text" value="#244061" maxlength="7" placeholder="#244061" title="Código hexadecimal da cor">
+                </div>
+                <input type="text" id="exam-subtitle-input" class="form-input" placeholder="Ex: 2º ANO DO ENSINO FUNDAMENTAL">
+              </div>
+
+              <div class="form-group mb-0">
+                <label class="form-label-bold">Logo da Prova</label>
+                <div class="logo-selector-card-new">
+                  <div class="logo-info-group">
+                    <div class="logo-preview-box-new">
+                      <img id="logo-preview-img" src="/static/assets/logo_lagoa_da_canoa.png" alt="Logo Selecionada">
+                    </div>
+                    <div class="logo-meta-group">
+                      <span class="logo-name-text">Emblema Oficial de Lagoa da Canoa</span>
+                      <span class="badge-status-pill badge-active" id="logo-status-badge">Ativo</span>
+                    </div>
+                  </div>
+                  <div class="logo-actions-group">
+                    <input type="file" id="exam-logo-file" accept="image/png, image/jpeg, image/svg+xml" style="display: none;">
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-upload-logo">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                      </svg>
+                      <span>Alterar</span>
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-default-logo">
+                      <span>Padrão Canoa</span>
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm btn-danger-soft" id="btn-remove-logo">
+                      <span>Sem Logo</span>
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- Cover Model & Customization -->
-            <div class="form-section-title">Capa da Prova (Integrada com OMR)</div>
-            <div class="form-row">
-              <div class="form-group flex-1">
-                <label for="exam-cover-model-select">Modelo de Capa da Prova:</label>
-                <select id="exam-cover-model-select" class="form-select">
+            <!-- CARD 2: COR DO GABARITO & FOLHA -->
+            <div class="exam-section-card">
+              <div class="section-card-header">
+                <div class="section-card-title-group">
+                  <span class="section-num-badge">2</span>
+                  <h3 class="section-card-title">COR DO GABARITO & FOLHA</h3>
+                </div>
+                <span class="section-card-meta">Cor de destaque (cabeçalho, tabelas e marcadores OMR)</span>
+              </div>
+              
+              <div class="color-preset-grid" id="color-preset-pills">
+                <button type="button" class="color-grid-pill active" data-color="#244061" title="Azul Padrão Canoa">
+                  <span class="color-pill-dot" style="background-color: #244061;"></span>
+                  <span class="color-pill-name">Azul Padrão</span>
+                </button>
+                <button type="button" class="color-grid-pill" data-color="#1e3a8a" title="Azul Cobalto">
+                  <span class="color-pill-dot" style="background-color: #1e3a8a;"></span>
+                  <span class="color-pill-name">Azul Cobalto</span>
+                </button>
+                <button type="button" class="color-grid-pill" data-color="#0f766e" title="Verde Petróleo">
+                  <span class="color-pill-dot" style="background-color: #0f766e;"></span>
+                  <span class="color-pill-name">Verde Petróleo</span>
+                </button>
+                <button type="button" class="color-grid-pill" data-color="#15803d" title="Verde Esmeralda">
+                  <span class="color-pill-dot" style="background-color: #15803d;"></span>
+                  <span class="color-pill-name">Verde Esmeralda</span>
+                </button>
+                <button type="button" class="color-grid-pill" data-color="#c2410c" title="Terracota">
+                  <span class="color-pill-dot" style="background-color: #c2410c;"></span>
+                  <span class="color-pill-name">Terracota</span>
+                </button>
+                <button type="button" class="color-grid-pill" data-color="#831843" title="Bordô">
+                  <span class="color-pill-dot" style="background-color: #831843;"></span>
+                  <span class="color-pill-name">Bordô</span>
+                </button>
+                <button type="button" class="color-grid-pill" data-color="#334155" title="Grafite">
+                  <span class="color-pill-dot" style="background-color: #334155;"></span>
+                  <span class="color-pill-name">Grafite</span>
+                </button>
+                <button type="button" class="color-grid-pill" data-color="#0f172a" title="Preto">
+                  <span class="color-pill-dot" style="background-color: #0f172a;"></span>
+                  <span class="color-pill-name">Preto</span>
+                </button>
+              </div>
+
+              <div class="custom-color-row-new">
+                <span class="custom-color-title">Personalizada:</span>
+                <div class="custom-color-control-new">
+                  <label class="custom-color-swatch-box" for="exam-color-picker" title="Escolher cor personalizada">
+                    <input type="color" id="exam-color-picker" value="#244061">
+                    <span class="custom-color-preview-box" id="custom-color-preview-box" style="background-color: #244061;"></span>
+                  </label>
+                  <input type="text" id="exam-color-input" class="form-input color-hex-text-new" maxlength="7" placeholder="#244061">
+                </div>
+                <span class="custom-color-helper">Padrão OMR Oficial de Lagoa da Canoa</span>
+              </div>
+            </div>
+
+            <!-- CARD 3: CAPA DA PROVA (INTEGRADA COM OMR) -->
+            <div class="exam-section-card">
+              <div class="section-card-header">
+                <div class="section-card-title-group">
+                  <span class="section-num-badge">3</span>
+                  <h3 class="section-card-title">CAPA DA PROVA (INTEGRADA COM OMR)</h3>
+                </div>
+                <span class="badge-status-pill badge-outline-blue">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                  Auto Alinhamento Ativo
+                </span>
+              </div>
+
+              <div class="form-group mb-3">
+                <label for="exam-cover-model-select" class="form-label-bold">Modelo de Capa da Prova</label>
+                <select id="exam-cover-model-select" class="form-select form-select-lg">
                   <option value="opcao_4_azul_nautico_lagoa" selected>Opção 4: Lagoa Serena & Náutico Real (Oficial Canoa 2026)</option>
                   <option value="opcao_1_montanhas_canoa">Opção 1: Montanhas de Canoa (Ouro & Verde)</option>
                   <option value="opcao_2_rio_verde_petroleo">Opção 2: Rio São Francisco (Verde Petróleo)</option>
                   <option value="opcao_3_por_do_sol_solar">Opção 3: Pôr do Sol Solar do Agreste</option>
                 </select>
               </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group flex-1">
-                <label for="exam-cover-title-input">Título da Capa:</label>
-                <input type="text" id="exam-cover-title-input" class="form-input" value="PROVA CANOA" placeholder="Ex: PROVA CANOA">
+
+              <div class="form-row mb-3">
+                <div class="form-group flex-1">
+                  <label for="exam-cover-title-input" class="form-label-bold">Título da Capa</label>
+                  <input type="text" id="exam-cover-title-input" class="form-input" placeholder="Ex: PROVA CANOA">
+                </div>
+                <div class="form-group flex-1">
+                  <label for="exam-cover-subtitle-input" class="form-label-bold">Subtítulo / Caderno da Capa</label>
+                  <input type="text" id="exam-cover-subtitle-input" class="form-input" placeholder="Ex: CADERNO M0802 • MATEMÁTICA / LP">
+                </div>
               </div>
-              <div class="form-group flex-1">
-                <label for="exam-cover-subtitle-input">Subtítulo / Caderno da Capa:</label>
-                <input type="text" id="exam-cover-subtitle-input" class="form-input" placeholder="Ex: CADERNO M0802 • MATEMÁTICA">
+
+              <div class="form-group mb-3">
+                <label for="exam-cover-instructions-input" class="form-label-bold">Orientações de Preenchimento das Bolhas</label>
+                <textarea id="exam-cover-instructions-input" class="form-input form-textarea" rows="2" placeholder="ORIENTAÇÕES: Preencha totalmente a bolha com caneta azul ou preta.">ORIENTAÇÕES: Preencha totalmente a bolha com caneta azul ou preta.</textarea>
               </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group flex-1" style="margin-bottom: 0.5rem;">
-                <label for="exam-cover-instructions-input">Orientações da Capa (opcional):</label>
-                <input type="text" id="exam-cover-instructions-input" class="form-input" placeholder="ORIENTAÇÕES: Preencha totalmente a bolha com caneta azul ou preta.">
+
+              <div class="feature-toggles-row">
+                <label class="feature-toggle-card">
+                  <input type="checkbox" id="feature-qr-code" checked>
+                  <span class="feature-toggle-box">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </span>
+                  <span class="feature-toggle-text">QR Code único anti-fraude</span>
+                </label>
+                <label class="feature-toggle-card">
+                  <input type="checkbox" id="feature-aruco" checked>
+                  <span class="feature-toggle-box">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </span>
+                  <span class="feature-toggle-text">4 Marcadores de canto OMR</span>
+                </label>
               </div>
             </div>
 
-            <!-- Exam Parameters -->
-            <div class="form-section-title">Parâmetros da Avaliação & Questões</div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="exam-page-count-input" title="Número total de páginas do caderno de prova para cálculo de tiragem e folhas">Páginas da Prova:</label>
-                <input type="number" id="exam-page-count-input" class="form-input" value="1" min="1" max="100" placeholder="Ex: 4" title="Quantas páginas tem o caderno de prova impresso">
+            <!-- CARD 4: PARÂMETROS DA AVALIAÇÃO & QUESTÕES -->
+            <div class="exam-section-card">
+              <div class="section-card-header">
+                <div class="section-card-title-group">
+                  <span class="section-num-badge">4</span>
+                  <h3 class="section-card-title">PARÂMETROS DA AVALIAÇÃO & QUESTÕES</h3>
+                </div>
+                <span class="badge-status-pill badge-outline-green" id="total-points-badge">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                  Total: 20,0 pts
+                </span>
               </div>
-              <div class="form-group">
-                <label for="exam-num-q-input">Qtd. Questões:</label>
-                <input type="number" id="exam-num-q-input" class="form-input" value="20" min="5" max="100" required>
+
+              <div class="params-four-grid">
+                <div class="form-group">
+                  <label for="exam-page-count-input" class="form-label-bold">Páginas</label>
+                  <input type="number" id="exam-page-count-input" class="form-input text-center" placeholder="1" min="1" max="100">
+                </div>
+                <div class="form-group">
+                  <label for="exam-num-q-input" class="form-label-bold">Qtd. Questões</label>
+                  <input type="number" id="exam-num-q-input" class="form-input text-center font-bold" placeholder="20" min="5" max="100">
+                </div>
+                <div class="form-group">
+                  <label for="exam-num-opts-select" class="form-label-bold">Alternativas</label>
+                  <select id="exam-num-opts-select" class="form-select text-center">
+                    <option value="4" selected>4 Opções (A-D)</option>
+                    <option value="5">5 Opções (A-E)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="exam-points-input" class="form-label-bold">Pontos p/ Questão</label>
+                  <input type="number" id="exam-points-input" class="form-input text-center" value="1" placeholder="1.0" step="0.1" min="0.1">
+                </div>
               </div>
-              <div class="form-group">
-                <label for="exam-num-opts-select">Alternativas:</label>
-                <select id="exam-num-opts-select" class="form-select">
-                  <option value="4" selected>4 Opções (A-D)</option>
-                  <option value="5">5 Opções (A-E)</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="exam-points-input">Pontos p/ Questão:</label>
-                <input type="number" id="exam-points-input" class="form-input" value="1.0" step="0.1" min="0.1">
+
+              <div class="quick-items-row">
+                <span class="quick-items-title">Itens rápidos:</span>
+                <div class="quick-items-pills" id="quick-items-pills">
+                  <button type="button" class="quick-item-pill" data-count="10">10 itens</button>
+                  <button type="button" class="quick-item-pill" data-count="15">15 itens</button>
+                  <button type="button" class="quick-item-pill" data-count="20">20 itens</button>
+                  <button type="button" class="quick-item-pill" data-count="25">25 itens</button>
+                </div>
               </div>
             </div>
 
-            <!-- Interactive Answer Key Matrix -->
-            <div class="answer-key-section">
-              <div class="answer-key-header">
-                <h3>Gabarito Oficial</h3>
+            <!-- CARD 5: GABARITO OFICIAL -->
+            <div class="exam-section-card answer-key-section-card">
+              <div class="section-card-header">
+                <div class="section-card-title-group">
+                  <span class="section-num-badge">5</span>
+                  <h3 class="section-card-title">GABARITO OFICIAL</h3>
+                </div>
+                <span class="section-card-meta">Clique nas bolhas para definir o gabarito</span>
               </div>
               
               <div id="answer-key-matrix" class="answer-key-matrix">
@@ -1578,8 +2092,8 @@
 
             <!-- Orientation Note -->
             <div class="mockup-instructions">
-              <span>ORIENTAÇÕES: Preencha totalmente a bolha da opção escolhida.</span>
-              <span>[ ⬤ ] CORRETO</span>
+              <span id="preview-instructions-text">ORIENTAÇÕES: Preencha totalmente a bolha com caneta azul ou preta.</span>
+              <span class="mockup-instructions-right">CORRETO: [ ⬤ ] &nbsp; ERRADO: [ ✕ ] [ ✓ ]</span>
             </div>
 
             <!-- Questions Table Mockup -->
@@ -1628,8 +2142,8 @@
               <div class="mockup-marker tl">0</div>
               <div class="mockup-marker tr">1</div>
               <div class="cover-omr-guide">
-                <span>ORIENTAÇÕES: Preencha totalmente a bolha.</span>
-                <span>[ ⬤ ] CORRETO</span>
+                <span id="cover-instructions-text">ORIENTAÇÕES: Preencha totalmente a bolha com caneta azul ou preta.</span>
+                <span class="mockup-instructions-right">CORRETO: [ ⬤ ] &nbsp; ERRADO: [ ✕ ] [ ✓ ]</span>
               </div>
               <div class="mockup-questions-grid" id="live-cover-questions-grid">
                 <!-- Dynamically populated sample bubbles -->
@@ -2207,6 +2721,72 @@
     </div>
   </div>
 
+  <!-- Modal: Nova Turma -->
+  <div id="new-classroom-modal" class="modal-overlay" style="display: none;" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Cadastrar Nova Turma</h3>
+          <span id="new-classroom-school-name" style="font-size: 0.8rem; color: var(--text-secondary);">Escola</span>
+        </div>
+        <button type="button" class="modal-close" onclick="closeNewClassroomModal()" title="Fechar">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="new-classroom-form" onsubmit="handleNewClassroomSubmit(event)">
+          <input type="hidden" id="new-classroom-school-id">
+          
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label for="new-classroom-name-input">Nome da Turma / Identificação: *</label>
+            <input type="text" id="new-classroom-name-input" class="form-input" placeholder="Ex: 8º ANO - A MATUTINO" required>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="new-classroom-grade-select">Ano Escolar / Série: *</label>
+              <select id="new-classroom-grade-select" class="form-select" required>
+                <option value="1º ANO">1º ANO</option>
+                <option value="2º ANO">2º ANO</option>
+                <option value="3º ANO">3º ANO</option>
+                <option value="4º ANO">4º ANO</option>
+                <option value="5º ANO">5º ANO</option>
+                <option value="6º ANO">6º ANO</option>
+                <option value="7º ANO">7º ANO</option>
+                <option value="8º ANO" selected>8º ANO</option>
+                <option value="9º ANO">9º ANO</option>
+                <option value="EDUCAÇÃO INFANTIL">Educação Infantil</option>
+                <option value="EJA">EJA</option>
+                <option value="OUTRO">Outro / Especial...</option>
+              </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="new-classroom-shift-select">Turno: *</label>
+              <select id="new-classroom-shift-select" class="form-select" required>
+                <option value="MANHÃ" selected>Manhã (Matutino)</option>
+                <option value="TARDE">Tarde (Vespertino)</option>
+                <option value="NOITE">Noite (Noturno)</option>
+                <option value="INTEGRAL">Tempo Integral</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 1.25rem;">
+            <label for="new-classroom-year-input">Ano Letivo: *</label>
+            <input type="text" id="new-classroom-year-input" class="form-input" placeholder="Ex: 2026" value="2026" required maxlength="4">
+            <span style="font-size: 0.74rem; color: var(--text-secondary); margin-top: 0.2rem; display: block;">Permite organizar e filtrar as turmas por ano letivo.</span>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeNewClassroomModal()">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="btn-save-new-classroom">
+              <span>Cadastrar Turma</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Import CSV -->
   <div id="csv-import-modal" class="modal-overlay" style="display: none;">
     <div class="modal-card">
@@ -2777,6 +3357,12 @@
           <div id="edit-classroom-grade-custom-wrap" class="form-group" style="display: none; margin-top: 0.5rem; margin-bottom: 0;">
             <input type="text" id="edit-classroom-grade-custom-input" class="form-input" placeholder="Digite o nome da série personalizada">
           </div>
+
+          <div class="form-group" style="margin-top: 1rem; margin-bottom: 0;">
+            <label for="edit-classroom-year-input" class="form-label" style="font-weight: 600; font-size: 0.82rem; margin-bottom: 0.35rem;">Ano Letivo: *</label>
+            <input type="text" id="edit-classroom-year-input" class="form-input" placeholder="Ex: 2026" maxlength="4" required>
+            <span style="font-size: 0.74rem; color: var(--text-secondary); margin-top: 0.2rem; display: block;">Organização e filtro das turmas por ano letivo.</span>
+          </div>
         </div>
 
         <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.5rem; padding: 1rem 1.25rem; border-top: 1px solid var(--border-color); background: #f8fafc;">
@@ -2786,6 +3372,44 @@
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
             <span>Salvar Alterações</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Editar Aluno -->
+  <div id="edit-student-modal" class="modal-overlay" style="display: none;" role="dialog" aria-modal="true">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Editar Dados do Aluno</h3>
+          <span id="edit-student-subtitle" style="font-size: 0.8rem; color: var(--text-secondary);">Atualização cadastral do estudante</span>
+        </div>
+        <button type="button" class="modal-close" onclick="closeEditStudentModal()" title="Fechar">&times;</button>
+      </div>
+      <form id="edit-student-form" onsubmit="handleSaveStudentEdit(event)">
+        <input type="hidden" id="edit-student-id-input">
+        <input type="hidden" id="edit-student-class-id-input">
+        <div class="modal-body" style="padding: 1.25rem;">
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label for="edit-student-name-input" class="form-label" style="font-weight: 600; font-size: 0.82rem; margin-bottom: 0.35rem;">Nome Completo do Aluno: *</label>
+            <input type="text" id="edit-student-name-input" class="form-input" required placeholder="Ex: Maria Clara dos Santos" autocomplete="off">
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0.5rem;">
+            <label for="edit-student-reg-input" class="form-label" style="font-weight: 600; font-size: 0.82rem; margin-bottom: 0.35rem;">Matrícula / Código do Aluno (opcional):</label>
+            <input type="text" id="edit-student-reg-input" class="form-input" placeholder="Ex: 20260451" autocomplete="off">
+          </div>
+        </div>
+
+        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.5rem; padding: 1rem 1.25rem; border-top: 1px solid var(--border-color); background: #f8fafc;">
+          <button type="button" class="btn btn-secondary" onclick="closeEditStudentModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-edit-student">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Salvar Aluno</span>
           </button>
         </div>
       </form>
@@ -3199,9 +3823,246 @@
     </div>
   </div>
 
+  <!-- MODAL: DETALHES DOS ESTUDANTES POR NÍVEL DE APRENDIZAGEM (SALVEAL) -->
+  <div class="modal-overlay" id="modal-salveal-students" style="display: none;" role="dialog" aria-modal="true">
+    <div class="modal-card modal-card-lg">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 class="modal-title" id="salveal-students-modal-title">Estudantes Avaliados</h3>
+          <span class="modal-subtitle" id="salveal-students-modal-sub">Detalhamento dos níveis de aprendizagem da turma</span>
+        </div>
+        <button type="button" class="modal-close" onclick="closeSalvealModal('modal-salveal-students')" title="Fechar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 60px; text-align: center;">#</th>
+                <th>Nome do Estudante</th>
+                <th style="width: 120px; text-align: center;">Matrícula</th>
+                <th style="width: 100px; text-align: center;">Nota</th>
+                <th style="width: 140px; text-align: center;">Aproveitamento</th>
+                <th style="width: 160px; text-align: center;">Nível de Aprendizagem</th>
+              </tr>
+            </thead>
+            <tbody id="salveal-students-modal-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+        <button type="button" class="btn-export-csv" onclick="exportSalvealStudentsCsv()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportar CSV
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="closeSalvealModal('modal-salveal-students')">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: DETALHES DO PERCENTUAL POR HABILIDADE (SALVEAL) -->
+  <div class="modal-overlay" id="modal-salveal-skills" style="display: none;" role="dialog" aria-modal="true">
+    <div class="modal-card modal-card-xl">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 class="modal-title">Diagnóstico Pedagógico por Habilidade</h3>
+          <span class="modal-subtitle" id="salveal-skills-modal-sub">Mapeamento item a item das habilidades avaliadas e intervenções pedagógicas</span>
+        </div>
+        <button type="button" class="modal-close" onclick="closeSalvealModal('modal-salveal-skills')" title="Fechar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 100px; text-align: center;">Item</th>
+                <th style="width: 130px; text-align: center;">Código Matriz</th>
+                <th>Descrição da Habilidade</th>
+                <th style="width: 120px; text-align: center;">Acertos</th>
+                <th style="width: 130px; text-align: center;">Taxa (%)</th>
+                <th style="width: 190px; text-align: center;">Classificação</th>
+              </tr>
+            </thead>
+            <tbody id="salveal-skills-modal-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+        <button type="button" class="btn-export-csv" onclick="exportSalvealSkillsCsv()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportar CSV
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="closeSalvealModal('modal-salveal-skills')">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: DETALHE INDIVIDUAL DA HABILIDADE / ITEM (POPUP AO CLICAR NO BADGE) -->
+  <div class="modal-overlay" id="modal-single-skill-detail" style="display: none;" role="dialog" aria-modal="true">
+    <div class="modal-card modal-card-lg">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            <h3 class="modal-title" id="single-skill-modal-title">Habilidade H 01</h3>
+            <span class="status-badge" id="single-skill-modal-badge" style="font-weight: 800;">100% (Adequado)</span>
+          </div>
+          <span class="modal-subtitle" id="single-skill-modal-sub">Diagnóstico individualizado do item avaliado</span>
+        </div>
+        <button type="button" class="modal-close" onclick="closeSalvealModal('modal-single-skill-detail')" title="Fechar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Indicadores Rápidos -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.75rem 1rem; text-align: center;">
+            <div style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Taxa de Acerto</div>
+            <div id="single-skill-stat-pct" style="font-size: 1.35rem; font-weight: 800; color: #0f172a;">100%</div>
+          </div>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.75rem 1rem; text-align: center;">
+            <div style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Estudantes com Acerto</div>
+            <div id="single-skill-stat-hits" style="font-size: 1.35rem; font-weight: 800; color: #0f172a;">12 / 12</div>
+          </div>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.75rem 1rem; text-align: center;">
+            <div style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Gabarito Oficial</div>
+            <div id="single-skill-stat-correct-key" style="font-size: 1.35rem; font-weight: 800; color: #2563eb;">A</div>
+          </div>
+          <div id="single-skill-compare-diff-box" style="display: none; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 0.75rem 1rem; text-align: center;">
+            <div style="font-size: 0.7rem; font-weight: 700; color: #1d4ed8; text-transform: uppercase;" id="single-skill-diff-label">Comparativo</div>
+            <div id="single-skill-stat-compare-diff" style="font-size: 1.15rem; font-weight: 800; color: #1d4ed8;">+0%</div>
+          </div>
+        </div>
+
+        <!-- Descrição / Enunciado -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid var(--primary); border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1.25rem;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--primary); text-transform: uppercase; margin-bottom: 0.25rem;" id="single-skill-statement-label">Habilidade / Descrição BNCC</div>
+          <div id="single-skill-statement-text" style="font-size: 0.875rem; color: #1e293b; line-height: 1.4;">Descrição do item avaliado</div>
+        </div>
+
+        <!-- Lista dos Estudantes e suas respostas neste item -->
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+          <span style="font-size: 0.85rem; font-weight: 700; color: #0f172a;">Desempenho dos Alunos nesta Questão</span>
+          <span id="single-skill-students-summary" style="font-size: 0.775rem; color: #64748b; font-weight: 600;">12 alunos</span>
+        </div>
+        <div class="table-responsive" style="max-height: 38vh; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 50px; text-align: center;">#</th>
+                <th>Nome do Estudante</th>
+                <th style="width: 110px; text-align: center;">Matrícula</th>
+                <th style="width: 120px; text-align: center;">Resposta Marcada</th>
+                <th style="width: 140px; text-align: center;">Resultado</th>
+              </tr>
+            </thead>
+            <tbody id="single-skill-students-tbody">
+              <!-- Dynamically populated rows -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+        <button type="button" class="btn-export-csv" onclick="exportSingleSkillDetailCsv()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportar CSV
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="closeSalvealModal('modal-single-skill-detail')">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: EDITAR MATRIZ DE HABILIDADES DA PROVA -->
+  <div class="modal-overlay" id="modal-edit-skills-matrix" style="display: none;" role="dialog" aria-modal="true">
+    <div class="modal-card modal-card-md">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 class="modal-title">Matriz de Habilidades do Simulado</h3>
+          <span class="modal-subtitle">Defina ou personalize os códigos BNCC/Matriz para cada questão (ex: 2EF08_M, EF01LP01)</span>
+        </div>
+        <button type="button" class="modal-close" onclick="closeSalvealModal('modal-edit-skills-matrix')" title="Fechar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          Os códigos informados abaixo serão exibidos nos cartões de habilidades do relatório (ex: <strong>H 01 (2EF08_M)</strong>).
+        </p>
+        <div id="skills-matrix-inputs-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem;">
+          <!-- Dynamically populated input rows -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeSalvealModal('modal-edit-skills-matrix')">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-save-skills-matrix" onclick="saveSkillsMatrix()">Salvar Matriz</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: DETALHES DO PERCENTUAL POR HABILIDADE (PROVA ANALISADA) -->
+  <div class="modal-overlay" id="modal-salveal-compare-skills" style="display: none;" role="dialog" aria-modal="true">
+    <div class="modal-card modal-card-xl">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 class="modal-title" id="salveal-comp-skills-modal-title">Diagnóstico de Habilidades</h3>
+          <span class="modal-subtitle" id="salveal-comp-skills-modal-sub">Mapeamento pedagógico item a item da avaliação analisada</span>
+        </div>
+        <button type="button" class="modal-close" onclick="closeSalvealModal('modal-salveal-compare-skills')" title="Fechar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Seletor de Prova Analisada (Tabs elegantes para alternar a prova) -->
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.75rem; flex-wrap: wrap;">
+          <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Prova Analisada:</span>
+          <button type="button" id="tab-comp-skills-exam-a" class="btn btn-sm" style="font-weight: 700; border-radius: 20px; padding: 0.35rem 0.9rem;" onclick="switchCompareSkillsExam('a')">
+            <span class="exam-color-indicator exam-a-dot" style="display: inline-block; vertical-align: middle; margin-right: 4px;"></span>
+            <span id="tab-comp-skills-title-a">Gabarito A</span>
+          </button>
+          <button type="button" id="tab-comp-skills-exam-b" class="btn btn-sm" style="font-weight: 700; border-radius: 20px; padding: 0.35rem 0.9rem;" onclick="switchCompareSkillsExam('b')">
+            <span class="exam-color-indicator exam-b-dot" style="display: inline-block; vertical-align: middle; margin-right: 4px;"></span>
+            <span id="tab-comp-skills-title-b">Gabarito B</span>
+          </button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 80px; text-align: center;">Item</th>
+                <th style="width: 140px; text-align: center;">Código Matriz</th>
+                <th>Descrição da Habilidade</th>
+                <th style="width: 110px; text-align: center;">Acertos</th>
+                <th style="width: 130px; text-align: center;">Taxa (%)</th>
+                <th style="width: 190px; text-align: center;">Classificação</th>
+              </tr>
+            </thead>
+            <tbody id="salveal-comp-skills-modal-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+        <button type="button" class="btn-export-csv" onclick="exportSalvealCompareSkillsCsv()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportar CSV
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="closeSalvealModal('modal-salveal-compare-skills')">Fechar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toast-container" aria-live="polite"></div>
 
-  <script src="/static/app.js?v=1789790083"></script>
+  <script src="/static/app.js?v=2026092814"></script>
 </body>
 </html>

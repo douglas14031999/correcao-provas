@@ -9,7 +9,7 @@ from app.services.database import (
     save_exam, get_exam, list_exams, update_exam, delete_exam,
     get_submissions_by_exam, update_exam_template,
     get_submission, delete_submission, delete_submissions_by_exam,
-    get_exam_linked_schools
+    get_exam_linked_schools, update_exam_skills_matrix
 )
 from app.services.pdf_generator import generate_answer_sheet_pdf, DEFAULT_LOGO_PATH
 from app.api.auth import require_roles
@@ -272,6 +272,18 @@ def update_existing_exam(exam_id: str, req: CreateExamRequest, authorization: Op
     
     res = update_exam(exam_id, updated_data)
     return res
+
+class UpdateSkillsMatrixRequest(BaseModel):
+    skills: Dict[str, str] = Field(default_factory=dict)
+
+@router.put("/{exam_id}/skills-matrix")
+def update_skills_matrix(exam_id: str, req: UpdateSkillsMatrixRequest, authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)):
+    require_roles(["admin", "coordenador", "professor"], authorization, x_auth_token)
+    exam = get_exam(exam_id)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Simulado não encontrado")
+    success = update_exam_skills_matrix(exam_id, req.skills)
+    return {"success": success, "exam_id": exam_id, "skills": req.skills}
 
 def cleanup_submission_files(sub: Dict[str, Any]):
     """Removes image files of a submission from disk."""

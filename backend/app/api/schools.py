@@ -21,6 +21,9 @@ from app.services.database import (
     get_school,
     delete_school,
     delete_classroom,
+    delete_student,
+    get_student,
+    update_student,
     get_or_create_classroom,
     get_or_create_student,
     list_schools_tree,
@@ -47,10 +50,27 @@ class CreateSchoolRequest(BaseModel):
     name: str
     inep_code: Optional[str] = ""
 
+class CreateClassroomRequest(BaseModel):
+    school_id: str
+    name: str
+    grade_year: Optional[str] = ""
+    shift: Optional[str] = "MANHÃ"
+    academic_year: Optional[str] = "2026"
+
+class CreateStudentRequest(BaseModel):
+    name: str
+    registration: Optional[str] = ""
+
+class UpdateStudentRequest(BaseModel):
+    name: Optional[str] = None
+    registration: Optional[str] = None
+    classroom_id: Optional[str] = None
+
 class UpdateClassroomRequest(BaseModel):
     name: Optional[str] = None
     shift: Optional[str] = None
     grade_year: Optional[str] = None
+    academic_year: Optional[str] = None
 
 class LinkExamsRequest(BaseModel):
     exam_ids: List[str]
@@ -374,6 +394,25 @@ def remove_school(school_id: str, authorization: Optional[str] = Header(None), x
         raise HTTPException(status_code=404, detail="Escola não encontrada.")
     return {"success": True, "message": "Escola removida com sucesso."}
 
+@router.post("/classrooms")
+def create_classroom_manual(req: CreateClassroomRequest, authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)):
+    """Creates a new classroom manually."""
+    require_roles(["admin", "coordenador"], authorization, x_auth_token)
+    if not req.school_id or not req.school_id.strip():
+        raise HTTPException(status_code=400, detail="Escola é obrigatória.")
+    if not req.name or not req.name.strip():
+        raise HTTPException(status_code=400, detail="Nome da turma é obrigatório.")
+    school = get_school(req.school_id.strip())
+    if not school:
+        raise HTTPException(status_code=404, detail="Escola não encontrada.")
+    return get_or_create_classroom(
+        school_id=req.school_id.strip(),
+        name=req.name.strip(),
+        grade_year=(req.grade_year or "").strip(),
+        shift=(req.shift or "MANHÃ").strip(),
+        academic_year=(req.academic_year or "2026").strip()
+    )
+
 @router.delete("/classrooms/{classroom_id}")
 def remove_classroom(classroom_id: str, authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)):
     """Deletes a classroom and its students."""
@@ -386,17 +425,60 @@ def remove_classroom(classroom_id: str, authorization: Optional[str] = Header(No
 @router.put("/classrooms/{classroom_id}")
 @router.patch("/classrooms/{classroom_id}")
 def edit_classroom(classroom_id: str, req: UpdateClassroomRequest, authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)):
-    """Updates classroom details such as name, shift, and grade_year."""
+    """Updates classroom details such as name, shift, grade_year, and academic_year."""
     require_roles(["admin", "coordenador"], authorization, x_auth_token)
     updated = update_classroom(
         classroom_id=classroom_id,
         name=req.name,
         shift=req.shift,
-        grade_year=req.grade_year
+        grade_year=req.grade_year,
+        academic_year=req.academic_year
     )
     if not updated:
         raise HTTPException(status_code=404, detail="Turma não encontrada.")
     return updated
+
+@router.post("/classrooms/{classroom_id}/students")
+def create_student_manual(classroom_id: str, req: CreateStudentRequest, authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)):
+    """Creates a new student inside a classroom."""
+    require_roles(["admin", "coordenador"], authorization, x_auth_token)
+    if not req.name or not req.name.strip():
+        raise HTTPException(status_code=400, detail="Nome do aluno é obrigatório.")
+    classroom = get_classroom_with_details(classroom_id)
+    if not classroom:
+        raise HTTPException(status_code=404, detail="Turma não encontrada.")
+    student = get_or_create_student(
+        classroom_id=classroom_id,
+        name=req.name.strip(),
+        registration=(req.registration or "").strip(),
+        school_id=classroom.get("school_id")
+    )
+    return student
+
+@router.put("/students/{student_id}")
+@router.patch("/students/{student_id}")
+def edit_student(student_id: str, req: UpdateStudentRequest, authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)):
+    """Updates student details such as name and registration."""
+    require_roles(["admin", "coordenador"], authorization, x_auth_token)
+    updated = update_student(
+        student_id=student_id,
+        name=req.name,
+        registration=req.registration,
+        classroom_id=req.classroom_id
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Aluno não encontrado.")
+    return updated
+
+@router.delete("/students/{student_id}")
+def remove_student(student_id: str, authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)):
+    """Deletes an individual student."""
+    require_roles(["admin", "coordenador"], authorization, x_auth_token)
+    success = delete_student(student_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Aluno não encontrado.")
+    return {"success": True, "message": "Aluno removido com sucesso."}
+
 
 
 @router.get("/classrooms/{classroom_id}")

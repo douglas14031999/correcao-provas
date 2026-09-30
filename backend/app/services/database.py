@@ -188,6 +188,30 @@ def get_connection():
         conn.row_factory = sqlite3.Row
         return conn
 
+_BNCC_SKILL_DESCRIPTIONS = {}
+
+def get_bncc_skill_description(code: str) -> str:
+    """Retorna a descrição oficial da BNCC para um código (ex: EF05MA09)."""
+    global _BNCC_SKILL_DESCRIPTIONS
+    if not _BNCC_SKILL_DESCRIPTIONS:
+        try:
+            bncc_path = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "data", "bncc_ef.json"
+            )
+            if os.path.exists(bncc_path):
+                with open(bncc_path, "r", encoding="utf-8") as f:
+                    items = json.load(f)
+                    for it in items:
+                        c = (it.get("codigo") or "").strip().upper()
+                        t = (it.get("texto") or "").strip()
+                        if c and t:
+                            _BNCC_SKILL_DESCRIPTIONS[c] = t
+        except Exception:
+            pass
+    code_clean = (code or "").strip().upper()
+    return _BNCC_SKILL_DESCRIPTIONS.get(code_clean, "")
+
 def init_db():
     conn = get_connection()
     cursor = conn.cursor()
@@ -249,6 +273,7 @@ def init_db():
                 name TEXT NOT NULL,
                 grade_year TEXT DEFAULT '',
                 shift TEXT DEFAULT 'MANHÃ',
+                academic_year TEXT DEFAULT '2026',
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
                 UNIQUE(school_id, name, grade_year)
@@ -313,6 +338,7 @@ def init_db():
         cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS cover_subtitle TEXT DEFAULT '';")
         cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS cover_instructions TEXT DEFAULT '';")
         cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS page_count INTEGER DEFAULT 1;")
+        cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS skills_matrix TEXT DEFAULT '{}';")
     else:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS exams (
@@ -357,7 +383,8 @@ def init_db():
             ("cover_title", "TEXT DEFAULT 'PROVA CANOA'"),
             ("cover_subtitle", "TEXT DEFAULT ''"),
             ("cover_instructions", "TEXT DEFAULT ''"),
-            ("page_count", "INTEGER DEFAULT 1")
+            ("page_count", "INTEGER DEFAULT 1"),
+            ("skills_matrix", "TEXT DEFAULT '{}'")
         ]
         for col_name, col_type in new_cols:
             if col_name not in existing_cols:
@@ -408,6 +435,7 @@ def init_db():
                 name TEXT NOT NULL,
                 grade_year TEXT DEFAULT '',
                 shift TEXT DEFAULT 'MANHÃ',
+                academic_year TEXT DEFAULT '2026',
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
                 UNIQUE(school_id, name, grade_year)
@@ -427,17 +455,24 @@ def init_db():
                         name TEXT NOT NULL,
                         grade_year TEXT DEFAULT '',
                         shift TEXT DEFAULT 'MANHÃ',
+                        academic_year TEXT DEFAULT '2026',
                         created_at TEXT NOT NULL,
                         FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
                         UNIQUE(school_id, name, grade_year)
                     )
                 """)
-                cursor.execute("INSERT INTO classrooms_v2 SELECT * FROM classrooms")
+                cursor.execute("INSERT INTO classrooms_v2 SELECT id, school_id, name, grade_year, shift, '2026', created_at FROM classrooms")
                 cursor.execute("DROP TABLE classrooms")
                 cursor.execute("ALTER TABLE classrooms_v2 RENAME TO classrooms")
                 cursor.execute("PRAGMA foreign_keys=ON")
         except Exception as e:
             print(f"Migration notice: {e}")
+
+        # Migration to add academic_year column if not present
+        try:
+            cursor.execute("ALTER TABLE classrooms ADD COLUMN academic_year TEXT DEFAULT '2026'")
+        except Exception:
+            pass
 
         # Gestão Escolar: Alunos
         cursor.execute("""
@@ -610,6 +645,28 @@ def get_exam(exam_id: str) -> Optional[Dict[str, Any]]:
     if not data.get("cover_title"):
         data["cover_title"] = "PROVA CANOA"
     data["page_count"] = int(data.get("page_count") or 1)
+    try:
+        data["skills_matrix"] = json.loads(data.get("skills_matrix") or "{}")
+    except Exception:
+        data["skills_matrix"] = {}
+
+    if not data["skills_matrix"]:
+        try:
+            conn_b = get_connection()
+            cur_b = conn_b.cursor()
+            cur_b.execute("""
+                SELECT bq.question_number, bq.bncc_code
+                FROM builder_questions bq
+                JOIN builder_exams be ON be.id = bq.exam_id
+                WHERE (be.linked_exam_id = ? OR be.id = ?) AND bq.bncc_code IS NOT NULL AND bq.bncc_code != ''
+                ORDER BY bq.question_number ASC
+            """, (exam_id, exam_id))
+            b_rows = cur_b.fetchall()
+            conn_b.close()
+            if b_rows:
+                data["skills_matrix"] = {str(r[0]): (r[1] or "").strip() for r in b_rows}
+        except Exception:
+            pass
     return data
 
 def list_exams() -> List[Dict[str, Any]]:
@@ -631,6 +688,10 @@ def list_exams() -> List[Dict[str, Any]]:
         if not item.get("cover_title"):
             item["cover_title"] = "PROVA CANOA"
         item["page_count"] = int(item.get("page_count") or 1)
+        try:
+            item["skills_matrix"] = json.loads(item.get("skills_matrix") or "{}")
+        except Exception:
+            item["skills_matrix"] = {}
         result.append(item)
     return result
 
@@ -701,6 +762,33 @@ def update_exam_template(exam_id: str, sheet_template: Dict[str, Any]) -> bool:
         SET sheet_template = ?
         WHERE id = ?
     """, (json.dumps(sheet_template), exam_id))
+    updated = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return updated
+
+def update_exam_skills_matrix(exam_id: str, skills_matrix: Dict[str, str]) -> bool:
+    conn = get_connection()
+    cursor = conn.cursor()
+    matrix_json = json.dumps(skills_matrix or {})
+    try:
+        cursor.execute("UPDATE exams SET skills_matrix = ? WHERE id = ?", (matrix_json, exam_id))
+    except Exception as e:
+        err_str = str(e).lower()
+        if "skills_matrix" in err_str or "column" in err_str or "coluna" in err_str:
+            try:
+                if is_postgres():
+                    cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS skills_matrix TEXT DEFAULT '{}';")
+                else:
+                    cursor.execute("ALTER TABLE exams ADD COLUMN skills_matrix TEXT DEFAULT '{}';")
+                conn.commit()
+                cursor.execute("UPDATE exams SET skills_matrix = ? WHERE id = ?", (matrix_json, exam_id))
+            except Exception:
+                conn.close()
+                raise e
+        else:
+            conn.close()
+            raise e
     updated = cursor.rowcount > 0
     conn.commit()
     conn.close()
@@ -895,9 +983,10 @@ def update_classroom(
     classroom_id: str,
     name: Optional[str] = None,
     shift: Optional[str] = None,
-    grade_year: Optional[str] = None
+    grade_year: Optional[str] = None,
+    academic_year: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
-    """Updates classroom details such as name, shift, and grade_year."""
+    """Updates classroom details such as name, shift, grade_year, and academic_year."""
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM classrooms WHERE id = ?", (classroom_id,))
@@ -910,10 +999,11 @@ def update_classroom(
     new_name = name.strip() if (name and name.strip()) else current["name"]
     new_shift = shift.strip().upper() if (shift and shift.strip()) else current.get("shift", "MANHÃ")
     new_grade = grade_year.strip() if (grade_year is not None and grade_year.strip()) else current.get("grade_year", "")
+    new_year = academic_year.strip() if (academic_year is not None and academic_year.strip()) else current.get("academic_year", "2026")
 
     cursor.execute(
-        "UPDATE classrooms SET name = ?, shift = ?, grade_year = ? WHERE id = ?",
-        (new_name, new_shift, new_grade, classroom_id)
+        "UPDATE classrooms SET name = ?, shift = ?, grade_year = ?, academic_year = ? WHERE id = ?",
+        (new_name, new_shift, new_grade, new_year, classroom_id)
     )
     conn.commit()
 
@@ -922,9 +1012,10 @@ def update_classroom(
     conn.close()
     return dict(updated) if updated else None
 
-def get_or_create_classroom(school_id: str, name: str, grade_year: str = "", shift: str = "MANHÃ") -> Dict[str, Any]:
+def get_or_create_classroom(school_id: str, name: str, grade_year: str = "", shift: str = "MANHÃ", academic_year: str = "2026") -> Dict[str, Any]:
     name_clean = name.strip()
     grade_clean = grade_year.strip()
+    year_clean = academic_year.strip() if academic_year else "2026"
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
@@ -934,18 +1025,23 @@ def get_or_create_classroom(school_id: str, name: str, grade_year: str = "", shi
     row = cursor.fetchone()
     if row:
         classroom = dict(row)
+        # Update academic_year if missing or default
+        if year_clean and classroom.get("academic_year") != year_clean:
+            cursor.execute("UPDATE classrooms SET academic_year = ? WHERE id = ?", (year_clean, classroom["id"]))
+            conn.commit()
+            classroom["academic_year"] = year_clean
         conn.close()
         return classroom
         
     class_id = str(uuid.uuid4())
     now = datetime.utcnow().isoformat()
     cursor.execute(
-        "INSERT INTO classrooms (id, school_id, name, grade_year, shift, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-        (class_id, school_id, name_clean, grade_clean, shift.strip().upper(), now)
+        "INSERT INTO classrooms (id, school_id, name, grade_year, shift, academic_year, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (class_id, school_id, name_clean, grade_clean, shift.strip().upper(), year_clean, now)
     )
     conn.commit()
     conn.close()
-    return {"id": class_id, "school_id": school_id, "name": name_clean, "grade_year": grade_clean, "shift": shift.strip().upper(), "created_at": now}
+    return {"id": class_id, "school_id": school_id, "name": name_clean, "grade_year": grade_clean, "shift": shift.strip().upper(), "academic_year": year_clean, "created_at": now}
 
 def link_exams_to_classroom(classroom_id: str, exam_ids: List[str]) -> List[str]:
     """Links multiple exams to a classroom, replacing previous links."""
@@ -1085,6 +1181,57 @@ def get_or_create_student(classroom_id: str, name: str, registration: str = "", 
     conn.close()
     return {"id": student_id, "school_id": school_id, "classroom_id": classroom_id, "registration": registration.strip(), "name": name_clean, "created_at": now}
 
+def delete_student(student_id: str) -> bool:
+    """Deletes a student by ID."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM students WHERE id = ?", (student_id,))
+    deleted = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return deleted
+
+def get_student(student_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieves a student by ID."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM students WHERE id = ?", (student_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def update_student(student_id: str, name: Optional[str] = None, registration: Optional[str] = None, classroom_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Updates a student's name, registration, and/or classroom."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM students WHERE id = ?", (student_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return None
+    current = dict(row)
+    
+    new_name = name.strip() if (name is not None and name.strip()) else current["name"]
+    new_reg = registration.strip() if registration is not None else current.get("registration", "")
+    new_class_id = classroom_id.strip() if (classroom_id is not None and classroom_id.strip()) else current["classroom_id"]
+    
+    new_school_id = current.get("school_id")
+    if new_class_id != current["classroom_id"]:
+        cursor.execute("SELECT school_id FROM classrooms WHERE id = ?", (new_class_id,))
+        c_row = cursor.fetchone()
+        if c_row and c_row["school_id"]:
+            new_school_id = c_row["school_id"]
+
+    cursor.execute(
+        "UPDATE students SET name = ?, registration = ?, classroom_id = ?, school_id = ? WHERE id = ?",
+        (new_name, new_reg, new_class_id, new_school_id, student_id)
+    )
+    conn.commit()
+    cursor.execute("SELECT * FROM students WHERE id = ?", (student_id,))
+    updated = dict(cursor.fetchone())
+    conn.close()
+    return updated
+
 
 def list_schools_tree() -> List[Dict[str, Any]]:
     """Returns schools with nested classrooms, linked exams, and student counts."""
@@ -1102,8 +1249,8 @@ def list_schools_tree() -> List[Dict[str, Any]]:
             cl["student_count"] = cnt
             cl["students_count"] = cnt
             cursor.execute("""
-                SELECT e.id, e.title, e.num_questions,
-                       be.id as builder_exam_id, be.title as builder_title, be.discipline as builder_discipline, be.page_count as builder_page_count
+                SELECT e.id, e.title, e.subtitle, e.num_questions,
+                       be.id as builder_exam_id, be.title as builder_title, be.discipline as builder_discipline, be.page_count as builder_page_count, be.grade_year as builder_grade_year
                 FROM classroom_exams ce
                 JOIN exams e ON ce.exam_id = e.id
                 LEFT JOIN builder_exams be ON (be.linked_exam_id = e.id OR be.id = e.id)
@@ -1139,8 +1286,8 @@ def get_classroom_with_details(classroom_id: str) -> Optional[Dict[str, Any]]:
     cursor.execute("SELECT * FROM students WHERE classroom_id = ? ORDER BY name ASC", (classroom_id,))
     data["students"] = [dict(r) for r in cursor.fetchall()]
     cursor.execute("""
-        SELECT e.id, e.title, e.num_questions,
-               be.id as builder_exam_id, be.title as builder_title, be.discipline as builder_discipline, be.page_count as builder_page_count
+        SELECT e.id, e.title, e.subtitle, e.num_questions,
+               be.id as builder_exam_id, be.title as builder_title, be.discipline as builder_discipline, be.page_count as builder_page_count, be.grade_year as builder_grade_year
         FROM classroom_exams ce
         JOIN exams e ON ce.exam_id = e.id
         LEFT JOIN builder_exams be ON (be.linked_exam_id = e.id OR be.id = e.id)
@@ -1236,6 +1383,35 @@ def get_classroom_report(classroom_id: str, exam_id: str) -> Optional[Dict[str, 
             st["correct_count"] = 0
             st["percentage"] = None
             
+    # Look for builder questions linked to this exam to get official BNCC / skill codes
+    builder_skills = {}
+    try:
+        cursor.execute("""
+            SELECT bq.question_number, bq.bncc_code, bq.statement, bq.discipline
+            FROM builder_questions bq
+            JOIN builder_exams be ON be.id = bq.exam_id
+            WHERE be.linked_exam_id = ? OR be.id = ?
+            ORDER BY bq.question_number ASC
+        """, (exam_id, exam_id))
+        for brow in cursor.fetchall():
+            try:
+                qn = brow["question_number"]
+                bncc = (brow["bncc_code"] or "").strip()
+                stmt = (brow["statement"] or "").strip()
+                disc = (brow["discipline"] or "").strip()
+            except Exception:
+                qn = brow[0]
+                bncc = (brow[1] or "").strip()
+                stmt = (brow[2] or "").strip()
+                disc = (brow[3] or "").strip()
+            builder_skills[str(qn)] = {
+                "bncc_code": bncc,
+                "statement": stmt,
+                "discipline": disc
+            }
+    except Exception:
+        pass
+
     conn.close()
     
     # Calculate statistics
@@ -1265,6 +1441,8 @@ def get_classroom_report(classroom_id: str, exam_id: str) -> Optional[Dict[str, 
     # Question accuracy rates across the class
     questions_stats = {}
     num_questions = exam["num_questions"]
+    if builder_skills and len(builder_skills) > 0 and num_questions != len(builder_skills):
+        num_questions = len(builder_skills)
     for q_idx in range(1, num_questions + 1):
         q_str = str(q_idx)
         correct_ans = exam["answer_key"].get(q_str, "")
@@ -1276,6 +1454,119 @@ def get_classroom_report(classroom_id: str, exam_id: str) -> Optional[Dict[str, 
             "correct_count": correct_count,
             "accuracy_percentage": accuracy
         }
+
+    # Learning Levels (Padrão SALVEAL / SAEB)
+    # Defasagem (< 50%), Intermediário (50% a 69.9%), Adequado (>= 70%)
+    learning_levels = {
+        "defasagem": {"count": 0, "percentage": 0, "students": []},
+        "intermediario": {"count": 0, "percentage": 0, "students": []},
+        "adequado": {"count": 0, "percentage": 0, "students": []}
+    }
+    for st in cl["students"]:
+        if st["status"] == "CORRIGIDO" and st.get("percentage") is not None:
+            pct = float(st["percentage"])
+            st_card = {
+                "id": st["id"],
+                "name": st["name"],
+                "registration": st.get("registration", ""),
+                "score": st["score"],
+                "percentage": pct
+            }
+            if pct < 50.0:
+                learning_levels["defasagem"]["count"] += 1
+                learning_levels["defasagem"]["students"].append(st_card)
+            elif pct < 70.0:
+                learning_levels["intermediario"]["count"] += 1
+                learning_levels["intermediario"]["students"].append(st_card)
+            else:
+                learning_levels["adequado"]["count"] += 1
+                learning_levels["adequado"]["students"].append(st_card)
+
+    if graded_count > 0:
+        learning_levels["defasagem"]["percentage"] = round((learning_levels["defasagem"]["count"] / graded_count) * 100)
+        learning_levels["intermediario"]["percentage"] = round((learning_levels["intermediario"]["count"] / graded_count) * 100)
+        learning_levels["adequado"]["percentage"] = round((learning_levels["adequado"]["count"] / graded_count) * 100)
+
+    # Skills Accuracy Matrix (Habilidades)
+    skills_matrix_saved = {}
+    try:
+        skills_matrix_saved = json.loads(exam.get("skills_matrix") or "{}")
+    except Exception:
+        skills_matrix_saved = {}
+
+    skills_stats = []
+    for q_idx in range(1, num_questions + 1):
+        q_str = str(q_idx)
+        q_info = questions_stats.get(q_str, {})
+        acc = q_info.get("accuracy_percentage", 0.0)
+        correct_count = q_info.get("correct_count", 0)
+        
+        # Skill code resolution: builder BNCC (configured in exam questions) -> custom matrix -> Item X
+        builder_data = builder_skills.get(q_str, {})
+        builder_bncc = (builder_data.get("bncc_code") or "").strip()
+        custom_code = (skills_matrix_saved.get(q_str) or "").strip()
+        
+        if builder_bncc:
+            code_display = builder_bncc
+        elif custom_code:
+            code_display = custom_code
+        else:
+            code_display = f"Item {q_idx}"
+            
+        skills_matrix_saved[q_str] = code_display
+            
+        habilidade_label = f"Q {q_idx:02d}"
+        
+        # Resolve skill description: BNCC catalog -> builder question description -> statement snippet -> fallback
+        skill_desc = get_bncc_skill_description(code_display)
+        if not skill_desc and builder_bncc:
+            skill_desc = get_bncc_skill_description(builder_bncc)
+        if not skill_desc:
+            skill_desc = builder_data.get("skill_description") or ""
+        if not skill_desc and builder_data.get("statement"):
+            stmt_clean = (builder_data.get("statement") or "").strip()
+            if stmt_clean:
+                skill_desc = stmt_clean[:120] + ("..." if len(stmt_clean) > 120 else "")
+        if not skill_desc:
+            skill_desc = f"Habilidade avaliada no item {q_idx} ({code_display})"
+        
+        # Color tier based on accuracy matching official SALVEAL / CAEd
+        if acc <= 40.0:
+            tier = "low"
+            tier_label = "Até 40%"
+            tier_color = "#ea5a47"
+            status_label = "Abaixo do Básico (Crítico)"
+        elif acc <= 60.0:
+            tier = "med_low"
+            tier_label = "De 41 até 60%"
+            tier_color = "#fca374"
+            status_label = "Básico"
+        elif acc <= 80.0:
+            tier = "med_high"
+            tier_label = "De 61 até 80%"
+            tier_color = "#9fe3ea"
+            status_label = "Intermediário"
+        else:
+            tier = "high"
+            tier_label = "Acima de 80%"
+            tier_color = "#00b8d4"
+            status_label = "Adequado"
+
+        skills_stats.append({
+            "question": q_idx,
+            "habilidade_code": habilidade_label,
+            "skill_code": code_display,
+            "statement": builder_data.get("statement", ""),
+            "skill_description": skill_desc,
+            "discipline": builder_data.get("discipline", ""),
+            "correct_count": correct_count,
+            "total_graded": graded_count,
+            "accuracy_percentage": acc,
+            "tier": tier,
+            "tier_label": tier_label,
+            "tier_color": tier_color,
+            "status_label": status_label
+        })
 
     # Sort students by score descending for ranking
     sorted_students = sorted(
@@ -1296,7 +1587,8 @@ def get_classroom_report(classroom_id: str, exam_id: str) -> Optional[Dict[str, 
             "title": exam["title"],
             "num_questions": exam["num_questions"],
             "points_per_question": exam["points_per_question"],
-            "max_score": round(float(exam["num_questions"]) * float(exam.get("points_per_question", 1.0)), 2)
+            "max_score": round(float(exam["num_questions"]) * float(exam.get("points_per_question", 1.0)), 2),
+            "skills_matrix": skills_matrix_saved
         },
         "total_students": total_students,
         "graded_students": graded_count,
@@ -1308,7 +1600,10 @@ def get_classroom_report(classroom_id: str, exam_id: str) -> Optional[Dict[str, 
         "students": sorted_students,
         "student_results": sorted_students,
         "questions_stats": questions_stats,
-        "grade_distribution": grade_distribution
+        "grade_distribution": grade_distribution,
+        "learning_levels": learning_levels,
+        "skills_stats": skills_stats,
+        "skills_performance": skills_stats
     }
 
 
@@ -1439,7 +1734,13 @@ def compare_classroom_exams(classroom_id: str, exam1_id: str, exam2_id: str) -> 
             "highlight_summary": highlight_summary
         },
         "students": comparison_students,
-        "questions_comparison": questions_comparison
+        "questions_comparison": questions_comparison,
+        "rep1": rep1,
+        "rep2": rep2,
+        "learning_levels1": rep1.get("learning_levels"),
+        "learning_levels2": rep2.get("learning_levels"),
+        "skills_stats1": rep1.get("skills_stats"),
+        "skills_stats2": rep2.get("skills_stats")
     }
 
 def get_students_report_by_year(grade_year: str, school_id: Optional[str] = None, exam_id: Optional[str] = None) -> Dict[str, Any]:

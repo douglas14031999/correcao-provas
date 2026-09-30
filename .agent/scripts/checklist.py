@@ -26,6 +26,12 @@ import argparse
 from pathlib import Path
 from typing import List, Tuple, Optional
 
+if sys.stdout.encoding != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 # ANSI colors for terminal output
 class Colors:
     HEADER = '\033[95m'

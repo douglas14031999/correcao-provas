@@ -1,10 +1,13 @@
 // Prova Canoa - PWA Service Worker
-const CACHE_NAME = 'prova-canoa-v10';
+const CACHE_NAME = 'prova-canoa-v14';
 const PRECACHE_ASSETS = [
   '/',
   '/manifest.json',
   '/static/styles.css',
   '/static/app.js',
+  '/static/manual.html',
+  '/static/manual.css',
+  '/static/manual.js',
   '/static/assets/logo-placeholder.svg',
   '/pwa-icon-192.png',
   '/pwa-icon-512.png',
@@ -42,7 +45,29 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Estratégia Stale-While-Revalidate para ativos estáticos da interface
+  // Rota do manual e documentação
+  if (url.pathname === '/manual' || url.pathname === '/docs') {
+    event.respondWith(
+      fetch('/static/manual.html').catch(() => caches.match('/static/manual.html'))
+    );
+    return;
+  }
+
+  // Para navegação/HTML principal, sempre busca da rede primeiro para garantir interface atualizada
+  if (event.request.mode === 'navigate' || event.request.destination === 'document' || url.pathname === '/') {
+    event.respondWith(
+      fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+        }
+        return networkResponse;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Estratégia Stale-While-Revalidate para outros ativos estáticos (CSS, JS, imagens)
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request).then((networkResponse) => {
