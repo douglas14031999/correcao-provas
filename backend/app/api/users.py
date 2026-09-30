@@ -72,7 +72,8 @@ def add_user(req: UserCreateRequest, authorization: Optional[str] = Header(None)
         email=req.email or "",
         role=clean_role,
         password_hash=pwd_hash,
-        is_active=1 if req.is_active else 0
+        is_active=1 if req.is_active else 0,
+        initial_password=req.password
     )
     return {"success": True, "message": "Usuário cadastrado com sucesso!", "user": user}
 
@@ -104,7 +105,9 @@ def edit_user(user_id: str, req: UserUpdateRequest, authorization: Optional[str]
             raise HTTPException(status_code=400, detail="Não é possível desativar o único administrador do sistema.")
         updates["is_active"] = new_active
     if req.new_password and len(req.new_password.strip()) >= 4:
-        updates["password_hash"] = hash_password(req.new_password.strip())
+        clean_pwd = req.new_password.strip()
+        updates["password_hash"] = hash_password(clean_pwd)
+        updates["initial_password"] = clean_pwd
 
     updated = update_user(user_id, updates)
     return {"success": True, "message": "Dados do usuário atualizados com sucesso!", "user": updated}

@@ -129,8 +129,9 @@ def main():
         s_conn, p_conn,
         table_name="users",
         pkey="id",
-        columns=["id", "username", "name", "email", "role", "password_hash", "is_active", "created_at", "last_login"]
+        columns=["id", "username", "name", "email", "role", "password_hash", "is_active", "created_at", "last_login", "initial_password"]
     )
+
 
     # 3. Escolas, Turmas e Alunos (Opcional ou quando --with-schools / --all for passado)
     if args.with_schools or args.all:

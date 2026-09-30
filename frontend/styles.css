@@ -6340,6 +6340,24 @@ body.mobile-menu-open {
   color: #0f172a;
 }
 
+.btn-icon-action.action-whatsapp {
+  color: #16a34a;
+}
+
+.btn-icon-action.action-whatsapp:hover {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #15803d;
+  box-shadow: 0 1px 3px rgba(22, 163, 74, 0.15);
+}
+
+.btn-icon-action.action-whatsapp.copied {
+  background: #16a34a !important;
+  border-color: #16a34a !important;
+  color: #ffffff !important;
+  transform: scale(1.08);
+}
+
 .btn-icon-action.action-edit:hover {
   background: #eff6ff;
   border-color: #93c5fd;
@@ -6357,6 +6375,7 @@ body.mobile-menu-open {
   border-color: #fca5a5;
   color: #dc2626;
 }
+
 
 /* ==========================================================================
    ROLE-BASED ACCESS CONTROL (RBAC) UI VISIBILITY RULES

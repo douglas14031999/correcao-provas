@@ -9516,6 +9516,11 @@ function renderUsersTable(users, searchTerm = "") {
         </td>
         <td style="text-align: center;">
           <div class="users-actions-cell">
+            <button type="button" class="btn-icon-action action-whatsapp" id="btn-copy-wa-${u.id}" onclick="copyUserAccessWhatsApp('${u.id}')" title="Copiar dados de acesso para WhatsApp">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.888 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+              </svg>
+            </button>
             <button type="button" class="btn-icon-action action-edit" onclick="openUserModal('${u.id}')" title="Editar dados do usuário">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -9538,6 +9543,95 @@ function renderUsersTable(users, searchTerm = "") {
     `;
   }).join("");
 }
+
+async function copyUserAccessWhatsApp(userId) {
+  const user = allUsersList.find(u => String(u.id) === String(userId));
+  if (!user) {
+    showToast("Usuário não encontrado.", "error");
+    return;
+  }
+
+  // Obter link de acesso do sistema (URL de domínio ou IP atual configurado no navegador)
+  let accessUrl = window.location.origin;
+  if (!accessUrl || accessUrl === "null" || accessUrl.startsWith("file:")) {
+    accessUrl = `${window.location.protocol}//${window.location.host}`;
+  }
+
+  const userName = user.name || user.username;
+  const userLogin = user.username;
+  const userPassword = user.initial_password || "semed2026";
+
+  let roleLabel = "Professor / Aplicador";
+  if (user.role === "admin") {
+    roleLabel = "Administrador SEMED";
+  } else if (user.role === "coordenador") {
+    roleLabel = "Coordenador Pedagógico";
+  }
+
+  // Montar mensagem perfeitamente formatada para WhatsApp
+  const message = [
+    `*DADOS DE ACESSO - PROVA CANOA*`,
+    ``,
+    `Olá, *${userName}*! Seguem os seus dados de acesso ao sistema de correção de provas:`,
+    ``,
+    `🌐 *Link de Acesso:* ${accessUrl}`,
+    `👤 *Usuário (Login):* ${userLogin}`,
+    `🔑 *Senha:* ${userPassword}`,
+    `🏷️ *Função:* ${roleLabel}`,
+    ``,
+    `📌 _Dica: Acesse pelo navegador do celular ou computador e salve nos seus favoritos._`
+  ].join("\n");
+
+  let copied = false;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(message);
+      copied = true;
+    }
+  } catch (err) {
+    console.warn("Clipboard API falhou, tentando fallback:", err);
+  }
+
+  if (!copied) {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = message;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      ta.style.top = "-9999px";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      copied = document.execCommand("copy");
+      document.body.removeChild(ta);
+    } catch (err2) {
+      console.error("Fallback de cópia falhou:", err2);
+    }
+  }
+
+  // Feedback visual com animação no botão
+  const btn = document.getElementById(`btn-copy-wa-${userId}`);
+  if (btn) {
+    const originalHtml = btn.innerHTML;
+    btn.classList.add("copied");
+    btn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+    `;
+    setTimeout(() => {
+      btn.classList.remove("copied");
+      btn.innerHTML = originalHtml;
+    }, 2000);
+  }
+
+  if (copied) {
+    showToast(`✅ Dados de ${userName} copiados! Pronto para colar no WhatsApp.`, "success");
+  } else {
+    window.prompt("Copie os dados de acesso abaixo para enviar no WhatsApp:", message);
+  }
+}
+
 
 function openUserModal(userId = null) {
   if (currentUserProfile && currentUserProfile.role === "professor") {
@@ -9584,7 +9678,10 @@ function openUserModal(userId = null) {
     }
     if (pwdLabel) pwdLabel.textContent = "Nova Senha (Opcional):";
     if (pwdConfirmLabel) pwdConfirmLabel.textContent = "Confirmar Nova Senha:";
-    if (pwdHelp) pwdHelp.style.display = "block";
+    if (pwdHelp) {
+      pwdHelp.innerHTML = `ℹ️ Senha registrada: <strong style="color: #0f172a; font-family: monospace; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">${escapeHtml(user.initial_password || "semed2026")}</strong>. Deixe em branco para manter.`;
+      pwdHelp.style.display = "block";
+    }
   } else {
     if (modalTitle) modalTitle.textContent = "Novo Usuário";
     document.getElementById("user-form-id").value = "";
@@ -9679,7 +9776,9 @@ async function saveUser(e) {
   };
   if (password) {
     payload.password = password;
+    payload.new_password = password;
   }
+
 
   if (saveBtn) {
     saveBtn.disabled = true;

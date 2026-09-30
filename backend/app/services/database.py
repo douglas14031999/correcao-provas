@@ -333,6 +333,8 @@ def init_db():
         # Migrações seguras de compatibilidade de colunas no PostgreSQL
         cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS header_color TEXT DEFAULT '#244061';")
         cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS primary_color TEXT DEFAULT '#244061';")
+        cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS initial_password TEXT DEFAULT 'semed2026';")
+
         cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS cover_model TEXT DEFAULT 'opcao_4_azul_nautico_lagoa';")
         cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS cover_title TEXT DEFAULT 'PROVA CANOA';")
         cursor.execute("ALTER TABLE exams ADD COLUMN IF NOT EXISTS cover_subtitle TEXT DEFAULT '';")
@@ -522,6 +524,11 @@ def init_db():
                 last_login TEXT DEFAULT ''
             )
         """)
+
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN initial_password TEXT DEFAULT 'semed2026'")
+        except Exception:
+            pass
 
         # Tabela de Sessões Multi-Operador Persistentes (permite PC + Celular simultâneos)
         cursor.execute("""
@@ -2501,12 +2508,17 @@ def get_all_users() -> List[Dict[str, Any]]:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT id, username, name, email, role, is_active, created_at, last_login
+        SELECT id, username, name, email, role, is_active, created_at, last_login, initial_password
         FROM users
         ORDER BY role ASC, name ASC
     """)
     rows = cursor.fetchall()
-    users = [dict(r) for r in rows]
+    users = []
+    for r in rows:
+        d = dict(r)
+        if not d.get("initial_password"):
+            d["initial_password"] = "semed2026"
+        users.append(d)
     conn.close()
     return users
 
@@ -2516,7 +2528,12 @@ def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
     cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
     row = cursor.fetchone()
     conn.close()
-    return dict(row) if row else None
+    if not row:
+        return None
+    d = dict(row)
+    if not d.get("initial_password"):
+        d["initial_password"] = "semed2026"
+    return d
 
 def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
     conn = get_connection()
@@ -2524,18 +2541,24 @@ def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
     cursor.execute("SELECT * FROM users WHERE LOWER(username) = LOWER(?)", (username.strip(),))
     row = cursor.fetchone()
     conn.close()
-    return dict(row) if row else None
+    if not row:
+        return None
+    d = dict(row)
+    if not d.get("initial_password"):
+        d["initial_password"] = "semed2026"
+    return d
 
-def create_user(name: str, username: str, email: str, role: str, password_hash: str, is_active: int = 1) -> Dict[str, Any]:
+def create_user(name: str, username: str, email: str, role: str, password_hash: str, is_active: int = 1, initial_password: str = "semed2026") -> Dict[str, Any]:
     import uuid
     user_id = str(uuid.uuid4())
     now = datetime.utcnow().isoformat()
+    clean_plain = (initial_password or "semed2026").strip()
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO users (id, username, name, email, role, password_hash, is_active, created_at, last_login)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, '')
-    """, (user_id, username.strip().lower(), name.strip(), (email or "").strip(), role.strip(), password_hash, is_active, now))
+        INSERT INTO users (id, username, name, email, role, password_hash, is_active, created_at, last_login, initial_password)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, '', ?)
+    """, (user_id, username.strip().lower(), name.strip(), (email or "").strip(), role.strip(), password_hash, is_active, now, clean_plain))
     conn.commit()
     conn.close()
     return {
@@ -2546,7 +2569,8 @@ def create_user(name: str, username: str, email: str, role: str, password_hash: 
         "role": role.strip(),
         "is_active": is_active,
         "created_at": now,
-        "last_login": ""
+        "last_login": "",
+        "initial_password": clean_plain
     }
 
 def update_user(user_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -2554,7 +2578,7 @@ def update_user(user_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any
     cursor = conn.cursor()
     fields = []
     values = []
-    allowed_keys = ["name", "email", "role", "is_active", "password_hash"]
+    allowed_keys = ["name", "email", "role", "is_active", "password_hash", "initial_password"]
     for k in allowed_keys:
         if k in updates:
             fields.append(f"{k} = ?")
