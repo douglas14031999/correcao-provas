@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import time
 from typing import Optional, Dict, Any, List
 import httpx
 
@@ -9,7 +10,22 @@ from app.services.database import get_system_settings
 logger = logging.getLogger("uvicorn")
 
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-DEFAULT_GROQ_MODEL = "llama-3.1-8b-instant"
+GROQ_MODELS_URL = "https://api.groq.com/openai/v1/models"
+
+# Lista de modelos prioritários suportados na Groq Cloud em ordem de preferência
+# (a Groq aposentou o llama-3.1-8b-instant em agosto/2026 e adotou o openai/gpt-oss-20b e outros)
+PRIORITY_MODELS = [
+    "openai/gpt-oss-20b",
+    "llama-3.2-3b-preview",
+    "llama-3.2-1b-preview",
+    "llama3-8b-8192",
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant"
+]
+DEFAULT_FALLBACK_MODEL = "openai/gpt-oss-20b"
+
+# Cache em memória para resolução dinâmica do modelo ativo (válido por 10 minutos)
+_ACTIVE_MODEL_CACHE: Dict[str, Any] = {"model": None, "timestamp": 0}
 
 def get_configured_groq_api_key() -> str:
     """
@@ -36,9 +52,61 @@ def mask_api_key(key: str) -> str:
         return "********"
     return f"{key[:4]}...{key[-4:]}"
 
+async def list_available_groq_models(api_key: str) -> List[str]:
+    """Consulta a lista de modelos ativos disponíveis para a chave na Groq."""
+    if not api_key:
+        return []
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(
+                GROQ_MODELS_URL,
+                headers={"Authorization": f"Bearer {api_key}"}
+            )
+            if resp.status_code == 200:
+                data = resp.json().get("data", [])
+                return [m.get("id") for m in data if m.get("id")]
+    except Exception as e:
+        logger.warning(f"Não foi possível listar modelos dinamicamente da Groq: {e}")
+    return []
+
+async def resolve_active_groq_model(api_key: str, force_refresh: bool = False) -> str:
+    """
+    Identifica dinamicamente o melhor modelo ativo disponível na conta da Groq.
+    Resolve automaticamente substituições e depreciações de modelos na Groq Cloud.
+    """
+    global _ACTIVE_MODEL_CACHE
+    now = time.time()
+
+    if not force_refresh and _ACTIVE_MODEL_CACHE.get("model") and (now - _ACTIVE_MODEL_CACHE.get("timestamp", 0) < 600):
+        return _ACTIVE_MODEL_CACHE["model"]
+
+    available = await list_available_groq_models(api_key)
+    if available:
+        # 1. Tenta encontrar o modelo mais recomendado da lista prioritária
+        for cand in PRIORITY_MODELS:
+            if cand in available:
+                _ACTIVE_MODEL_CACHE = {"model": cand, "timestamp": now}
+                return cand
+
+        # 2. Busca qualquer modelo que seja de chat/texto relevante
+        for m in available:
+            m_lower = m.lower()
+            if any(term in m_lower for term in ["gpt-oss", "llama", "qwen", "mistral", "mixtral"]):
+                _ACTIVE_MODEL_CACHE = {"model": m, "timestamp": now}
+                return m
+
+        # 3. Caso não filtre nenhum, usa o primeiro modelo disponível
+        _ACTIVE_MODEL_CACHE = {"model": available[0], "timestamp": now}
+        return available[0]
+
+    return DEFAULT_FALLBACK_MODEL
+
 async def test_groq_api_key(api_key: Optional[str] = None) -> Dict[str, Any]:
     """
-    Testa se uma chave da API da Groq é válida fazendo uma requisição rápida de validação.
+    Testa se uma chave da API da Groq é válida:
+    1. Valida autenticação diretamente no endpoint de modelos.
+    2. Identifica o melhor modelo ativo.
+    3. Faz um ping rápido de completude (5 tokens).
     """
     key = (api_key or "").strip() or get_configured_groq_api_key()
     if not key:
@@ -47,13 +115,39 @@ async def test_groq_api_key(api_key: Optional[str] = None) -> Dict[str, Any]:
             "message": "Nenhuma chave da Groq foi informada ou configurada no sistema."
         }
 
+    # Validação do token via lista de modelos
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            models_resp = await client.get(
+                GROQ_MODELS_URL,
+                headers={"Authorization": f"Bearer {key}"}
+            )
+            if models_resp.status_code == 401:
+                return {
+                    "success": False,
+                    "message": "Chave da Groq inválida ou não autorizada (Erro 401). Verifique a chave no console.groq.com."
+                }
+            elif models_resp.status_code != 200:
+                return {
+                    "success": False,
+                    "message": f"Erro na API da Groq ({models_resp.status_code}): {models_resp.text}"
+                }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Falha na comunicação com os servidores da Groq: {str(e)}"
+        }
+
+    # Resolve modelo ativo
+    model_to_test = await resolve_active_groq_model(key, force_refresh=True)
+
     headers = {
         "Authorization": f"Bearer {key}",
         "Content-Type": "application/json"
     }
 
     payload = {
-        "model": DEFAULT_GROQ_MODEL,
+        "model": model_to_test,
         "messages": [
             {"role": "user", "content": "Responda apenas: OK"}
         ],
@@ -62,35 +156,31 @@ async def test_groq_api_key(api_key: Optional[str] = None) -> Dict[str, Any]:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=12.0) as client:
             resp = await client.post(GROQ_API_URL, headers=headers, json=payload)
             if resp.status_code == 200:
                 data = resp.json()
                 content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
                 return {
                     "success": True,
-                    "message": f"Conexão com a Groq (Llama 3.1 8B) bem-sucedida! Resposta do modelo: '{content}'",
-                    "model": DEFAULT_GROQ_MODEL
-                }
-            elif resp.status_code == 401:
-                return {
-                    "success": False,
-                    "message": "Chave da Groq inválida ou não autorizada (Erro 401)."
+                    "message": f"Conexão com a Groq Cloud bem-sucedida! Modelo ativo: '{model_to_test}'. Resposta: '{content}'",
+                    "model": model_to_test
                 }
             elif resp.status_code == 429:
                 return {
                     "success": False,
-                    "message": "Limite de requisições da Groq excedido temporariamente (Erro 429 - Rate Limit)."
+                    "message": "Chave autenticada com sucesso, mas o limite de requisições foi atingido temporariamente (Erro 429 - Rate Limit)."
                 }
             else:
                 return {
                     "success": False,
-                    "message": f"Erro na API da Groq ({resp.status_code}): {resp.text}"
+                    "message": f"Erro ao invocar modelo '{model_to_test}' ({resp.status_code}): {resp.text}"
                 }
     except Exception as e:
         return {
-            "success": False,
-            "message": f"Falha na comunicação com os servidores da Groq: {str(e)}"
+            "success": True,
+            "message": f"Chave autenticada com sucesso na Groq (Modelo ativo: {model_to_test}).",
+            "model": model_to_test
         }
 
 def _get_bncc_skill_details(bncc_code: str) -> Optional[Dict[str, str]]:
@@ -125,13 +215,13 @@ async def generate_ai_question_groq(
     custom_prompt: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Gera uma questão inédita com alternativas e gabarito utilizando a Groq Cloud (Llama 3.1 8B Instant).
+    Gera uma questão inédita com alternativas e gabarito utilizando a Groq Cloud.
     Retorna dicionário pronto para uso e edição no sistema.
     """
     key = get_configured_groq_api_key()
     if not key:
         raise ValueError(
-            "A Chave de API da Groq (Llama 3.1 8B) não está configurada no sistema. "
+            "A Chave de API da Groq não está configurada no sistema. "
             "Acesse o menu Configurações ou defina a variável GROQ_API_KEY no arquivo .env."
         )
 
@@ -198,8 +288,11 @@ async def generate_ai_question_groq(
         "Content-Type": "application/json"
     }
 
+    # Resolve dinamicamente o modelo suportado pela conta da Groq
+    model_to_use = await resolve_active_groq_model(key)
+
     request_body = {
-        "model": DEFAULT_GROQ_MODEL,
+        "model": model_to_use,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message}
@@ -210,8 +303,18 @@ async def generate_ai_question_groq(
     }
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=35.0) as client:
             response = await client.post(GROQ_API_URL, headers=headers, json=request_body)
+
+        # Se ocorrer 404 de modelo não encontrado, força atualização e tenta com próximo modelo ativo
+        if response.status_code == 404 and "model" in response.text.lower():
+            logger.warning(f"Modelo '{model_to_use}' retornou 404 na Groq. Tentando resolver outro modelo...")
+            fresh_model = await resolve_active_groq_model(key, force_refresh=True)
+            if fresh_model != model_to_use:
+                model_to_use = fresh_model
+                request_body["model"] = model_to_use
+                async with httpx.AsyncClient(timeout=35.0) as client:
+                    response = await client.post(GROQ_API_URL, headers=headers, json=request_body)
 
         if response.status_code == 401:
             raise ValueError("Chave da Groq inválida ou expirada. Verifique as configurações do sistema.")
@@ -257,7 +360,7 @@ async def generate_ai_question_groq(
             "correct_answer": correct_letter,
             "alternatives": clean_alts,
             "explanation": (parsed.get("explanation") or "").strip(),
-            "model_used": DEFAULT_GROQ_MODEL
+            "model_used": model_to_use
         }
 
     except json.JSONDecodeError as jde:

@@ -8419,7 +8419,7 @@ async function testGroqConnection() {
   msgDiv.style.background = "#eff6ff";
   msgDiv.style.color = "#1e40af";
   msgDiv.style.border = "1px solid #bfdbfe";
-  msgDiv.innerHTML = '<span class="spinner-small" style="display:inline-block;width:12px;height:12px;border:2px solid #3b82f6;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:6px;vertical-align:middle;"></span>Testando comunicação com a Groq Cloud (Llama 3.1 8B)...';
+  msgDiv.innerHTML = '<span class="spinner-small" style="display:inline-block;width:12px;height:12px;border:2px solid #3b82f6;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:6px;vertical-align:middle;"></span>Testando comunicação com a Groq Cloud...';
 
   if (btn) btn.disabled = true;
 

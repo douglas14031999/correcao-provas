@@ -119,5 +119,41 @@ class TestGroqAIGenerator(unittest.TestCase):
         self.assertEqual(len(saved_item["alternatives"]), 4)
         self.assertTrue(saved_item["alternatives"][1]["is_correct"])
 
+    @patch("httpx.AsyncClient.get")
+    @patch("httpx.AsyncClient.post")
+    def test_test_groq_api_key_success(self, mock_post, mock_get):
+        mock_get_resp = MagicMock()
+        mock_get_resp.status_code = 200
+        mock_get_resp.json.return_value = {
+            "data": [
+                {"id": "whisper-large-v3"},
+                {"id": "openai/gpt-oss-20b"},
+                {"id": "llama-3.2-3b-preview"}
+            ]
+        }
+        mock_get.return_value = mock_get_resp
+
+        mock_post_resp = MagicMock()
+        mock_post_resp.status_code = 200
+        mock_post_resp.json.return_value = {
+            "choices": [{"message": {"content": "OK"}}]
+        }
+        mock_post.return_value = mock_post_resp
+
+        res = asyncio.run(test_groq_api_key("gsk_mock_valid_key_12345"))
+        self.assertTrue(res["success"])
+        self.assertEqual(res["model"], "openai/gpt-oss-20b")
+        self.assertIn("openai/gpt-oss-20b", res["message"])
+
+    @patch("httpx.AsyncClient.get")
+    def test_test_groq_api_key_invalid(self, mock_get):
+        mock_get_resp = MagicMock()
+        mock_get_resp.status_code = 401
+        mock_get.return_value = mock_get_resp
+
+        res = asyncio.run(test_groq_api_key("gsk_invalid_key"))
+        self.assertFalse(res["success"])
+        self.assertIn("inválida", res["message"])
+
 if __name__ == "__main__":
     unittest.main()
