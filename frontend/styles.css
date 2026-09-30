@@ -6577,9 +6577,13 @@ body.role-professor .admin-only-item {
 
 body:not(.role-admin) #backup-tab,
 body.role-coordenador #backup-tab,
-body.role-professor #backup-tab {
+body.role-professor #backup-tab,
+body:not(.role-admin) #users-tab,
+body.role-coordenador #users-tab,
+body.role-professor #users-tab {
   display: none !important;
 }
+
 
 /* Backup Dropzone Drag & Drop Hover States */
 #backup-dropzone.drag-over {

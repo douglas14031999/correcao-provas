@@ -39,12 +39,12 @@ class UserStatusRequest(BaseModel):
 
 @router.get("")
 def list_users(authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)):
-    require_roles(["admin", "coordenador"], authorization, x_auth_token)
+    require_roles(["admin"], authorization, x_auth_token)
     return get_all_users()
 
 @router.post("")
 def add_user(req: UserCreateRequest, authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)):
-    require_roles(["admin", "coordenador"], authorization, x_auth_token)
+    require_roles(["admin"], authorization, x_auth_token)
 
     clean_user = req.username.strip().lower()
     if len(clean_user) < 3:
@@ -79,7 +79,7 @@ def add_user(req: UserCreateRequest, authorization: Optional[str] = Header(None)
 
 @router.put("/{user_id}")
 def edit_user(user_id: str, req: UserUpdateRequest, authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)):
-    require_roles(["admin", "coordenador"], authorization, x_auth_token)
+    require_roles(["admin"], authorization, x_auth_token)
 
     user = get_user_by_id(user_id)
     if not user:
@@ -114,7 +114,7 @@ def edit_user(user_id: str, req: UserUpdateRequest, authorization: Optional[str]
 
 @router.patch("/{user_id}/status")
 def toggle_status(user_id: str, req: UserStatusRequest, authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)):
-    require_roles(["admin", "coordenador"], authorization, x_auth_token)
+    require_roles(["admin"], authorization, x_auth_token)
 
     user = get_user_by_id(user_id)
     if not user:

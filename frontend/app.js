@@ -157,6 +157,9 @@ function switchTab(tabId) {
     } else if (tabId === "backup-tab" && role !== "admin") {
       showToast("Acesso restrito. Apenas administradores podem gerenciar backups do sistema.", "warning");
       tabId = "dashboard-tab";
+    } else if (tabId === "users-tab" && role !== "admin") {
+      showToast("Acesso restrito. Apenas administradores têm acesso à Gestão de Usuários & Acessos.", "warning");
+      tabId = "dashboard-tab";
     }
   }
 
@@ -8640,21 +8643,25 @@ function applyRolePermissions(role) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.style.display = "");
     if (adminDropdownWrap) adminDropdownWrap.style.display = "";
     if (backupMenuItem) backupMenuItem.style.display = "";
+    const usersMenuItem = document.getElementById("menu-item-users");
+    if (usersMenuItem) usersMenuItem.style.display = "";
     if (newSchoolBtn) newSchoolBtn.style.display = "";
     if (importCsvBtn) importCsvBtn.style.display = "";
   } else if (role === "coordenador") {
     document.body.classList.add("role-coordenador");
-    // Coordenador tem acesso a turmas, simulados e itens de gestão permitidos
+    // Coordenador tem acesso a turmas, simulados e itens pedagógicos (gestão de usuários e backups são exclusivos do admin)
     document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.style.display = (btn.dataset.tab === "backup-tab") ? "none" : "";
+      btn.style.display = (btn.dataset.tab === "backup-tab" || btn.dataset.tab === "users-tab") ? "none" : "";
     });
     if (adminDropdownWrap) adminDropdownWrap.style.display = "";
     if (backupMenuItem) backupMenuItem.style.display = "none";
+    const usersMenuItem = document.getElementById("menu-item-users");
+    if (usersMenuItem) usersMenuItem.style.display = "none";
     if (newSchoolBtn) newSchoolBtn.style.display = "";
     if (importCsvBtn) importCsvBtn.style.display = "";
 
     const activeBtn = document.querySelector('.tab-btn.active');
-    if (activeBtn && activeBtn.dataset.tab === "backup-tab") {
+    if (activeBtn && (activeBtn.dataset.tab === "backup-tab" || activeBtn.dataset.tab === "users-tab")) {
       switchTab("dashboard-tab");
     }
   } else {
@@ -9357,6 +9364,12 @@ function renderAlertsGrid(alerts) {
 let allUsersList = [];
 
 async function loadUsers() {
+  if (currentUserProfile && currentUserProfile.role !== "admin") {
+    showToast("Acesso restrito. Apenas administradores têm acesso à Gestão de Usuários & Acessos.", "warning");
+    switchTab("dashboard-tab");
+    return;
+  }
+
   const tbody = document.getElementById("users-tbody");
   if (!tbody) return;
 
@@ -9634,8 +9647,8 @@ async function copyUserAccessWhatsApp(userId) {
 
 
 function openUserModal(userId = null) {
-  if (currentUserProfile && currentUserProfile.role === "professor") {
-    showToast("Acesso restrito. Professores têm acesso exclusivo à Correção de Provas.", "warning");
+  if (currentUserProfile && currentUserProfile.role !== "admin") {
+    showToast("Acesso restrito. Apenas administradores podem cadastrar ou editar usuários.", "warning");
     return;
   }
   const modal = document.getElementById("user-modal");
