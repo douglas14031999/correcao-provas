@@ -139,12 +139,18 @@ document.addEventListener("DOMContentLoaded", () => {
   let allExams = [];
   let selectedExamIds = new Set();
   let bankQuestions = [];
+  let bankTotalQuestions = 0;
+  const bankPageSize = 30;
+  let bankCurrentOffset = 0;
+  let bankIsLoading = false;
+  let bankHasMore = true;
   let selectedBankQuestions = new Set();
   let currentEmitirExam = null;
   let selectedEmitirFormat = "pdf";
   let activeTab = "exams"; // 'exams' ou 'bank'
   let currentViewMode = "table"; // 'table' ou 'cards'
   let searchDebounceTimer = null;
+
 
   // Elementos do DOM - Estatísticas & Abas
   const statTotalExams = document.getElementById("stat-total-exams");
@@ -195,6 +201,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const bankInputBncc = document.getElementById("bank-input-bncc");
   const btnClearBankFilters = document.getElementById("btn-clear-bank-filters");
   const bankFilteredCount = document.getElementById("bank-filtered-count");
+  const bankScrollSentinel = document.getElementById("bank-scroll-sentinel");
+  const bankScrollLoader = document.getElementById("bank-scroll-loader");
+  const bankScrollEnd = document.getElementById("bank-scroll-end");
   const btnOpenBnccModal = document.getElementById("btn-open-bncc-modal");
   const modalBnccPicker = document.getElementById("modal-bncc-picker");
   const btnCloseBnccModal = document.getElementById("btn-close-bncc-modal");
@@ -1387,7 +1396,22 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  async function loadBankQuestions() {
+  async function loadBankQuestions(reset = true) {
+    if (reset) {
+      bankCurrentOffset = 0;
+      bankQuestions = [];
+      bankHasMore = true;
+      if (listBankQuestions) listBankQuestions.innerHTML = "";
+      if (bankScrollEnd) bankScrollEnd.classList.add("hidden");
+    }
+
+    if (bankIsLoading || (!reset && !bankHasMore)) return;
+    bankIsLoading = true;
+
+    if (bankScrollLoader) {
+      bankScrollLoader.classList.remove("hidden");
+    }
+
     const query = bankInputQuery?.value || "";
     const disc = bankSelectDiscipline?.value || "";
     const grade = bankSelectGrade?.value || "";
@@ -1398,20 +1422,60 @@ document.addEventListener("DOMContentLoaded", () => {
     if (disc) params.append("discipline", disc);
     if (grade) params.append("grade_year", grade);
     if (bncc) params.append("bncc_code", bncc);
-    params.append("limit", "50");
+    params.append("limit", String(bankPageSize));
+    params.append("offset", String(bankCurrentOffset));
 
     try {
       const res = await apiFetch(`/api/exam-builder/bank/questions?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        bankQuestions = Array.isArray(data) ? data : (data.items || []);
-        renderBankQuestionsList();
-        if (bankFilteredCount) {
-          bankFilteredCount.textContent = `${bankQuestions.length} questões encontradas`;
+        const items = Array.isArray(data) ? data : (data.items || data.questions || []);
+        bankTotalQuestions = (typeof data.total === "number") ? data.total : (data.total_questions || items.length);
+
+        if (reset) {
+          bankQuestions = items;
+          renderBankQuestionsList();
+        } else if (items.length > 0) {
+          appendBankQuestionsList(items);
+          bankQuestions.push(...items);
+        }
+
+        bankCurrentOffset = bankQuestions.length;
+        bankHasMore = bankQuestions.length < bankTotalQuestions && items.length > 0;
+
+        updateBankQuestionsCounter();
+
+        // Atualiza o badge do topo com o total real se não houver filtros aplicados
+        if (badgeCountQuestions && (!query && !disc && !grade && !bncc)) {
+          badgeCountQuestions.textContent = bankTotalQuestions;
+        }
+
+        if (bankScrollEnd) {
+          if (!bankHasMore && bankQuestions.length > 0) {
+            bankScrollEnd.classList.remove("hidden");
+          } else {
+            bankScrollEnd.classList.add("hidden");
+          }
         }
       }
     } catch (err) {
       console.error("Erro ao buscar banco de questões:", err);
+    } finally {
+      bankIsLoading = false;
+      if (bankScrollLoader) {
+        bankScrollLoader.classList.add("hidden");
+      }
+    }
+  }
+
+  function updateBankQuestionsCounter() {
+    if (!bankFilteredCount) return;
+    if (bankTotalQuestions === 0) {
+      bankFilteredCount.textContent = "0 questões encontradas";
+    } else if (bankQuestions.length < bankTotalQuestions) {
+      bankFilteredCount.textContent = `${bankTotalQuestions} questões encontradas (exibindo ${bankQuestions.length})`;
+    } else {
+      bankFilteredCount.textContent = `${bankTotalQuestions} questão${bankTotalQuestions > 1 ? "ões encontradas" : " encontrada"}`;
     }
   }
 
@@ -1428,14 +1492,33 @@ document.addEventListener("DOMContentLoaded", () => {
     listBankQuestions.classList.remove("hidden");
     emptyBankState?.classList.add("hidden");
 
+    const frag = document.createDocumentFragment();
     bankQuestions.forEach((q, idx) => {
       const card = createBankQuestionCardElement(q, idx);
-      listBankQuestions.appendChild(card);
+      frag.appendChild(card);
     });
+    listBankQuestions.appendChild(frag);
 
-    if (window.renderMathInElement) {
+    applyKaTeXMath(listBankQuestions);
+  }
+
+  function appendBankQuestionsList(newItems) {
+    if (!listBankQuestions || !newItems || newItems.length === 0) return;
+    const startIndex = bankQuestions.length;
+    const frag = document.createDocumentFragment();
+    newItems.forEach((q, idx) => {
+      const card = createBankQuestionCardElement(q, startIndex + idx);
+      frag.appendChild(card);
+    });
+    listBankQuestions.appendChild(frag);
+
+    applyKaTeXMath(listBankQuestions);
+  }
+
+  function applyKaTeXMath(element) {
+    if (window.renderMathInElement && element) {
       try {
-        renderMathInElement(listBankQuestions, {
+        renderMathInElement(element, {
           delimiters: [
             { left: "$$", right: "$$", display: true },
             { left: "$", right: "$", display: false },
@@ -1447,6 +1530,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch (e) { }
     }
   }
+
 
   function createBankQuestionCardElement(q, idx) {
     const card = document.createElement("div");
@@ -1595,14 +1679,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     bankInputQuery?.addEventListener("input", () => {
       clearTimeout(searchDebounceTimer);
-      searchDebounceTimer = setTimeout(loadBankQuestions, 350);
+      searchDebounceTimer = setTimeout(() => loadBankQuestions(true), 350);
     });
 
-    bankSelectDiscipline?.addEventListener("change", loadBankQuestions);
-    bankSelectGrade?.addEventListener("change", loadBankQuestions);
+    bankSelectDiscipline?.addEventListener("change", () => loadBankQuestions(true));
+    bankSelectGrade?.addEventListener("change", () => loadBankQuestions(true));
     bankInputBncc?.addEventListener("input", () => {
       clearTimeout(searchDebounceTimer);
-      searchDebounceTimer = setTimeout(loadBankQuestions, 350);
+      searchDebounceTimer = setTimeout(() => loadBankQuestions(true), 350);
     });
 
     btnClearBankFilters?.addEventListener("click", () => {
@@ -1610,9 +1694,39 @@ document.addEventListener("DOMContentLoaded", () => {
       if (bankSelectDiscipline) bankSelectDiscipline.value = "";
       if (bankSelectGrade) bankSelectGrade.value = "";
       if (bankInputBncc) bankInputBncc.value = "";
-      loadBankQuestions();
+      loadBankQuestions(true);
     });
+
+    setupBankInfiniteScroll();
   }
+
+  let bankObserver = null;
+  function setupBankInfiniteScroll() {
+    const sentinel = document.getElementById("bank-scroll-sentinel");
+
+    if ("IntersectionObserver" in window && sentinel) {
+      bankObserver = new IntersectionObserver((entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting && activeTab === "bank" && !bankIsLoading && bankHasMore) {
+          loadBankQuestions(false);
+        }
+      }, {
+        rootMargin: "350px"
+      });
+      bankObserver.observe(sentinel);
+    }
+
+    // Fallback de rolagem na janela do navegador
+    window.addEventListener("scroll", () => {
+      if (activeTab !== "bank" || bankIsLoading || !bankHasMore) return;
+      const scrollPos = window.innerHeight + window.scrollY;
+      const threshold = document.documentElement.scrollHeight - 600;
+      if (scrollPos >= threshold) {
+        loadBankQuestions(false);
+      }
+    }, { passive: true });
+  }
+
 
   // =========================================================================
   // Modal: Catálogo Oficial de Habilidades da BNCC
@@ -1774,7 +1888,7 @@ document.addEventListener("DOMContentLoaded", () => {
           bankInputBncc.value = skill.codigo;
         }
         closeBnccModal();
-        loadBankQuestions();
+        loadBankQuestions(true);
         showToast(`Filtro aplicado: ${skill.codigo} (${skill.componente})`, "success");
       });
 

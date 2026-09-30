@@ -217,7 +217,7 @@ def get_bank_questions_endpoint(
     discipline: str = Query("", description="Filtro por disciplina"),
     grade_year: str = Query("", description="Filtro por ano/série"),
     bncc_code: str = Query("", description="Filtro por código BNCC"),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0)
 ):
     """Retorna questões cadastradas de todas as provas para o Banco de Questões com alternativas e imagens."""
