@@ -1381,7 +1381,7 @@
   <!-- ======================================================================
        MODAL: CATÁLOGO OFICIAL DE HABILIDADES BNCC (ENSINO FUNDAMENTAL)
        ====================================================================== -->
-  <div class="modal-overlay" id="modal-bncc-picker" role="dialog" aria-modal="true">
+  <div class="modal-overlay z-[200]" id="modal-bncc-picker" role="dialog" aria-modal="true">
     <div class="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
       
       <!-- Cabeçalho do Modal -->
@@ -1790,43 +1790,30 @@
         </a>
         <a href="/" class="w-full h-10 px-4 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer text-center">
           <span class="material-symbols-outlined text-[18px]">document_scanner</span>
-          <span>Ir para o Painel de Correção</span>
-        </a>
-        <button type="button" id="sync-success-btn-close" class="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer text-center">
-          Continuar Aqui
-        </button>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- =========================================================================
-       MODAL: GERADOR DE QUESTÕES INÉDITAS COM IA (GROQ LLAMA 3.1 8B + BNCC)
-       ========================================================================= -->
-  <div id="modal-ai-question-generator" class="modal-overlay z-[120]" role="dialog" aria-modal="true" style="display: none;">
-    <div class="bg-white rounded-2xl w-full max-w-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
+          <span>Ir para o Painel de Correção</span  <div id="modal-ai-question-generator" class="modal-overlay z-[100]" role="dialog" aria-modal="true" style="display: none;">
+    <div class="bg-surface-container-lowest rounded-2xl w-full max-w-3xl shadow-2xl border border-surface-container overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
       
-      <!-- Cabeçalho do Modal -->
-      <div class="px-6 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 text-white flex items-center justify-between shrink-0">
+      <!-- Cabeçalho do Modal (Design System Oficial) -->
+      <div class="px-6 py-4 bg-surface-container-low border-b border-surface-container flex items-center justify-between shrink-0">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/20 shadow-xs">
-            <span class="material-symbols-outlined text-amber-300 text-[24px]">auto_awesome</span>
+          <div class="w-10 h-10 rounded-xl bg-primary-container text-on-primary flex items-center justify-center shadow-xs shrink-0">
+            <span class="material-symbols-outlined text-[22px]">auto_awesome</span>
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <h3 class="font-headline-md font-bold text-base sm:text-lg text-white">Gerador de Questões Inéditas com IA</h3>
-              <span class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold px-2 py-0.5 rounded-full">Groq Cloud • IA Pedagógica</span>
+              <h3 class="font-headline-md text-headline-md text-on-surface font-bold leading-tight">Gerador de Questões Inéditas com IA</h3>
+              <span class="text-[10px] bg-primary/10 text-primary border border-primary/20 font-bold px-2 py-0.5 rounded-full">Groq Cloud • IA</span>
             </div>
-            <p class="text-xs text-slate-300 font-normal">Crie questões alinhadas rigorosamente à BNCC e matrizes SAEB em segundos.</p>
+            <p class="text-xs text-on-surface-variant font-normal">Crie questões alinhadas à BNCC e matrizes SAEB em segundos.</p>
           </div>
         </div>
-        <button type="button" id="btn-close-ai-generator" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer text-lg font-bold">
-          &times;
+        <button type="button" id="btn-close-ai-generator" class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container p-2 rounded-xl transition-colors cursor-pointer flex items-center justify-center" title="Fechar (Esc)">
+          <span class="material-symbols-outlined text-[20px]">close</span>
         </button>
       </div>
 
       <!-- Corpo do Modal Rolável -->
-      <div class="p-6 overflow-y-auto flex-1 flex flex-col gap-5">
+      <div class="p-6 overflow-y-auto custom-scrollbar flex-1 flex flex-col gap-5">
         
         <!-- Banner de Status da Chave Groq -->
         <div id="ai-key-warning" class="hidden p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 text-xs text-amber-900">
@@ -1840,20 +1827,20 @@
         </div>
 
         <!-- Parâmetros de Geração -->
-        <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200/80 flex flex-col gap-3.5">
-          <div class="flex items-center justify-between pb-1 border-b border-slate-200/60">
-            <span class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-              <span class="material-symbols-outlined text-[16px] text-blue-600">tune</span>
+        <div class="bg-surface-container-low p-4 sm:p-5 rounded-2xl border border-surface-container flex flex-col gap-4">
+          <div class="flex items-center justify-between pb-2 border-b border-surface-container">
+            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[16px] text-primary">tune</span>
               Parâmetros Pedagógicos do Item
             </span>
-            <span class="text-[11px] text-slate-500 font-medium">1 questão inédita por vez</span>
+            <span class="text-[11px] text-on-surface-variant font-medium">1 questão inédita por vez</span>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
             <!-- Disciplina -->
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Componente Curricular *</label>
-              <select id="ai-input-discipline" class="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            <div class="flex flex-col gap-1">
+              <label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Componente Curricular *</label>
+              <select id="ai-input-discipline" class="w-full bg-surface-container-lowest border border-surface-container rounded-xl px-3.5 py-2.5 font-body-sm text-body-sm font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container cursor-pointer">
                 <option value="Língua Portuguesa">Língua Portuguesa</option>
                 <option value="Matemática" selected>Matemática</option>
                 <option value="Ciências">Ciências</option>
@@ -1867,9 +1854,9 @@
             </div>
 
             <!-- Ano / Série -->
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Ano / Série *</label>
-              <select id="ai-input-grade" class="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            <div class="flex flex-col gap-1">
+              <label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Ano / Série *</label>
+              <select id="ai-input-grade" class="w-full bg-surface-container-lowest border border-surface-container rounded-xl px-3.5 py-2.5 font-body-sm text-body-sm font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container cursor-pointer">
                 <option value="1º Ano">1º Ano</option>
                 <option value="2º Ano">2º Ano</option>
                 <option value="3º Ano">3º Ano</option>
@@ -1883,9 +1870,9 @@
             </div>
 
             <!-- Dificuldade -->
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Dificuldade Estimada</label>
-              <select id="ai-input-difficulty" class="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            <div class="flex flex-col gap-1">
+              <label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Dificuldade Estimada</label>
+              <select id="ai-input-difficulty" class="w-full bg-surface-container-lowest border border-surface-container rounded-xl px-3.5 py-2.5 font-body-sm text-body-sm font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container cursor-pointer">
                 <option value="Fácil">Fácil (Identificar / Reconhecer)</option>
                 <option value="Médio" selected>Médio (Aplicar / Resolver)</option>
                 <option value="Difícil">Difícil (Analisar / Sintetizar)</option>
@@ -1893,11 +1880,11 @@
             </div>
 
             <!-- Código BNCC com Seletor -->
-            <div class="sm:col-span-2">
-              <label class="block text-xs font-bold text-slate-700 mb-1">Código BNCC (Opcional, altamente recomendado)</label>
+            <div class="sm:col-span-2 flex flex-col gap-1">
+              <label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Código BNCC (Opcional, altamente recomendado)</label>
               <div class="flex items-center gap-2">
-                <input type="text" id="ai-input-bncc" placeholder="Ex: EF05MA08" class="flex-1 h-10 px-3 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold text-blue-700 uppercase focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                <button type="button" id="btn-ai-pick-bncc" class="h-10 px-3.5 rounded-xl bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 hover:border-transparent text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer" title="Pesquisar e selecionar do catálogo de habilidades">
+                <input type="text" id="ai-input-bncc" placeholder="EX: EF05MA08" class="flex-1 bg-surface-container-lowest border border-surface-container rounded-xl px-3.5 py-2 font-body-sm text-body-sm font-mono font-bold text-primary uppercase focus:outline-none focus:ring-2 focus:ring-primary-container">
+                <button type="button" id="btn-ai-pick-bncc" class="h-10 px-3.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-primary border border-surface-container font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shrink-0" title="Pesquisar e selecionar do catálogo de habilidades">
                   <span class="material-symbols-outlined text-[16px]">menu_book</span>
                   <span>Catálogo BNCC</span>
                 </button>
@@ -1905,80 +1892,80 @@
             </div>
 
             <!-- Quantidade de Alternativas -->
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Alternativas</label>
-              <select id="ai-input-num-alts" class="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            <div class="flex flex-col gap-1">
+              <label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Alternativas</label>
+              <select id="ai-input-num-alts" class="w-full bg-surface-container-lowest border border-surface-container rounded-xl px-3.5 py-2.5 font-body-sm text-body-sm font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container cursor-pointer">
                 <option value="4" selected>4 Alternativas (A, B, C, D)</option>
                 <option value="5">5 Alternativas (A, B, C, D, E)</option>
               </select>
             </div>
 
             <!-- Tema / Contexto Local -->
-            <div class="sm:col-span-2 lg:col-span-3">
-              <label class="block text-xs font-bold text-slate-700 mb-1">
+            <div class="sm:col-span-2 lg:col-span-3 flex flex-col gap-1">
+              <label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">
                 Contextualização / Tema Local
-                <span class="font-normal text-slate-500 text-[11px]">(Ex: Lagoa da Canoa, Alagoas, agricultura familiar, situação cotidiana, texto de apoio)</span>
+                <span class="font-normal lowercase text-[11px] text-on-surface-variant">(ex: Lagoa da Canoa, feira livre, agricultura, cotidiano escolar)</span>
               </label>
-              <input type="text" id="ai-input-theme" placeholder="Ex: Uma feira livre no centro de Lagoa da Canoa, culinária nordestina, meio ambiente..." class="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <input type="text" id="ai-input-theme" placeholder="Ex: Uma feira livre no centro de Lagoa da Canoa, culinária nordestina, meio ambiente..." class="w-full bg-surface-container-lowest border border-surface-container rounded-xl px-3.5 py-2 font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container">
             </div>
 
             <!-- Prompt Livre / Instrução Pedagógica -->
-            <div class="sm:col-span-2 lg:col-span-3">
-              <label class="block text-xs font-bold text-slate-700 mb-1">
+            <div class="sm:col-span-2 lg:col-span-3 flex flex-col gap-1">
+              <label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">
                 Instruções Pedagógicas Específicas
-                <span class="font-normal text-slate-500 text-[11px]">(Opcional)</span>
+                <span class="font-normal lowercase text-[11px] text-on-surface-variant">(opcional)</span>
               </label>
-              <input type="text" id="ai-input-custom" placeholder="Ex: Focar em frações equivalentes; incluir pequeno diálogo; não usar números decimais..." class="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <input type="text" id="ai-input-custom" placeholder="Ex: Focar em frações equivalentes; incluir situação-problema; não usar números decimais..." class="w-full bg-surface-container-lowest border border-surface-container rounded-xl px-3.5 py-2 font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container">
             </div>
           </div>
 
           <!-- Botão Gerar -->
           <div class="pt-2 flex justify-end">
-            <button type="button" id="btn-ai-submit-generate" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-primary hover:from-blue-700 hover:to-primary text-white font-bold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
-              <span class="material-symbols-outlined text-[18px] text-amber-300">auto_awesome</span>
+            <button type="button" id="btn-ai-submit-generate" class="btn-press inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-label-md text-label-md font-bold bg-primary-container text-on-primary hover:bg-primary shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+              <span class="material-symbols-outlined text-[18px]">auto_awesome</span>
               <span id="ai-submit-label">Gerar Questão Inédita</span>
             </button>
           </div>
         </div>
 
         <!-- Indicador de Carregamento (Loading) -->
-        <div id="ai-loading-state" class="hidden py-10 flex flex-col items-center justify-center gap-3 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+        <div id="ai-loading-state" class="hidden py-8 flex flex-col items-center justify-center gap-3 bg-surface-container-low rounded-2xl border border-dashed border-surface-container-high">
           <div class="relative w-12 h-12 flex items-center justify-center">
-            <div class="w-12 h-12 rounded-full border-2 border-blue-200 border-t-blue-600 animate-spin"></div>
-            <span class="material-symbols-outlined text-[20px] text-blue-600 absolute">psychology</span>
+            <div class="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin"></div>
+            <span class="material-symbols-outlined text-[20px] text-primary absolute">psychology</span>
           </div>
           <div class="text-center">
-            <p class="font-bold text-slate-800 text-sm">Gerando questão pedagógica na Groq Cloud...</p>
-            <p class="text-xs text-slate-500 mt-0.5">Construindo situação-problema e distratores pedagógicos SAEB.</p>
+            <p class="font-bold text-on-surface text-sm">Gerando questão pedagógica na Groq Cloud...</p>
+            <p class="text-xs text-on-surface-variant mt-0.5">Construindo situação-problema e distratores pedagógicos SAEB.</p>
           </div>
         </div>
 
         <!-- Card de Pré-Visualização e Edição Prévia -->
-        <div id="ai-preview-card" class="hidden flex flex-col gap-4 bg-white p-5 rounded-2xl border-2 border-blue-200 shadow-sm">
-          <div class="flex items-center justify-between flex-wrap gap-2 pb-2.5 border-b border-slate-100">
+        <div id="ai-preview-card" class="hidden flex flex-col gap-4 bg-surface-container-lowest p-5 rounded-2xl border border-surface-container shadow-xs">
+          <div class="flex items-center justify-between flex-wrap gap-2 pb-2.5 border-b border-surface-container">
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 flex items-center gap-1">
+              <span class="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 flex items-center gap-1">
                 <span class="material-symbols-outlined text-[15px]">verified</span>
                 <span>Questão Gerada</span>
               </span>
-              <span id="ai-preview-badge-bncc" class="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 font-mono font-bold text-xs">BNCC</span>
-              <span id="ai-preview-badge-disc" class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-semibold">Disciplina</span>
-              <span id="ai-preview-badge-diff" class="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 text-xs font-medium border border-amber-100">Dificuldade</span>
+              <span id="ai-preview-badge-bncc" class="px-2.5 py-1 rounded-lg bg-surface-container text-primary font-mono font-bold text-xs">BNCC</span>
+              <span id="ai-preview-badge-disc" class="px-2.5 py-1 rounded-lg bg-surface-container text-on-surface text-xs font-semibold">Disciplina</span>
+              <span id="ai-preview-badge-diff" class="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 text-xs font-semibold border border-amber-200">Dificuldade</span>
             </div>
-            <span class="text-xs text-slate-500 italic">Você pode editar os textos antes de inserir</span>
+            <span class="text-xs text-on-surface-variant italic">Você pode editar os textos antes de salvar</span>
           </div>
 
           <!-- Enunciado Editável -->
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Enunciado da Questão (Editável):</label>
-            <textarea id="ai-preview-statement" rows="4" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 leading-relaxed focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none resize-y"></textarea>
+          <div class="flex flex-col gap-1">
+            <label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Enunciado da Questão (Editável):</label>
+            <textarea id="ai-preview-statement" rows="4" class="w-full p-3.5 bg-surface-container-low border border-surface-container rounded-xl font-body-md text-body-md text-on-surface leading-relaxed focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container focus:outline-none resize-y transition-all"></textarea>
           </div>
 
           <!-- Alternativas Editáveis com Seleção do Gabarito -->
-          <div>
-            <div class="flex items-center justify-between mb-1.5">
-              <label class="block text-xs font-bold text-slate-700">Alternativas e Gabarito Correto:</label>
-              <span class="text-[11px] text-slate-500">Marque o círculo da alternativa correta</span>
+          <div class="flex flex-col gap-1.5">
+            <div class="flex items-center justify-between">
+              <label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Alternativas e Gabarito Correto:</label>
+              <span class="text-[11px] text-on-surface-variant">Marque o círculo da alternativa correta</span>
             </div>
             <div id="ai-preview-alternatives-list" class="flex flex-col gap-2">
               <!-- Injetado dinamicamente via JS -->
@@ -1986,25 +1973,25 @@
           </div>
 
           <!-- Justificativa Pedagógica -->
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Resolução & Justificativa Pedagógica (SAEB):</label>
-            <textarea id="ai-preview-explanation" rows="2" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 leading-relaxed focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none resize-y"></textarea>
+          <div class="flex flex-col gap-1">
+            <label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Resolução & Justificativa Pedagógica (SAEB):</label>
+            <textarea id="ai-preview-explanation" rows="2" class="w-full p-3 bg-surface-container-low border border-surface-container rounded-xl text-xs text-on-surface leading-relaxed focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container focus:outline-none resize-y transition-all"></textarea>
           </div>
 
           <!-- Barra de Ações do Card de Prévia -->
-          <div class="flex items-center justify-between flex-wrap gap-2 pt-3 border-t border-slate-100">
-            <button type="button" id="btn-ai-regenerate" class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer">
+          <div class="flex items-center justify-between flex-wrap gap-2 pt-3 border-t border-surface-container">
+            <button type="button" id="btn-ai-regenerate" class="px-4 py-2 rounded-xl border border-surface-container bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer">
               <span class="material-symbols-outlined text-[16px]">refresh</span>
               <span>Gerar Outra</span>
             </button>
 
             <div class="flex items-center gap-2 flex-wrap">
-              <button type="button" id="btn-ai-save-bank" class="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs sm:text-sm shadow-xs hover:shadow transition-all flex items-center gap-1.5 cursor-pointer">
-                <span class="material-symbols-outlined text-[18px] text-blue-600">bookmark_add</span>
+              <button type="button" id="btn-ai-save-bank" class="btn-press px-4 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-primary border border-surface-container font-bold text-xs sm:text-sm shadow-xs transition-all flex items-center gap-1.5 cursor-pointer">
+                <span class="material-symbols-outlined text-[18px]">bookmark_add</span>
                 <span>Salvar no Banco</span>
               </button>
 
-              <button type="button" id="btn-ai-insert-exam" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xs sm:text-sm shadow-xs hover:shadow transition-all flex items-center gap-2 cursor-pointer">
+              <button type="button" id="btn-ai-insert-exam" class="btn-press px-5 py-2.5 rounded-xl bg-primary-container text-on-primary hover:bg-primary font-bold text-xs sm:text-sm shadow-xs hover:shadow transition-all flex items-center gap-2 cursor-pointer">
                 <span class="material-symbols-outlined text-[18px]">add_circle</span>
                 <span>Inserir Nesta Prova</span>
               </button>
@@ -2015,12 +2002,12 @@
       </div>
 
       <!-- Rodapé do Modal -->
-      <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
-        <span class="text-[11px] text-slate-500 flex items-center gap-1">
-          <span class="material-symbols-outlined text-[14px] text-slate-400">info</span>
+      <div class="px-6 py-3.5 bg-surface-container-low border-t border-surface-container flex items-center justify-between shrink-0">
+        <span class="text-xs text-on-surface-variant flex items-center gap-1">
+          <span class="material-symbols-outlined text-[16px] text-primary">info</span>
           A questão é inserida diretamente no editor de diagramação A4.
         </span>
-        <button type="button" id="btn-cancel-ai-generator" class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors cursor-pointer">
+        <button type="button" id="btn-cancel-ai-generator" class="px-4 py-2 rounded-xl font-label-md text-label-md font-semibold text-on-surface-variant hover:bg-surface-container transition-colors cursor-pointer">
           Fechar
         </button>
       </div>

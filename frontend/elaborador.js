@@ -4460,15 +4460,15 @@
         const alts = item.alternatives || [];
         alts.forEach((alt, idx) => {
           const row = document.createElement("div");
-          row.className = "flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 border border-slate-200/90 focus-within:border-blue-400 focus-within:bg-blue-50/20 transition-all";
+          row.className = "flex items-center gap-3 p-2.5 rounded-xl bg-surface-container-low border border-surface-container focus-within:border-primary-container focus-within:bg-surface-container-lowest transition-all";
 
           const isChecked = !!alt.is_correct;
           row.innerHTML = `
             <label class="flex items-center gap-2 cursor-pointer select-none pl-1">
               <input type="radio" name="ai-correct-radio" value="${escapeHtml(alt.letter)}" ${isChecked ? "checked" : ""} class="w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
-              <span class="w-6 h-6 rounded-lg bg-slate-200 font-bold text-xs text-slate-800 flex items-center justify-center">${escapeHtml(alt.letter)}</span>
+              <span class="w-7 h-7 rounded-lg bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center">${escapeHtml(alt.letter)}</span>
             </label>
-            <input type="text" class="ai-alt-input flex-1 bg-transparent border-0 text-xs sm:text-sm text-slate-800 focus:outline-none" value="${escapeHtml(alt.text || "")}" data-letter="${escapeHtml(alt.letter)}" placeholder="Texto da alternativa ${escapeHtml(alt.letter)}">
+            <input type="text" class="ai-alt-input flex-1 bg-transparent border-0 font-body-sm text-body-sm text-on-surface focus:outline-none" value="${escapeHtml(alt.text || "")}" data-letter="${escapeHtml(alt.letter)}" placeholder="Texto da alternativa ${escapeHtml(alt.letter)}">
           `;
           altsContainer.appendChild(row);
         });
