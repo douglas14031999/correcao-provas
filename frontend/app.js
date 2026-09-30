@@ -8252,6 +8252,22 @@ async function loadSystemSettings() {
         document.getElementById("settings-state").value = settings.state_name || "";
       }
 
+      const groqInput = document.getElementById("settings-groq-key");
+      const groqMsg = document.getElementById("settings-groq-msg");
+      if (groqInput) {
+        if (settings.has_groq_api_key) {
+          groqInput.value = settings.groq_api_key_masked || "••••••••";
+          groqInput.dataset.original = "configured";
+        } else {
+          groqInput.value = "";
+          groqInput.dataset.original = "";
+        }
+      }
+      if (groqMsg) {
+        groqMsg.style.display = "none";
+        groqMsg.textContent = "";
+      }
+
       const ts = new Date().getTime();
       const hasLogo = !!settings.has_logo;
       const logoUrl = hasLogo ? `/api/settings/logo?t=${ts}` : null;
@@ -8359,13 +8375,25 @@ async function saveSystemSettings() {
       if (document.getElementById("settings-confirm-pwd")) document.getElementById("settings-confirm-pwd").value = "";
     }
 
+    const groqInput = document.getElementById("settings-groq-key");
+    let groqKeyToSave = undefined;
+    if (groqInput) {
+      const val = groqInput.value.trim();
+      if (val !== "" && !val.includes("...") && val !== "••••••••") {
+        groqKeyToSave = val;
+      } else if (val === "" && groqInput.dataset.original === "configured") {
+        groqKeyToSave = ""; // Remove chave se o usuário limpou
+      }
+    }
+
     const res = await fetch("/api/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       body: JSON.stringify({
         prefeitura_name: prefeitura,
         secretaria_name: secretaria,
-        state_name: state
+        state_name: state,
+        ...(groqKeyToSave !== undefined ? { groq_api_key: groqKeyToSave } : {})
       })
     });
     if (!res.ok) throw new Error("Erro ao salvar configurações institucionais.");
@@ -8376,6 +8404,54 @@ async function saveSystemSettings() {
     showToast(e.message, "error");
   }
 }
+
+async function testGroqConnection() {
+  const groqInput = document.getElementById("settings-groq-key");
+  const msgDiv = document.getElementById("settings-groq-msg");
+  const btn = document.getElementById("btn-test-groq-key");
+  if (!msgDiv) return;
+
+  const keyVal = groqInput && !groqInput.value.includes("...") && groqInput.value !== "••••••••"
+    ? groqInput.value.trim()
+    : undefined;
+
+  msgDiv.style.display = "block";
+  msgDiv.style.background = "#eff6ff";
+  msgDiv.style.color = "#1e40af";
+  msgDiv.style.border = "1px solid #bfdbfe";
+  msgDiv.innerHTML = '<span class="spinner-small" style="display:inline-block;width:12px;height:12px;border:2px solid #3b82f6;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:6px;vertical-align:middle;"></span>Testando comunicação com a Groq Cloud (Llama 3.1 8B)...';
+
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await fetch("/api/settings/test-groq-key", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({ api_key: keyVal || null })
+    });
+    const data = await res.json();
+    if (data.success) {
+      msgDiv.style.background = "#f0fdf4";
+      msgDiv.style.color = "#166534";
+      msgDiv.style.border = "1px solid #bbf7d0";
+      msgDiv.textContent = "✅ " + data.message;
+    } else {
+      msgDiv.style.background = "#fef2f2";
+      msgDiv.style.color = "#991b1b";
+      msgDiv.style.border = "1px solid #fecaca";
+      msgDiv.textContent = "❌ " + (data.message || "Falha ao testar chave.");
+    }
+  } catch (err) {
+    msgDiv.style.background = "#fef2f2";
+    msgDiv.style.color = "#991b1b";
+    msgDiv.style.border = "1px solid #fecaca";
+    msgDiv.textContent = "❌ Erro de conexão com o servidor: " + err.message;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+window.testGroqConnection = testGroqConnection;
+
 
 async function handleLogoUpload(file) {
   if (!file) return;

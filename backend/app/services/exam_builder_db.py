@@ -202,7 +202,8 @@ def init_builder_db():
         ("bncc_code", "TEXT DEFAULT ''"),
         ("discipline", "TEXT DEFAULT ''"),
         ("grade_year", "TEXT DEFAULT ''"),
-        ("source_exam_title", "TEXT DEFAULT ''")
+        ("source_exam_title", "TEXT DEFAULT ''"),
+        ("explanation", "TEXT DEFAULT ''")
     ]:
         try:
             cursor.execute(f"ALTER TABLE builder_questions ADD COLUMN {if_ne}{col} {def_sql}")
@@ -1259,4 +1260,71 @@ def get_question_bank_filters() -> Dict[str, Any]:
         "bncc_codes": bncc_codes,
         "total_questions": total_q
     }
+
+def insert_question_into_bank(q_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Insere uma nova questão com alternativas diretamente no banco de questões geral."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    qid = q_data.get("id") or str(uuid.uuid4())
+    now = datetime.now().isoformat()
+    
+    # Próximo número sequencial de questão para o banco geral
+    cursor.execute("SELECT COALESCE(MAX(question_number), 0) + 1 FROM builder_questions WHERE exam_id = 'banco_questoes_geral'")
+    row = cursor.fetchone()
+    next_num = row[0] if row else 1
+    
+    cursor.execute("""
+        INSERT INTO builder_questions (
+            id, exam_id, question_number, statement, points,
+            image_url, image_position, image_width, image_caption,
+            created_at, bncc_code, discipline, grade_year, source_exam_title, explanation
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        qid,
+        "banco_questoes_geral",
+        next_num,
+        q_data.get("statement", "").strip(),
+        float(q_data.get("points") or 1.0),
+        q_data.get("image_url", ""),
+        q_data.get("image_position", "after_statement"),
+        q_data.get("image_width", "50%"),
+        q_data.get("image_caption", ""),
+        now,
+        (q_data.get("bncc_code") or "").strip().upper(),
+        (q_data.get("discipline") or "").strip(),
+        (q_data.get("grade_year") or "").strip(),
+        q_data.get("source_exam_title") or "Gerador IA (Groq - Llama 3.1 8B)",
+        (q_data.get("explanation") or "").strip()
+    ))
+    
+    alternatives = q_data.get("alternatives", [])
+    for idx, alt in enumerate(alternatives):
+        aid = alt.get("id") or str(uuid.uuid4())
+        is_corr = 1 if alt.get("is_correct") else 0
+        cursor.execute("""
+            INSERT INTO builder_alternatives (
+                id, question_id, letter, text, is_correct, order_index,
+                image_url, image_width, image_align
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            aid,
+            qid,
+            alt.get("letter", chr(65 + idx)),
+            (alt.get("text") or "").strip(),
+            is_corr,
+            idx,
+            alt.get("image_url", ""),
+            alt.get("image_width", "180px"),
+            alt.get("image_align", "center")
+        ))
+        
+    conn.commit()
+    conn.close()
+    
+    return {
+        "id": qid,
+        "success": True,
+        "message": "Questão inserida no Banco de Questões com sucesso!"
+    }
+
 

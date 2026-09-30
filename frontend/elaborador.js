@@ -10,6 +10,7 @@
   let activeTextarea = null;
   let selectedColumns = 2;
   let isSaving = false;
+  let bnccPickerTarget = null;
 
   function createBlankQuestion(number = 1, altsCount = 4) {
     const targetAlts = altsCount === 5 ? 5 : 4;
@@ -314,6 +315,7 @@
     setupImageSystem();
     setupBnccSystem();
     setupBankImportSystem();
+    setupAIQuestionGenerator();
     renderSidebarList();
     loadActiveQuestionToEditor();
     updateSummaryBars();
@@ -3805,6 +3807,13 @@
 
   function selectBnccSkill(code) {
     const cleanCode = (code || "").trim();
+    if (bnccPickerTarget) {
+      bnccPickerTarget.value = cleanCode;
+      bnccPickerTarget = null;
+      closeBnccPickerModal();
+      showToast(`Habilidade ${cleanCode} selecionada para a IA!`, "success");
+      return;
+    }
     if (editorQSkill) {
       editorQSkill.value = cleanCode;
     }
@@ -4263,6 +4272,324 @@
 
     closeBankImportModal();
     showToast(`${selectedItems.length} questão(ões) importada(s) do banco de questões!`, "success");
+  }
+
+  // ==========================================================================
+  // Gerador de Questões Inéditas com IA (Groq Cloud - Llama 3.1 8B + BNCC)
+  // ==========================================================================
+  let currentGeneratedAIItem = null;
+
+  function setupAIQuestionGenerator() {
+    const modalAI = document.getElementById("modal-ai-question-generator");
+    const btnHeaderAI = document.getElementById("btn-header-ai-generate");
+    const btnSideAI = document.getElementById("btn-open-ai-side");
+    const btnCloseAI = document.getElementById("btn-close-ai-generator");
+    const btnCancelAI = document.getElementById("btn-cancel-ai-generator");
+    const btnPickBncc = document.getElementById("btn-ai-pick-bncc");
+    const btnSubmitGenerate = document.getElementById("btn-ai-submit-generate");
+    const btnRegenerate = document.getElementById("btn-ai-regenerate");
+    const btnSaveBank = document.getElementById("btn-ai-save-bank");
+    const btnInsertExam = document.getElementById("btn-ai-insert-exam");
+
+    const inputDiscipline = document.getElementById("ai-input-discipline");
+    const inputGrade = document.getElementById("ai-input-grade");
+    const inputBncc = document.getElementById("ai-input-bncc");
+    const inputDifficulty = document.getElementById("ai-input-difficulty");
+    const inputNumAlts = document.getElementById("ai-input-num-alts");
+    const inputTheme = document.getElementById("ai-input-theme");
+    const inputCustom = document.getElementById("ai-input-custom");
+
+    const loadingState = document.getElementById("ai-loading-state");
+    const previewCard = document.getElementById("ai-preview-card");
+    const keyWarning = document.getElementById("ai-key-warning");
+
+    if (!modalAI) return;
+
+    async function checkGroqKeyStatus() {
+      try {
+        const res = await apiFetch("/api/settings");
+        if (res.ok) {
+          const s = await res.json();
+          if (keyWarning) {
+            if (!s.has_groq_api_key) {
+              keyWarning.classList.remove("hidden");
+            } else {
+              keyWarning.classList.add("hidden");
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Erro ao checar status da chave Groq:", e);
+      }
+    }
+
+    function openAIModal() {
+      const examDiscInput = document.getElementById("exam-discipline-input");
+      const examGradeSelect = document.getElementById("exam-grade-year-select");
+
+      if (inputDiscipline && examDiscInput && examDiscInput.value) {
+        const discVal = examDiscInput.value.trim();
+        Array.from(inputDiscipline.options).forEach(opt => {
+          if (opt.value.toLowerCase() === discVal.toLowerCase()) opt.selected = true;
+        });
+      }
+      if (inputGrade && examGradeSelect && examGradeSelect.value) {
+        inputGrade.value = examGradeSelect.value;
+      }
+      if (inputNumAlts) {
+        inputNumAlts.value = String(globalExamAlternativesMode || 4);
+      }
+
+      modalAI.style.display = "flex";
+      modalAI.classList.add("active");
+      checkGroqKeyStatus();
+    }
+
+    function closeAIModal() {
+      modalAI.style.display = "none";
+      modalAI.classList.remove("active");
+    }
+
+    btnHeaderAI?.addEventListener("click", openAIModal);
+    btnSideAI?.addEventListener("click", openAIModal);
+    btnCloseAI?.addEventListener("click", closeAIModal);
+    btnCancelAI?.addEventListener("click", closeAIModal);
+
+    modalAI.addEventListener("click", (e) => {
+      if (e.target === modalAI) closeAIModal();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && modalAI.classList.contains("active")) {
+        closeAIModal();
+      }
+    });
+
+    btnPickBncc?.addEventListener("click", () => {
+      bnccPickerTarget = inputBncc;
+      openBnccPickerModal();
+    });
+
+    async function handleGenerateQuestion() {
+      const discipline = inputDiscipline ? inputDiscipline.value : "Matemática";
+      const gradeYear = inputGrade ? inputGrade.value : "5º Ano";
+      const bnccCode = inputBncc ? inputBncc.value.trim() : "";
+      const difficulty = inputDifficulty ? inputDifficulty.value : "Médio";
+      const numAlternatives = inputNumAlts ? parseInt(inputNumAlts.value, 10) : (globalExamAlternativesMode || 4);
+      const localTheme = inputTheme ? inputTheme.value.trim() : "";
+      const customPrompt = inputCustom ? inputCustom.value.trim() : "";
+
+      if (loadingState) loadingState.classList.remove("hidden");
+      if (previewCard) previewCard.classList.add("hidden");
+      if (btnSubmitGenerate) btnSubmitGenerate.disabled = true;
+
+      try {
+        const res = await apiFetch("/api/exam-builder/ai/generate-question", {
+          method: "POST",
+          body: JSON.stringify({
+            discipline: discipline,
+            grade_year: gradeYear,
+            bncc_code: bnccCode,
+            difficulty: difficulty,
+            num_alternatives: numAlternatives,
+            local_theme: localTheme,
+            custom_prompt: customPrompt
+          })
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData.detail || "Erro ao conectar com a API da Groq.";
+          if (errMsg.toLowerCase().includes("chave") && keyWarning) {
+            keyWarning.classList.remove("hidden");
+          }
+          throw new Error(errMsg);
+        }
+
+        const data = await res.json();
+        currentGeneratedAIItem = data;
+        renderAIGeneratedPreview(data);
+
+        showToast("Questão gerada com sucesso pela IA!", "success");
+      } catch (err) {
+        showToast(err.message || "Erro na geração com IA.", "error");
+      } finally {
+        if (loadingState) loadingState.classList.add("hidden");
+        if (btnSubmitGenerate) btnSubmitGenerate.disabled = false;
+      }
+    }
+
+    btnSubmitGenerate?.addEventListener("click", handleGenerateQuestion);
+    btnRegenerate?.addEventListener("click", handleGenerateQuestion);
+
+    function renderAIGeneratedPreview(item) {
+      if (!previewCard) return;
+
+      const badgeBncc = document.getElementById("ai-preview-badge-bncc");
+      const badgeDisc = document.getElementById("ai-preview-badge-disc");
+      const badgeDiff = document.getElementById("ai-preview-badge-diff");
+      const txtStatement = document.getElementById("ai-preview-statement");
+      const txtExplanation = document.getElementById("ai-preview-explanation");
+      const altsContainer = document.getElementById("ai-preview-alternatives-list");
+
+      if (badgeBncc) {
+        badgeBncc.textContent = item.bncc_code || "BNCC Livre";
+        badgeBncc.style.display = item.bncc_code ? "inline-block" : "none";
+      }
+      if (badgeDisc) badgeDisc.textContent = item.discipline || "Geral";
+      if (badgeDiff) badgeDiff.textContent = item.difficulty || "Médio";
+      if (txtStatement) txtStatement.value = item.statement || "";
+      if (txtExplanation) txtExplanation.value = item.explanation || "";
+
+      if (altsContainer) {
+        altsContainer.innerHTML = "";
+        const alts = item.alternatives || [];
+        alts.forEach((alt, idx) => {
+          const row = document.createElement("div");
+          row.className = "flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 border border-slate-200/90 focus-within:border-blue-400 focus-within:bg-blue-50/20 transition-all";
+
+          const isChecked = !!alt.is_correct;
+          row.innerHTML = `
+            <label class="flex items-center gap-2 cursor-pointer select-none pl-1">
+              <input type="radio" name="ai-correct-radio" value="${escapeHtml(alt.letter)}" ${isChecked ? "checked" : ""} class="w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+              <span class="w-6 h-6 rounded-lg bg-slate-200 font-bold text-xs text-slate-800 flex items-center justify-center">${escapeHtml(alt.letter)}</span>
+            </label>
+            <input type="text" class="ai-alt-input flex-1 bg-transparent border-0 text-xs sm:text-sm text-slate-800 focus:outline-none" value="${escapeHtml(alt.text || "")}" data-letter="${escapeHtml(alt.letter)}" placeholder="Texto da alternativa ${escapeHtml(alt.letter)}">
+          `;
+          altsContainer.appendChild(row);
+        });
+      }
+
+      previewCard.classList.remove("hidden");
+      previewCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    function extractEditedQuestion() {
+      if (!currentGeneratedAIItem) return null;
+
+      const txtStatement = document.getElementById("ai-preview-statement");
+      const txtExplanation = document.getElementById("ai-preview-explanation");
+      const statementVal = txtStatement ? txtStatement.value.trim() : "";
+
+      if (!statementVal) {
+        showToast("O enunciado da questão não pode ficar vazio.", "warning");
+        txtStatement?.focus();
+        return null;
+      }
+
+      const altInputs = document.querySelectorAll(".ai-alt-input");
+      const selectedRadio = document.querySelector('input[name="ai-correct-radio"]:checked');
+      const correctLetter = selectedRadio ? selectedRadio.value : "A";
+
+      const finalAlternatives = [];
+      altInputs.forEach((inp, idx) => {
+        const letVal = inp.dataset.letter || String.fromCharCode(65 + idx);
+        const textVal = inp.value.trim();
+        finalAlternatives.push({
+          letter: letVal,
+          text: textVal,
+          is_correct: (letVal === correctLetter),
+          order_index: idx
+        });
+      });
+
+      return {
+        statement: statementVal,
+        discipline: currentGeneratedAIItem.discipline || (inputDiscipline ? inputDiscipline.value : "Matemática"),
+        grade_year: currentGeneratedAIItem.grade_year || (inputGrade ? inputGrade.value : "5º Ano"),
+        bncc_code: currentGeneratedAIItem.bncc_code || (inputBncc ? inputBncc.value.trim() : ""),
+        difficulty: currentGeneratedAIItem.difficulty || (inputDifficulty ? inputDifficulty.value : "Médio"),
+        points: 1.0,
+        alternatives: finalAlternatives,
+        explanation: txtExplanation ? txtExplanation.value.trim() : ""
+      };
+    }
+
+    async function handleSaveAIToBank() {
+      const qData = extractEditedQuestion();
+      if (!qData) return;
+
+      if (btnSaveBank) {
+        btnSaveBank.disabled = true;
+        btnSaveBank.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span> Salvando...';
+      }
+
+      try {
+        const res = await apiFetch("/api/exam-builder/ai/save-to-bank", {
+          method: "POST",
+          body: JSON.stringify(qData)
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || "Erro ao salvar no banco.");
+        }
+
+        showToast("Questão salva no Banco de Questões com sucesso!", "success");
+      } catch (e) {
+        showToast(e.message || "Falha ao salvar questão no banco.", "error");
+      } finally {
+        if (btnSaveBank) {
+          btnSaveBank.disabled = false;
+          btnSaveBank.innerHTML = '<span class="material-symbols-outlined text-[18px] text-blue-600">bookmark_add</span> <span>Salvar no Banco</span>';
+        }
+      }
+    }
+
+    async function handleInsertIntoCurrentExam() {
+      const qData = extractEditedQuestion();
+      if (!qData) return;
+
+      try {
+        apiFetch("/api/exam-builder/ai/save-to-bank", {
+          method: "POST",
+          body: JSON.stringify(qData)
+        });
+      } catch (e) { }
+
+      const newIndex = questions.length + 1;
+      const newQuestion = {
+        id: `q_${Date.now()}_${newIndex}`,
+        question_number: newIndex,
+        statement: qData.statement,
+        points: 1.0,
+        difficulty: qData.difficulty || "medio",
+        skill: qData.bncc_code || "",
+        bncc_code: qData.bncc_code || "",
+        type: String(qData.alternatives.length),
+        image_url: "",
+        alternatives: qData.alternatives.map((a, i) => ({
+          letter: a.letter,
+          text: a.text,
+          is_correct: a.is_correct,
+          image_url: ""
+        }))
+      };
+
+      if (questions.length === 1 && !questions[0].statement.trim() && !questions[0].alternatives.some(a => a.text.trim())) {
+        questions[0] = newQuestion;
+        newQuestion.question_number = 1;
+        activeQuestionIndex = 0;
+      } else {
+        questions.push(newQuestion);
+        questions.forEach((q, i) => { q.question_number = i + 1; });
+        activeQuestionIndex = questions.length - 1;
+      }
+
+      renderSidebarList();
+      loadActiveQuestionToEditor();
+      updateSummaryBars();
+      updateRealtimeQuestionPreview();
+      updateLiveSheetPreview();
+      markUnsaved();
+      saveExamToServer({ isAuto: true });
+
+      showToast(`Questão da IA inserida como Questão ${newQuestion.question_number}!`, "success");
+      closeAIModal();
+    }
+
+    btnSaveBank?.addEventListener("click", handleSaveAIToBank);
+    btnInsertExam?.addEventListener("click", handleInsertIntoCurrentExam);
   }
 
   // ==========================================================================

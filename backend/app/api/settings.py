@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 
 from app.services.database import get_system_settings, update_system_settings
 from app.api.auth import require_roles
+from app.services.groq_service import get_configured_groq_api_key, mask_api_key, test_groq_api_key
 
 router = APIRouter(prefix="/settings", tags=["Configurações Institucionais"])
 
@@ -14,6 +15,10 @@ class SettingsUpdateRequest(BaseModel):
     prefeitura_name: Optional[str] = None
     secretaria_name: Optional[str] = None
     state_name: Optional[str] = None
+    groq_api_key: Optional[str] = None
+
+class TestGroqKeyRequest(BaseModel):
+    api_key: Optional[str] = None
 
 STORAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "storage")
 
@@ -22,12 +27,15 @@ def get_settings():
     settings = get_system_settings()
     logo_path = settings.get("logo_path", "")
     has_logo = bool(logo_path and os.path.exists(logo_path))
+    groq_key = get_configured_groq_api_key()
     return {
         "prefeitura_name": settings.get("prefeitura_name", "Prefeitura Municipal de Lagoa da Canoa"),
         "secretaria_name": settings.get("secretaria_name", "Secretaria Municipal de Educação - SEMED"),
         "state_name": settings.get("state_name", "Estado de Alagoas"),
         "has_logo": has_logo,
-        "logo_url": "/api/settings/logo" if has_logo else None
+        "logo_url": "/api/settings/logo" if has_logo else None,
+        "has_groq_api_key": bool(groq_key),
+        "groq_api_key_masked": mask_api_key(groq_key)
     }
 
 @router.post("")
@@ -40,12 +48,21 @@ def save_settings(req: SettingsUpdateRequest, authorization: Optional[str] = Hea
         updates["secretaria_name"] = req.secretaria_name.strip()
     if req.state_name is not None:
         updates["state_name"] = req.state_name.strip()
+    if req.groq_api_key is not None:
+        updates["groq_api_key"] = req.groq_api_key.strip()
 
     updated = update_system_settings(updates)
     return {
         "status": "success",
         "settings": updated
     }
+
+@router.post("/test-groq-key")
+async def test_groq_key_endpoint(req: Optional[TestGroqKeyRequest] = None, authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)):
+    require_roles(["admin", "coordenador"], authorization, x_auth_token)
+    api_key = req.api_key if req else None
+    result = await test_groq_api_key(api_key)
+    return result
 
 @router.post("/logo")
 async def upload_logo(file: UploadFile = File(...), authorization: Optional[str] = Header(None), x_auth_token: Optional[str] = Header(None)):

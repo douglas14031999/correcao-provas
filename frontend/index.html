@@ -3277,6 +3277,29 @@
             <input type="text" id="settings-state" class="form-input" placeholder="Ex: AL" maxlength="2" style="max-width: 100px; text-transform: uppercase;">
           </div>
 
+          <!-- Seção Groq Cloud API (Llama 3.1 8B) -->
+          <div class="settings-divider" style="margin: 1.5rem 0 1rem 0; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+            <h4 style="font-size: 0.9rem; font-weight: 700; color: #0f172a; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.4rem;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+              <span>Inteligência Artificial (Groq Cloud API)</span>
+              <span style="font-size: 0.65rem; background: #dcfce7; color: #166534; font-weight: 800; padding: 2px 7px; border-radius: 9999px;">Llama 3.1 8B</span>
+            </h4>
+            <p style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.85rem;">
+              Chave de API gratuita da Groq para o Gerador de Questões Inéditas com BNCC. Crie uma chave gratuita em <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: underline; font-weight: 600;">console.groq.com/keys</a>.
+            </p>
+
+            <div class="form-group" style="margin-bottom: 0.5rem;">
+              <label for="settings-groq-key" class="form-label" style="font-size: 0.8rem;">Chave de API (gsk_...):</label>
+              <div style="display: flex; gap: 0.5rem;">
+                <input type="password" id="settings-groq-key" class="form-input" placeholder="gsk_..." style="font-family: monospace; font-size: 0.82rem; flex: 1;">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-test-groq-key" onclick="testGroqConnection()" style="white-space: nowrap;">
+                  <span>Testar Conexão</span>
+                </button>
+              </div>
+            </div>
+            <div id="settings-groq-msg" style="display: none; font-size: 0.8rem; margin-top: 0.4rem; padding: 0.4rem 0.65rem; border-radius: 6px;"></div>
+          </div>
+
           <div class="settings-divider" style="margin: 1.5rem 0 1rem 0; border-top: 1px solid var(--border-color); padding-top: 1rem;">
             <h4 style="font-size: 0.9rem; font-weight: 700; color: #0f172a; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.4rem;">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>

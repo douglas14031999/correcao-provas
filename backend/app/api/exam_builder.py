@@ -21,8 +21,10 @@ from app.services.exam_builder_db import (
     sync_builder_exam_to_main_exams,
     get_builder_exam_grading_status,
     get_question_bank,
-    get_question_bank_filters
+    get_question_bank_filters,
+    insert_question_into_bank
 )
+from app.services.groq_service import generate_ai_question_groq
 from app.services.exam_builder_pdf import render_exam_html, generate_exam_pdf_bytes
 from app.services.exam_builder_docx import generate_exam_docx_bytes
 from app.services.database import list_schools_tree
@@ -240,6 +242,53 @@ def delete_bank_question_endpoint(question_id: str):
     """Exclui permanentemente uma questão e suas alternativas diretamente do Banco de Questões."""
     success = delete_question_from_bank(question_id)
     return {"success": success}
+
+class AIGenerateQuestionPayload(BaseModel):
+    discipline: str
+    grade_year: str
+    bncc_code: Optional[str] = ""
+    difficulty: Optional[str] = "Médio"
+    num_alternatives: Optional[int] = 4
+    local_theme: Optional[str] = ""
+    custom_prompt: Optional[str] = ""
+
+class AISaveQuestionToBankPayload(BaseModel):
+    statement: str
+    discipline: str
+    grade_year: str
+    bncc_code: Optional[str] = ""
+    difficulty: Optional[str] = "Médio"
+    points: Optional[float] = 1.0
+    alternatives: List[Dict[str, Any]]
+    explanation: Optional[str] = ""
+
+@router.post("/ai/generate-question")
+async def ai_generate_question_endpoint(payload: AIGenerateQuestionPayload):
+    """Gera uma questão inédita com alternativas e gabarito utilizando Groq Cloud (Llama 3.1 8B Instant)."""
+    try:
+        item = await generate_ai_question_groq(
+            discipline=payload.discipline,
+            grade_year=payload.grade_year,
+            bncc_code=payload.bncc_code,
+            difficulty=payload.difficulty,
+            num_alternatives=payload.num_alternatives,
+            local_theme=payload.local_theme,
+            custom_prompt=payload.custom_prompt
+        )
+        return item
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar questão com IA: {str(e)}")
+
+@router.post("/ai/save-to-bank")
+def ai_save_to_bank_endpoint(payload: AISaveQuestionToBankPayload):
+    """Salva a questão gerada/editada diretamente no Banco de Questões da SEMED."""
+    try:
+        result = insert_question_into_bank(payload.dict())
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao salvar questão no banco de questões: {str(e)}")
 
 @router.post("/upload-image")
 async def upload_question_image(file: UploadFile = File(...)):

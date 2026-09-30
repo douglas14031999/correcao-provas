@@ -443,12 +443,19 @@
       <section id="panel-bank" class="hidden flex-col gap-5 sm:gap-6">
         
         <!-- Header do Banco de Questões -->
-        <div class="flex flex-col gap-1">
-          <span class="text-xs text-secondary font-semibold flex items-center gap-1">
-            <span class="material-symbols-outlined text-[16px]">menu_book</span>
-            Acervo Pedagógico BNCC
-          </span>
-          <h2 class="font-headline-xl text-2xl sm:text-3xl text-on-surface font-bold tracking-tight">Banco de Questões</h2>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex flex-col gap-1">
+            <span class="text-xs text-secondary font-semibold flex items-center gap-1">
+              <span class="material-symbols-outlined text-[16px]">menu_book</span>
+              Acervo Pedagógico BNCC
+            </span>
+            <h2 class="font-headline-xl text-2xl sm:text-3xl text-on-surface font-bold tracking-tight">Banco de Questões</h2>
+          </div>
+          <button id="btn-open-ai-generator" type="button" class="btn-press flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-primary text-white font-bold text-xs sm:text-sm shadow-md hover:shadow-lg hover:from-blue-700 hover:to-primary transition-all duration-150 cursor-pointer shrink-0 self-start sm:self-auto" title="Gerar questão inédita com IA alinhada à BNCC (Groq Llama 3.1 8B)">
+            <span class="material-symbols-outlined text-[19px] text-amber-300 animate-pulse">auto_awesome</span>
+            <span>Gerar Questão com IA</span>
+            <span class="text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-mono font-semibold">Groq</span>
+          </button>
         </div>
 
         <!-- Filtros do Acervo -->
@@ -1282,6 +1289,234 @@
         </a>
         <button type="button" id="sync-success-btn-close" class="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer text-center">
           Continuar Aqui
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: GERADOR DE QUESTÕES INÉDITAS COM IA (GROQ LLAMA 3.1 8B + BNCC)
+       ========================================================================= -->
+  <div id="modal-ai-question-generator" class="modal-overlay z-[120]" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl w-full max-w-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
+      
+      <!-- Cabeçalho do Modal -->
+      <div class="px-6 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 text-white flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/20 shadow-xs">
+            <span class="material-symbols-outlined text-amber-300 text-[24px]">auto_awesome</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="font-headline-md font-bold text-base sm:text-lg text-white">Gerador de Questões Inéditas com IA</h3>
+              <span class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold px-2 py-0.5 rounded-full">Groq Cloud • Llama 3.1 8B</span>
+            </div>
+            <p class="text-xs text-slate-300 font-normal">Crie questões alinhadas rigorosamente à BNCC e matrizes SAEB em segundos.</p>
+          </div>
+        </div>
+        <button type="button" id="btn-close-ai-generator" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer text-lg font-bold">
+          &times;
+        </button>
+      </div>
+
+      <!-- Corpo do Modal Rolável -->
+      <div class="p-6 overflow-y-auto flex-1 flex flex-col gap-5">
+        
+        <!-- Banner de Status da Chave Groq -->
+        <div id="ai-key-warning" class="hidden p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 text-xs text-amber-900">
+          <span class="material-symbols-outlined text-amber-600 text-[20px] shrink-0">warning</span>
+          <div class="flex-1 leading-relaxed">
+            <strong>Chave de API da Groq não configurada!</strong> Para utilizar a geração instantânea, acesse as <a href="/" class="underline font-bold text-blue-700">Configurações do Sistema</a> no painel principal ou configure a variável <code class="bg-amber-100 px-1 py-0.5 rounded font-mono font-bold">GROQ_API_KEY</code> no <code class="bg-amber-100 px-1 py-0.5 rounded font-mono font-bold">.env</code>.
+            <div class="mt-1">
+              <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline font-semibold">Obter chave gratuita em console.groq.com/keys &rarr;</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Parâmetros de Geração -->
+        <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200/80 flex flex-col gap-3.5">
+          <div class="flex items-center justify-between pb-1 border-b border-slate-200/60">
+            <span class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[16px] text-blue-600">tune</span>
+              Parâmetros Pedagógicos do Item
+            </span>
+            <span class="text-[11px] text-slate-500 font-medium">1 questão inédita por vez</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <!-- Disciplina -->
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Componente Curricular *</label>
+              <select id="ai-input-discipline" class="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <option value="Língua Portuguesa">Língua Portuguesa</option>
+                <option value="Matemática" selected>Matemática</option>
+                <option value="Ciências">Ciências</option>
+                <option value="História">História</option>
+                <option value="Geografia">Geografia</option>
+                <option value="Arte">Arte</option>
+                <option value="Educação Física">Educação Física</option>
+                <option value="Língua Inglesa">Língua Inglesa</option>
+                <option value="Ensino Religioso">Ensino Religioso</option>
+              </select>
+            </div>
+
+            <!-- Ano / Série -->
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Ano / Série *</label>
+              <select id="ai-input-grade" class="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <option value="1º Ano">1º Ano</option>
+                <option value="2º Ano">2º Ano</option>
+                <option value="3º Ano">3º Ano</option>
+                <option value="4º Ano">4º Ano</option>
+                <option value="5º Ano" selected>5º Ano</option>
+                <option value="6º Ano">6º Ano</option>
+                <option value="7º Ano">7º Ano</option>
+                <option value="8º Ano">8º Ano</option>
+                <option value="9º Ano">9º Ano</option>
+              </select>
+            </div>
+
+            <!-- Dificuldade -->
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Dificuldade Estimada</label>
+              <select id="ai-input-difficulty" class="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <option value="Fácil">Fácil (Identificar / Reconhecer)</option>
+                <option value="Médio" selected>Médio (Aplicar / Resolver)</option>
+                <option value="Difícil">Difícil (Analisar / Sintetizar)</option>
+              </select>
+            </div>
+
+            <!-- Código BNCC com Seletor -->
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-bold text-slate-700 mb-1">Código BNCC (Opcional, altamente recomendado)</label>
+              <div class="flex items-center gap-2">
+                <input type="text" id="ai-input-bncc" placeholder="Ex: EF05MA08" class="flex-1 h-10 px-3 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold text-blue-700 uppercase focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <button type="button" id="btn-ai-pick-bncc" class="h-10 px-3.5 rounded-xl bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 hover:border-transparent text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer" title="Pesquisar e selecionar do catálogo de habilidades">
+                  <span class="material-symbols-outlined text-[16px]">menu_book</span>
+                  <span>Catálogo BNCC</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Quantidade de Alternativas -->
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Alternativas</label>
+              <select id="ai-input-num-alts" class="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <option value="4" selected>4 Alternativas (A, B, C, D)</option>
+                <option value="5">5 Alternativas (A, B, C, D, E)</option>
+              </select>
+            </div>
+
+            <!-- Tema / Contexto Local -->
+            <div class="sm:col-span-2 lg:col-span-3">
+              <label class="block text-xs font-bold text-slate-700 mb-1">
+                Contextualização / Tema Local
+                <span class="font-normal text-slate-500 text-[11px]">(Ex: Lagoa da Canoa, Alagoas, agricultura familiar, situação cotidiana, texto de apoio)</span>
+              </label>
+              <input type="text" id="ai-input-theme" placeholder="Ex: Uma feira livre no centro de Lagoa da Canoa, culinária nordestina, meio ambiente..." class="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+
+            <!-- Prompt Livre / Instrução Pedagógica -->
+            <div class="sm:col-span-2 lg:col-span-3">
+              <label class="block text-xs font-bold text-slate-700 mb-1">
+                Instruções Pedagógicas Específicas
+                <span class="font-normal text-slate-500 text-[11px]">(Opcional)</span>
+              </label>
+              <input type="text" id="ai-input-custom" placeholder="Ex: Focar em frações equivalentes; incluir pequeno diálogo; não usar números decimais..." class="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+          </div>
+
+          <!-- Botão Gerar -->
+          <div class="pt-2 flex justify-end">
+            <button type="button" id="btn-ai-submit-generate" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-primary hover:from-blue-700 hover:to-primary text-white font-bold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+              <span class="material-symbols-outlined text-[18px] text-amber-300">auto_awesome</span>
+              <span id="ai-submit-label">Gerar Questão Inédita</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Indicador de Carregamento (Loading) -->
+        <div id="ai-loading-state" class="hidden py-10 flex flex-col items-center justify-center gap-3 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+          <div class="relative w-12 h-12 flex items-center justify-center">
+            <div class="w-12 h-12 rounded-full border-2 border-blue-200 border-t-blue-600 animate-spin"></div>
+            <span class="material-symbols-outlined text-[20px] text-blue-600 absolute">psychology</span>
+          </div>
+          <div class="text-center">
+            <p class="font-bold text-slate-800 text-sm">Consultando o Llama 3.1 8B na Groq Cloud...</p>
+            <p class="text-xs text-slate-500 mt-0.5">Construindo situação-problema e distratores pedagógicos SAEB.</p>
+          </div>
+        </div>
+
+        <!-- Card de Pré-Visualização e Edição Prévia -->
+        <div id="ai-preview-card" class="hidden flex flex-col gap-4 bg-white p-5 rounded-2xl border-2 border-blue-200 shadow-sm">
+          <div class="flex items-center justify-between flex-wrap gap-2 pb-2.5 border-b border-slate-100">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 flex items-center gap-1">
+                <span class="material-symbols-outlined text-[15px]">verified</span>
+                <span>Questão Gerada</span>
+              </span>
+              <span id="ai-preview-badge-bncc" class="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 font-mono font-bold text-xs">BNCC</span>
+              <span id="ai-preview-badge-disc" class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-semibold">Disciplina</span>
+              <span id="ai-preview-badge-diff" class="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 text-xs font-medium border border-amber-100">Dificuldade</span>
+            </div>
+            <span class="text-xs text-slate-500 italic">Você pode editar os textos antes de salvar</span>
+          </div>
+
+          <!-- Enunciado Editável -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Enunciado da Questão (Editável):</label>
+            <textarea id="ai-preview-statement" rows="4" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 leading-relaxed focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none resize-y"></textarea>
+          </div>
+
+          <!-- Alternativas Editáveis com Seleção do Gabarito -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-xs font-bold text-slate-700">Alternativas e Gabarito Correto:</label>
+              <span class="text-[11px] text-slate-500">Marque o círculo da alternativa correta</span>
+            </div>
+            <div id="ai-preview-alternatives-list" class="flex flex-col gap-2">
+              <!-- Injetado dinamicamente via JS -->
+            </div>
+          </div>
+
+          <!-- Justificativa Pedagógica -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Resolução & Justificativa Pedagógica (SAEB):</label>
+            <textarea id="ai-preview-explanation" rows="2" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 leading-relaxed focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none resize-y"></textarea>
+          </div>
+
+          <!-- Barra de Ações do Card de Prévia -->
+          <div class="flex items-center justify-between flex-wrap gap-2 pt-3 border-t border-slate-100">
+            <button type="button" id="btn-ai-regenerate" class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer">
+              <span class="material-symbols-outlined text-[16px]">refresh</span>
+              <span>Gerar Outra</span>
+            </button>
+
+            <div class="flex items-center gap-2 flex-wrap">
+              <button type="button" id="btn-ai-save-bank" class="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs sm:text-sm shadow-xs hover:shadow transition-all flex items-center gap-1.5 cursor-pointer">
+                <span class="material-symbols-outlined text-[18px] text-blue-600">bookmark_add</span>
+                <span>Salvar no Banco</span>
+              </button>
+
+              <button type="button" id="btn-ai-add-drawer" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs sm:text-sm shadow-xs hover:shadow transition-all flex items-center gap-2 cursor-pointer">
+                <span class="material-symbols-outlined text-[18px]">add_circle</span>
+                <span>Salvar &amp; Usar na Prova</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Rodapé do Modal -->
+      <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+        <span class="text-[11px] text-slate-500 flex items-center gap-1">
+          <span class="material-symbols-outlined text-[14px] text-slate-400">info</span>
+          Itens gerados com IA são salvos com segurança no Banco de Questões.
+        </span>
+        <button type="button" id="btn-cancel-ai-generator" class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors cursor-pointer">
+          Fechar
         </button>
       </div>
 
