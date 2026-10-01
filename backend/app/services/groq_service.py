@@ -12,17 +12,18 @@ logger = logging.getLogger("uvicorn")
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODELS_URL = "https://api.groq.com/openai/v1/models"
 
-# Lista de modelos prioritários suportados na Groq Cloud em ordem de preferência
-# (a Groq aposentou o llama-3.1-8b-instant em agosto/2026 e adotou o openai/gpt-oss-20b e outros)
+# Lista de modelos prioritários suportados na Groq Cloud em ordem de qualidade e estabilidade
 PRIORITY_MODELS = [
+    "openai/gpt-oss-120b",
     "openai/gpt-oss-20b",
+    "llama-3.3-70b-versatile",
+    "llama3-8b-8192",
+    "qwen/qwen3.8-27b",
     "llama-3.2-3b-preview",
     "llama-3.2-1b-preview",
-    "llama3-8b-8192",
-    "llama-3.3-70b-versatile",
     "llama-3.1-8b-instant"
 ]
-DEFAULT_FALLBACK_MODEL = "openai/gpt-oss-20b"
+DEFAULT_FALLBACK_MODEL = "openai/gpt-oss-120b"
 
 # Cache em memória para resolução dinâmica do modelo ativo (válido por 10 minutos)
 _ACTIVE_MODEL_CACHE: Dict[str, Any] = {"model": None, "timestamp": 0}
@@ -238,8 +239,8 @@ async def generate_ai_question_groq(
         "REGRAS DE CONSTRUÇÃO DO ITEM:\n"
         "1. ENUNCIADO: Contextualizado, claro e direto. Se for matemática ou ciências, inclua uma situação-problema cotidiana. Se for língua portuguesa, forneça um texto-base rico ou contexto interpretativo.\n"
         "2. FÓRMULAS E SÍMBOLOS: Use notação limpa e acessível. Se usar LaTeX, use delimitadores simples como $x^2$ ou escreva claramente.\n"
-        f"3. ALTERNATIVAS: Exatamente {num_alts} alternativas ({', '.join(letters)}).\n"
-        "4. DISTRATORES PLAUSÍVEIS (SAEB): Os distratores (opções incorretas) devem ser erros comuns de raciocínio, não opções absurdas ou fáceis demais. Deve haver apenas UMA resposta correta inequívoca.\n"
+        f"3. QUANTIDADE OBRIGATÓRIA DE ALTERNATIVAS: Você DEVE gerar impreterivelmente EXATAMENTE {num_alts} alternativas ({', '.join(letters)}). É ESTRITAMENTE PROIBIDO gerar menos de {num_alts} alternativas. Se foram pedidas {num_alts} alternativas, você NUNCA pode retornar apenas 2 ou 3 alternativas. Cada uma das {num_alts} alternativas deve ter texto preenchido, claro e plausível.\n"
+        f"4. GABARITO E DISTRATORES (SAEB): Apenas UMA alternativa correta ({', '.join(letters)}), informada no campo 'correct_answer'. Os distratores (demais alternativas) devem ser plausíveis baseados em erros comuns de raciocínio.\n"
         "5. NADA DE TEXTO FORA DO JSON: Você DEVE responder ESTRITAMENTE em formato JSON válido, sem markdown envolvente e sem explicações externas.\n"
     )
 
@@ -248,7 +249,7 @@ async def generate_ai_question_groq(
         f"Componente Curricular / Disciplina: {discipline or 'Geral'}",
         f"Ano / Série: {grade_year or 'Ensino Fundamental'}",
         f"Nível de Dificuldade: {difficulty or 'Médio'}",
-        f"Número de Alternativas: {num_alts} ({', '.join(letters)})"
+        f"Quantidade Obrigatória de Alternativas: EXATAMENTE {num_alts} alternativas distintas ({', '.join(letters)})"
     ]
 
     if bncc_info:
@@ -269,13 +270,13 @@ async def generate_ai_question_groq(
         user_prompt_parts.append(f"Instruções Pedagógicas Adicionais do Professor: {custom_prompt.strip()}")
 
     user_prompt_parts.append(
-        "\nRetorne o JSON estritamente com este formato:\n"
+        f"\nRetorne o JSON estritamente com este formato (com EXATAMENTE as {num_alts} alternativas {', '.join(letters)}):\n"
         "{\n"
         '  "statement": "Texto completo e claro do enunciado da questão (incluindo o texto-base se houver)",\n'
         '  "bncc_code": "Código da habilidade BNCC trabalhada",\n'
         f'  "correct_answer": "Letra da alternativa correta (uma entre {", ".join(letters)})",\n'
         '  "alternatives": [\n'
-        + ",\n".join([f'    {{"letter": "{lt}", "text": "Texto da alternativa {lt}"}}' for lt in letters]) +
+        + ",\n".join([f'    {{"letter": "{lt}", "text": "Texto completo da alternativa {lt}"}}' for lt in letters]) +
         "\n  ],\n"
         '  "explanation": "Breve justificativa pedagógica explicando a resolução e o porquê da alternativa correta."\n'
         "}"
@@ -298,8 +299,8 @@ async def generate_ai_question_groq(
             {"role": "user", "content": user_message}
         ],
         "response_format": {"type": "json_object"},
-        "temperature": 0.6,
-        "max_tokens": 1500
+        "temperature": 0.35,
+        "max_tokens": 2048
     }
 
     try:
@@ -334,10 +335,23 @@ async def generate_ai_question_groq(
         raw_alts = parsed.get("alternatives") or []
         correct_letter = (parsed.get("correct_answer") or "A").strip().upper()
 
+        # Mapeia as alternativas retornadas pelo modelo indexadas por letra ou ordem
+        raw_map = {}
+        if isinstance(raw_alts, list):
+            for i, alt in enumerate(raw_alts):
+                if isinstance(alt, dict):
+                    l_val = (alt.get("letter") or (letters[i] if i < len(letters) else "")).strip().upper()
+                    t_val = (alt.get("text") or "").strip()
+                    if l_val:
+                        raw_map[l_val] = t_val
+
+        # Garante que TODAS as letras solicitadas (A, B, C, D ou A, B, C, D, E) existam
         clean_alts = []
-        for idx, alt in enumerate(raw_alts[:num_alts]):
-            let = alt.get("letter", letters[idx] if idx < len(letters) else f"Alt {idx+1}").strip().upper()
-            txt = (alt.get("text") or "").strip()
+        for idx, let in enumerate(letters):
+            txt = raw_map.get(let, "").strip()
+            # Se por ventura a IA omitiu o texto da alternativa, fornece placeholder pedagógico
+            if not txt:
+                txt = f"Opção {let}"
             is_corr = (let == correct_letter)
             clean_alts.append({
                 "letter": let,
@@ -346,10 +360,15 @@ async def generate_ai_question_groq(
                 "order_index": idx
             })
 
-        # Garante que ao menos uma esteja marcada como correta
+        # Garante que exatamente uma alternativa esteja marcada como correta
         if not any(a["is_correct"] for a in clean_alts) and clean_alts:
-            clean_alts[0]["is_correct"] = True
-            correct_letter = clean_alts[0]["letter"]
+            for a in clean_alts:
+                if a["letter"] == correct_letter:
+                    a["is_correct"] = True
+                    break
+            else:
+                clean_alts[0]["is_correct"] = True
+                correct_letter = clean_alts[0]["letter"]
 
         return {
             "statement": statement,
