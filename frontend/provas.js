@@ -314,10 +314,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!toastContainer) return;
     const toast = document.createElement("div");
     const colors = {
-      success: "bg-secondary text-on-secondary shadow-md",
-      error: "bg-error text-on-error shadow-md",
-      warning: "bg-amber-600 text-white shadow-md",
-      info: "bg-inverse-surface text-inverse-on-surface shadow-md"
+      success: "bg-secondary text-on-secondary shadow-xl border border-emerald-300/30",
+      error: "bg-error text-on-error shadow-xl border border-red-300/30",
+      warning: "bg-amber-600 text-white shadow-xl border border-amber-300/30",
+      info: "bg-inverse-surface text-inverse-on-surface shadow-xl border border-surface-container/30"
     };
     const icons = {
       success: "check_circle",
@@ -326,7 +326,7 @@ document.addEventListener("DOMContentLoaded", () => {
       info: "info"
     };
 
-    toast.className = `inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold pointer-events-auto transform transition-all duration-300 translate-y-2 opacity-0 ${colors[type] || colors.info}`;
+    toast.className = `inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold pointer-events-auto transform transition-all duration-300 translate-y-2 opacity-0 shadow-2xl ${colors[type] || colors.info}`;
     toast.innerHTML = `
       <span class="material-symbols-outlined text-[18px]">${icons[type] || icons.info}</span>
       <span>${escapeHtml(message)}</span>

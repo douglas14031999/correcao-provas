@@ -1642,10 +1642,10 @@
     </div>
   </div>
 
-  <!-- CONTAINER DE TOASTS -->
-  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+  <!-- CONTAINER DE TOASTS (z-index superior a qualquer modal) -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-[99999] flex flex-col gap-2 pointer-events-none" style="z-index: 99999;"></div>
 
   <!-- SCRIPT PRINCIPAL -->
-  <script src="/static/provas.js?v=36"></script>
+  <script src="/static/provas.js?v=37"></script>
 </body>
 </html>
