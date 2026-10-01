@@ -126,6 +126,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (avatarEl) avatarEl.textContent = initials;
 
+    const btnOpenBankBackup = document.getElementById("btn-open-bank-backup");
+    if (btnOpenBankBackup) {
+      if (role === "admin") {
+        btnOpenBankBackup.classList.remove("hidden");
+      } else {
+        btnOpenBankBackup.classList.add("hidden");
+      }
+    }
+
     const logoutBtn = document.getElementById("btn-logout");
     if (logoutBtn) {
       logoutBtn.onclick = async () => {
@@ -3296,6 +3305,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function openModal() {
+      if (!currentUser || currentUser.role !== "admin") {
+        showToast("Acesso restrito ao perfil de Administrador.", "warning");
+        return;
+      }
       resetImportForm();
       modal.classList.add("active");
     }

@@ -6,10 +6,10 @@ import urllib.parse
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Response, Query, Depends
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Response, Query, Depends, Header
 from starlette.concurrency import run_in_threadpool
 
-from app.api.auth import get_authenticated_user
+from app.api.auth import get_authenticated_user, require_roles
 from app.services.exam_builder_db import (
     init_builder_db,
     list_builder_exams,
@@ -242,8 +242,12 @@ def get_bank_filters_endpoint():
     return get_question_bank_filters()
 
 @router.get("/bank/export")
-def export_bank_questions_endpoint():
-    """Exporta todo o acervo do Banco de Questões em formato JSON estruturado com alternativas e metadados."""
+def export_bank_questions_endpoint(
+    authorization: Optional[str] = Header(None),
+    x_auth_token: Optional[str] = Header(None)
+):
+    """Exporta todo o acervo do Banco de Questões em formato JSON estruturado com alternativas e metadados (Apenas Admin)."""
+    require_roles(["admin"], authorization, x_auth_token)
     try:
         data = export_question_bank_data()
         filename = f"banco_questoes_canoa_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
@@ -260,9 +264,12 @@ def export_bank_questions_endpoint():
 
 @router.post("/bank/import")
 async def import_bank_questions_endpoint(
-    file: Optional[UploadFile] = File(None)
+    file: Optional[UploadFile] = File(None),
+    authorization: Optional[str] = Header(None),
+    x_auth_token: Optional[str] = Header(None)
 ):
-    """Importa lote de questões a partir de arquivo JSON, ignorando automaticamente questões já existentes para evitar duplicidade."""
+    """Importa lote de questões a partir de arquivo JSON, ignorando automaticamente questões já existentes para evitar duplicidade (Apenas Admin)."""
+    require_roles(["admin"], authorization, x_auth_token)
     try:
         if not file:
             raise HTTPException(status_code=400, detail="Nenhum arquivo JSON foi enviado para importação.")
