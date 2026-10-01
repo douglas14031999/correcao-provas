@@ -302,6 +302,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setupFilters();
     setupBankBnccPicker();
     setupAIQuestionGenerator();
+    setupQuestionBankBackup();
     setupExamBatchSelectionEvents();
     await Promise.all([loadExamsList(), loadBankFilters(), loadBankQuestions(), loadSystemSchools()]);
   }
@@ -3255,6 +3256,207 @@ document.addEventListener("DOMContentLoaded", () => {
 
     btnSaveBank?.addEventListener("click", handleSaveAIToBank);
     btnAddDrawer?.addEventListener("click", handleSaveAndAddToDrawer);
+  }
+
+  // =========================================================================
+  // BACKUP E IMPORTAÇÃO DO BANCO DE QUESTÕES (JSON + DEDUPLICAÇÃO INTELIGENTE)
+  // =========================================================================
+  function setupQuestionBankBackup() {
+    const btnOpen = document.getElementById("btn-open-bank-backup");
+    const modal = document.getElementById("modal-bank-backup");
+    const btnClose = document.getElementById("btn-close-bank-backup");
+    const btnCancel = document.getElementById("btn-cancel-bank-backup");
+    const btnExport = document.getElementById("btn-export-bank-json");
+
+    const inputFile = document.getElementById("input-bank-import-file");
+    const dropzone = document.getElementById("dropzone-bank-import");
+    const labelFileName = document.getElementById("label-bank-file-name");
+    const labelFileSize = document.getElementById("label-bank-file-size");
+    const btnSubmit = document.getElementById("btn-submit-bank-import");
+
+    const resultBox = document.getElementById("bank-import-result-box");
+    const statTotal = document.getElementById("bank-import-stat-total");
+    const statAdded = document.getElementById("bank-import-stat-added");
+    const statSkipped = document.getElementById("bank-import-stat-skipped");
+
+    if (!modal) return;
+
+    let selectedFile = null;
+
+    function resetImportForm() {
+      selectedFile = null;
+      if (inputFile) inputFile.value = "";
+      if (labelFileName) labelFileName.textContent = "Clique para escolher o arquivo JSON";
+      if (labelFileSize) labelFileSize.textContent = "ou arraste e solte o arquivo aqui";
+      if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<span class="material-symbols-outlined text-[18px]">publish</span> <span>Importar Questões</span>';
+      }
+      if (resultBox) resultBox.classList.add("hidden");
+    }
+
+    function openModal() {
+      resetImportForm();
+      modal.classList.add("active");
+    }
+
+    function closeModal() {
+      modal.classList.remove("active");
+    }
+
+    btnOpen?.addEventListener("click", openModal);
+    btnClose?.addEventListener("click", closeModal);
+    btnCancel?.addEventListener("click", closeModal);
+
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && modal.classList.contains("active")) {
+        closeModal();
+      }
+    });
+
+    // 1. Exportação do Banco
+    btnExport?.addEventListener("click", async () => {
+      btnExport.disabled = true;
+      const originalHtml = btnExport.innerHTML;
+      btnExport.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span> <span>Gerando Backup...</span>';
+
+      try {
+        const res = await apiFetch("/api/exam-builder/bank/export");
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || errData.error || "Falha ao exportar banco.");
+        }
+
+        const blob = await res.blob();
+        let filename = `banco_questoes_canoa_${new Date().toISOString().slice(0, 10)}.json`;
+        const disposition = res.headers.get("Content-Disposition");
+        if (disposition && disposition.includes("filename=")) {
+          const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+          if (match && match[1]) {
+            filename = match[1].replace(/['"]/g, "").trim();
+          }
+        }
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+        showToast("Backup do banco de questões exportado com sucesso!", "success");
+      } catch (err) {
+        console.error("Erro na exportação do banco:", err);
+        showToast(err.message || "Erro ao exportar arquivo de backup.", "error");
+      } finally {
+        btnExport.disabled = false;
+        btnExport.innerHTML = originalHtml;
+      }
+    });
+
+    // 2. Seleção de Arquivo para Importação
+    function handleFileSelected(file) {
+      if (!file) return;
+      if (!file.name.toLowerCase().endsWith(".json")) {
+        showToast("Selecione um arquivo de backup válido no formato .json", "warning");
+        resetImportForm();
+        return;
+      }
+
+      selectedFile = file;
+      if (labelFileName) labelFileName.textContent = file.name;
+      if (labelFileSize) {
+        const sizeKb = (file.size / 1024).toFixed(1);
+        labelFileSize.textContent = `${sizeKb} KB`;
+      }
+      if (btnSubmit) btnSubmit.disabled = false;
+      if (resultBox) resultBox.classList.add("hidden");
+    }
+
+    dropzone?.addEventListener("click", () => {
+      inputFile?.click();
+    });
+
+    inputFile?.addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      handleFileSelected(file);
+    });
+
+    // Suporte a Drag & Drop
+    if (dropzone) {
+      ["dragenter", "dragover"].forEach((eventName) => {
+        dropzone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.add("border-primary", "bg-primary/5");
+        });
+      });
+
+      ["dragleave", "drop"].forEach((eventName) => {
+        dropzone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.remove("border-primary", "bg-primary/5");
+        });
+      });
+
+      dropzone.addEventListener("drop", (e) => {
+        const dt = e.dataTransfer;
+        const file = dt && dt.files && dt.files[0];
+        handleFileSelected(file);
+      });
+    }
+
+    // 3. Envio e Deduplicação da Importação
+    btnSubmit?.addEventListener("click", async () => {
+      if (!selectedFile) {
+        showToast("Selecione um arquivo .json para importar.", "warning");
+        return;
+      }
+
+      btnSubmit.disabled = true;
+      btnSubmit.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span> <span>Importando e Deduplicando...</span>';
+
+      try {
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+
+        const res = await apiFetch("/api/exam-builder/bank/import", {
+          method: "POST",
+          body: formData
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.detail || data.error || data.message || "Falha ao processar arquivo de importação.");
+        }
+
+        // Exibir contadores no card de resultados
+        if (statTotal) statTotal.textContent = `Total no arquivo: ${data.total_in_file || 0}`;
+        if (statAdded) statAdded.textContent = data.imported_count || 0;
+        if (statSkipped) statSkipped.textContent = data.skipped_duplicates_count || 0;
+        if (resultBox) resultBox.classList.remove("hidden");
+
+        if (data.imported_count > 0) {
+          showToast(`Importação concluída! ${data.imported_count} novas questões inseridas.`, "success");
+          await Promise.all([loadBankFilters(), loadBankQuestions(true)]);
+        } else {
+          showToast(`Nenhuma nova questão inserida. Todas as ${data.skipped_duplicates_count} questões já existiam no banco.`, "warning");
+        }
+      } catch (err) {
+        console.error("Erro na importação do banco:", err);
+        showToast(err.message || "Erro ao processar importação.", "error");
+      } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = '<span class="material-symbols-outlined text-[18px]">publish</span> <span>Importar Questões</span>';
+      }
+    });
   }
 
   function escapeHtml(str) {

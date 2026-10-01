@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 import json
 import base64
@@ -1325,6 +1326,208 @@ def insert_question_into_bank(q_data: Dict[str, Any]) -> Dict[str, Any]:
         "id": qid,
         "success": True,
         "message": "Questão inserida no Banco de Questões com sucesso!"
+    }
+
+
+def normalize_statement(text: str) -> str:
+    """Normaliza o enunciado convertendo para minúsculas e colapsando múltiplos espaços em branco."""
+    if not text:
+        return ""
+    return re.sub(r'\s+', ' ', str(text).strip().lower())
+
+
+def export_question_bank_data() -> Dict[str, Any]:
+    """Retorna todo o acervo do Banco de Questões estruturado em formato JSON exportável."""
+    init_builder_db()
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Seleciona todas as questões únicas no banco de questões
+    cursor.execute("""
+        SELECT q.*,
+               COALESCE(NULLIF(q.discipline, ''), e.discipline, '') as exam_discipline,
+               COALESCE(NULLIF(q.grade_year, ''), e.grade_year, '') as exam_grade_year,
+               COALESCE(NULLIF(q.source_exam_title, ''), e.title, 'Banco de Questões') as effective_source_title
+        FROM builder_questions q
+        LEFT JOIN builder_exams e ON q.exam_id = e.id
+        WHERE TRIM(q.statement) != ''
+          AND q.id IN (
+              SELECT MAX(id)
+              FROM builder_questions
+              WHERE TRIM(statement) != ''
+              GROUP BY LOWER(TRIM(statement))
+          )
+        ORDER BY q.created_at ASC
+    """)
+    raw_questions = [dict(r) for r in cursor.fetchall()]
+
+    questions = []
+    for q in raw_questions:
+        qid = q["id"]
+        cursor.execute("""
+            SELECT letter, text, is_correct, order_index, image_url, image_width, image_align
+            FROM builder_alternatives
+            WHERE question_id = ?
+            ORDER BY order_index ASC
+        """, (qid,))
+        alts = []
+        for a in cursor.fetchall():
+            d = dict(a)
+            alts.append({
+                "letter": d.get("letter", ""),
+                "text": d.get("text") or "",
+                "is_correct": bool(d.get("is_correct")),
+                "order_index": d.get("order_index", 0),
+                "image_url": d.get("image_url") or "",
+                "image_width": d.get("image_width") or "180px",
+                "image_align": d.get("image_align") or "center"
+            })
+
+        questions.append({
+            "statement": (q.get("statement") or "").strip(),
+            "points": float(q.get("points") or 1.0),
+            "discipline": q.get("discipline") or q.get("exam_discipline") or "",
+            "grade_year": q.get("grade_year") or q.get("exam_grade_year") or "",
+            "bncc_code": (q.get("bncc_code") or "").strip().upper(),
+            "explanation": (q.get("explanation") or "").strip(),
+            "source_exam_title": q.get("source_exam_title") or q.get("effective_source_title") or "Banco de Questões",
+            "image_url": q.get("image_url") or "",
+            "image_position": q.get("image_position") or "after_statement",
+            "image_width": q.get("image_width") or "50%",
+            "image_caption": q.get("image_caption") or "",
+            "alternatives": alts
+        })
+
+    conn.close()
+
+    return {
+        "version": "1.0",
+        "exported_at": datetime.now().isoformat(),
+        "system": "Prova Canoa - Sistema Municipal de Avaliações",
+        "total_questions": len(questions),
+        "questions": questions
+    }
+
+
+def import_question_bank_data(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Importa um lote de questões de um dicionário/JSON para o Banco de Questões com desduplicação rigorosa."""
+    init_builder_db()
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    raw_questions = data.get("questions")
+    if raw_questions is None:
+        if isinstance(data, list):
+            raw_questions = data
+        else:
+            raw_questions = []
+
+    if not isinstance(raw_questions, list):
+        conn.close()
+        raise ValueError("O formato do arquivo JSON é inválido. A chave 'questions' deve ser uma lista.")
+
+    # 1. Carrega todos os enunciados já existentes no banco de dados para verificação de duplicidade
+    cursor.execute("SELECT statement FROM builder_questions WHERE TRIM(statement) != ''")
+    existing_rows = cursor.fetchall()
+    existing_statements = {normalize_statement(r[0]) for r in existing_rows if r[0]}
+
+    # Pega o próximo número sequencial para o banco geral
+    cursor.execute("SELECT COALESCE(MAX(question_number), 0) FROM builder_questions WHERE exam_id = 'banco_questoes_geral'")
+    row = cursor.fetchone()
+    current_num = row[0] if row else 0
+
+    total_in_file = len(raw_questions)
+    imported_count = 0
+    skipped_duplicates = 0
+    skipped_empty = 0
+
+    now = datetime.now().isoformat()
+
+    for item in raw_questions:
+        if not isinstance(item, dict):
+            continue
+
+        raw_stmt = (item.get("statement") or "").strip()
+        if not raw_stmt:
+            skipped_empty += 1
+            continue
+
+        norm_stmt = normalize_statement(raw_stmt)
+
+        # Se já existe no banco (ou já foi importado nesta mesma execução), pula para evitar duplicata
+        if norm_stmt in existing_statements:
+            skipped_duplicates += 1
+            continue
+
+        # Registra no conjunto de enunciados existentes para evitar duplicatas dentro do próprio arquivo importado
+        existing_statements.add(norm_stmt)
+        current_num += 1
+
+        qid = str(uuid.uuid4())
+        cursor.execute("""
+            INSERT INTO builder_questions (
+                id, exam_id, question_number, statement, points,
+                image_url, image_position, image_width, image_caption,
+                created_at, bncc_code, discipline, grade_year, source_exam_title, explanation
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            qid,
+            "banco_questoes_geral",
+            current_num,
+            raw_stmt,
+            float(item.get("points") or 1.0),
+            item.get("image_url", ""),
+            item.get("image_position", "after_statement"),
+            item.get("image_width", "50%"),
+            item.get("image_caption", ""),
+            now,
+            (item.get("bncc_code") or "").strip().upper(),
+            (item.get("discipline") or "").strip(),
+            (item.get("grade_year") or "").strip(),
+            (item.get("source_exam_title") or "Importação de Backup").strip(),
+            (item.get("explanation") or "").strip()
+        ))
+
+        alternatives = item.get("alternatives") or []
+        for idx, alt in enumerate(alternatives):
+            if not isinstance(alt, dict):
+                continue
+            aid = str(uuid.uuid4())
+            is_corr = 1 if alt.get("is_correct") else 0
+            cursor.execute("""
+                INSERT INTO builder_alternatives (
+                    id, question_id, letter, text, is_correct, order_index,
+                    image_url, image_width, image_align
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                aid,
+                qid,
+                alt.get("letter", chr(65 + idx)),
+                (alt.get("text") or "").strip(),
+                is_corr,
+                idx,
+                alt.get("image_url", ""),
+                alt.get("image_width", "180px"),
+                alt.get("image_align", "center")
+            ))
+
+        imported_count += 1
+
+    conn.commit()
+    conn.close()
+
+    return {
+        "success": True,
+        "total_in_file": total_in_file,
+        "imported_count": imported_count,
+        "skipped_duplicates": skipped_duplicates,
+        "skipped_empty": skipped_empty,
+        "message": (
+            f"Importação concluída com sucesso! {imported_count} novas questões adicionadas. "
+            f"{skipped_duplicates} questões duplicadas foram ignoradas."
+            if skipped_duplicates > 0 else
+            f"Importação concluída com sucesso! {imported_count} novas questões adicionadas."
+        )
     }
 
 

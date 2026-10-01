@@ -1,7 +1,9 @@
 import os
 import uuid
+import json
 import shutil
 import urllib.parse
+from datetime import datetime
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Response, Query, Depends
@@ -22,7 +24,9 @@ from app.services.exam_builder_db import (
     get_builder_exam_grading_status,
     get_question_bank,
     get_question_bank_filters,
-    insert_question_into_bank
+    insert_question_into_bank,
+    export_question_bank_data,
+    import_question_bank_data
 )
 from app.services.groq_service import generate_ai_question_groq
 from app.services.exam_builder_pdf import render_exam_html, generate_exam_pdf_bytes
@@ -236,6 +240,57 @@ def get_bank_questions_endpoint(
 def get_bank_filters_endpoint():
     """Retorna disciplinas, anos e códigos BNCC existentes no banco para popular filtros da UI."""
     return get_question_bank_filters()
+
+@router.get("/bank/export")
+def export_bank_questions_endpoint():
+    """Exporta todo o acervo do Banco de Questões em formato JSON estruturado com alternativas e metadados."""
+    try:
+        data = export_question_bank_data()
+        filename = f"banco_questoes_canoa_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        json_str = json.dumps(data, ensure_ascii=False, indent=2)
+        return Response(
+            content=json_str,
+            media_type="application/json; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao exportar banco de questões: {str(e)}")
+
+@router.post("/bank/import")
+async def import_bank_questions_endpoint(
+    file: Optional[UploadFile] = File(None)
+):
+    """Importa lote de questões a partir de arquivo JSON, ignorando automaticamente questões já existentes para evitar duplicidade."""
+    try:
+        if not file:
+            raise HTTPException(status_code=400, detail="Nenhum arquivo JSON foi enviado para importação.")
+
+        content_bytes = await file.read()
+        if not content_bytes:
+            raise HTTPException(status_code=400, detail="O arquivo enviado está vazio.")
+
+        try:
+            data_to_import = json.loads(content_bytes.decode("utf-8"))
+        except Exception:
+            try:
+                data_to_import = json.loads(content_bytes.decode("latin-1"))
+            except Exception:
+                raise HTTPException(status_code=400, detail="O arquivo enviado não é um JSON válido. Verifique a formatação do arquivo.")
+
+        if not isinstance(data_to_import, (dict, list)):
+            raise HTTPException(status_code=400, detail="Formato de dados inválido no arquivo JSON.")
+
+        payload_dict = data_to_import if isinstance(data_to_import, dict) else {"questions": data_to_import}
+        res = import_question_bank_data(payload_dict)
+        return res
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao importar banco de questões: {str(e)}")
 
 @router.delete("/bank/questions/{question_id}")
 def delete_bank_question_endpoint(question_id: str):
