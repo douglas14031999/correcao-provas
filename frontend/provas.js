@@ -3437,17 +3437,21 @@ document.addEventListener("DOMContentLoaded", () => {
           throw new Error(data.detail || data.error || data.message || "Falha ao processar arquivo de importação.");
         }
 
+        const importedCount = Number(data.imported_count || 0);
+        const skippedCount = Number(data.skipped_duplicates_count ?? data.skipped_duplicates ?? 0);
+        const totalCount = Number(data.total_in_file ?? (importedCount + skippedCount));
+
         // Exibir contadores no card de resultados
-        if (statTotal) statTotal.textContent = `Total no arquivo: ${data.total_in_file || 0}`;
-        if (statAdded) statAdded.textContent = data.imported_count || 0;
-        if (statSkipped) statSkipped.textContent = data.skipped_duplicates_count || 0;
+        if (statTotal) statTotal.textContent = `Total no arquivo: ${totalCount}`;
+        if (statAdded) statAdded.textContent = importedCount;
+        if (statSkipped) statSkipped.textContent = skippedCount;
         if (resultBox) resultBox.classList.remove("hidden");
 
-        if (data.imported_count > 0) {
-          showToast(`Importação concluída! ${data.imported_count} novas questões inseridas.`, "success");
+        if (importedCount > 0) {
+          showToast(`Importação concluída! ${importedCount} nova(s) questão(ões) inserida(s) (${skippedCount} duplicadas ignoradas).`, "success");
           await Promise.all([loadBankFilters(), loadBankQuestions(true)]);
         } else {
-          showToast(`Nenhuma nova questão inserida. Todas as ${data.skipped_duplicates_count} questões já existiam no banco.`, "warning");
+          showToast(`Nenhuma nova questão inserida. Todas as ${skippedCount} questões já existiam no banco.`, "warning");
         }
       } catch (err) {
         console.error("Erro na importação do banco:", err);

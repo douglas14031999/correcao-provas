@@ -1521,6 +1521,7 @@ def import_question_bank_data(data: Dict[str, Any]) -> Dict[str, Any]:
         "total_in_file": total_in_file,
         "imported_count": imported_count,
         "skipped_duplicates": skipped_duplicates,
+        "skipped_duplicates_count": skipped_duplicates,
         "skipped_empty": skipped_empty,
         "message": (
             f"Importação concluída com sucesso! {imported_count} novas questões adicionadas. "
