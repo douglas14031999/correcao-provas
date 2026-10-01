@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import logging
 import time
@@ -206,6 +207,47 @@ def _get_bncc_skill_details(bncc_code: str) -> Optional[Dict[str, str]]:
         logger.warning(f"Erro ao buscar detalhes da BNCC para IA: {e}")
     return None
 
+def _ensure_statement_has_question(statement: str, discipline: str = "Geral") -> str:
+    """
+    Garante que o enunciado contenha uma pergunta explícita ou comando do item (padrão SAEB/BNCC).
+    Se o modelo retornar apenas o texto-base narrativo sem a pergunta para o aluno selecionar a alternativa,
+    acrescenta o comando pedagógico adequado.
+    """
+    stmt = (statement or "").strip()
+    if not stmt:
+        return stmt
+
+    # Se já possui ponto de interrogação no texto, já contém pergunta
+    if "?" in stmt:
+        return stmt
+
+    # Se termina com dois pontos (ex: "O valor correto corresponde a:", "Assinale a alternativa correta:")
+    if stmt.endswith(":"):
+        return stmt
+
+    # Expressões típicas de comando de item
+    command_patterns = [
+        r"\bassinale\b", r"\bmarque\b", r"\bidentifique\b", r"\bdetermine\b",
+        r"\bcalcule\b", r"\bqual\b", r"\bquais\b", r"\bquanto\b", r"\bquantos\b",
+        r"\bquantas\b", r"\bcorresponde\b", r"\bcorreto afirmar\b", r"\bconclui-se\b",
+        r"\bconcluir que\b", r"\binferir que\b", r"\bexpressa a ideia\b", r"\bestabelece\b",
+        r"\ba alternativa que\b", r"\bé correto\b", r"\bé possível afirmar\b"
+    ]
+    has_command = any(re.search(pat, stmt, re.IGNORECASE) for pat in command_patterns)
+    if has_command:
+        return stmt
+
+    # Se não tem comando nem interrogação, anexa o comando pedagógico de fechamento do item
+    disc_lower = (discipline or "").lower()
+    if any(k in disc_lower for k in ["matem", "ciênc", "físic", "quím"]):
+        fallback_cmd = "Considerando a situação apresentada, determine a alternativa que indica a resposta correta."
+    else:
+        fallback_cmd = "Com base nas informações apresentadas no texto, assinale a alternativa correta."
+
+    if stmt.endswith("."):
+        return f"{stmt} {fallback_cmd}"
+    return f"{stmt}. {fallback_cmd}"
+
 async def generate_ai_question_groq(
     discipline: str,
     grade_year: str,
@@ -236,8 +278,12 @@ async def generate_ai_question_groq(
         "Você é um especialista sênior em elaboração de itens de avaliação educacional e matrizes de referência "
         "(SAEB, Prova Brasil e BNCC - Base Nacional Comum Curricular do Brasil).\n"
         "Sua missão é gerar UMA questão inédita, com rigor pedagógico impecável, linguagem clara e adequada à faixa etária dos alunos.\n\n"
-        "REGRAS DE CONSTRUÇÃO DO ITEM:\n"
-        "1. ENUNCIADO: Contextualizado, claro e direto. Se for matemática ou ciências, inclua uma situação-problema cotidiana. Se for língua portuguesa, forneça um texto-base rico ou contexto interpretativo.\n"
+        "REGRAS ESTRITAS DE CONSTRUÇÃO DO ITEM (PADRÃO SAEB / BNCC):\n"
+        "1. ESTRUTURA DO ENUNCIADO COM PERGUNTA EXPLÍCITA (MANDATÓRIO):\n"
+        "   O campo 'statement' DEVE conter OBRIGATORIAMENTE duas partes fundamentais:\n"
+        "   - PARTE 1 (Contextualização/Texto-base): Apresenta o cenário cotidiano, situação-problema, texto interpretativo ou dados numéricos.\n"
+        "   - PARTE 2 (COMANDO OU PERGUNTA DO ITEM): A última frase do enunciado DEVE ser a pergunta direta ou instrução explícita para o estudante assinalar a alternativa correta (ex: 'Qual é a quantidade total...?', 'Diante dos dados, determine a medida do...', 'Com base no texto, assinale a alternativa que indica...').\n"
+        "   ⚠️ REGRA CRÍTICA: NUNCA termine o enunciado apenas contando uma história sem fazer a pergunta final. O estudante DEVE saber com clareza o que está sendo perguntado para escolher entre as alternativas!\n"
         "2. FÓRMULAS E SÍMBOLOS: Use notação limpa e acessível. Se usar LaTeX, use delimitadores simples como $x^2$ ou escreva claramente.\n"
         f"3. QUANTIDADE OBRIGATÓRIA DE ALTERNATIVAS: Você DEVE gerar impreterivelmente EXATAMENTE {num_alts} alternativas ({', '.join(letters)}). É ESTRITAMENTE PROIBIDO gerar menos de {num_alts} alternativas. Se foram pedidas {num_alts} alternativas, você NUNCA pode retornar apenas 2 ou 3 alternativas. Cada uma das {num_alts} alternativas deve ter texto preenchido, claro e plausível.\n"
         f"4. GABARITO E DISTRATORES (SAEB): Apenas UMA alternativa correta ({', '.join(letters)}), informada no campo 'correct_answer'. Os distratores (demais alternativas) devem ser plausíveis baseados em erros comuns de raciocínio.\n"
@@ -272,7 +318,7 @@ async def generate_ai_question_groq(
     user_prompt_parts.append(
         f"\nRetorne o JSON estritamente com este formato (com EXATAMENTE as {num_alts} alternativas {', '.join(letters)}):\n"
         "{\n"
-        '  "statement": "Texto completo e claro do enunciado da questão (incluindo o texto-base se houver)",\n'
+        '  "statement": "Texto do contexto seguido OBRIGATORIAMENTE da pergunta/comando final explícito do item (ex: Qual é o valor total...? ou Assinale a alternativa correta:)",\n'
         '  "bncc_code": "Código da habilidade BNCC trabalhada",\n'
         f'  "correct_answer": "Letra da alternativa correta (uma entre {", ".join(letters)})",\n'
         '  "alternatives": [\n'
@@ -331,6 +377,9 @@ async def generate_ai_question_groq(
         statement = (parsed.get("statement") or "").strip()
         if not statement:
             raise ValueError("O modelo não gerou um enunciado válido.")
+
+        # Garante que o enunciado termine com a pergunta ou comando explícito do item
+        statement = _ensure_statement_has_question(statement, discipline)
 
         raw_alts = parsed.get("alternatives") or []
         correct_letter = (parsed.get("correct_answer") or "A").strip().upper()
