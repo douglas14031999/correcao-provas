@@ -9228,7 +9228,7 @@ function renderSchoolsChart(schools) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: (ctx) => allZero ? " Sem provas corrigidas ainda" : ` Média: ${ctx.parsed.y}%`
+            label: (ctx) => allZero ? " Sem provas corrigidas ainda" : ` Média: ${Number(ctx.parsed.y).toFixed(1)}%`
           }
         }
       },
@@ -9306,7 +9306,7 @@ function renderYearsChart(gradeYears) {
                 return " Sem avaliações aplicadas para este ano escolar";
               }
               return [
-                ` Média: ${ctx.parsed.y}%`,
+                ` Média: ${Number(ctx.parsed.y).toFixed(1)}%`,
                 ` Provas computadas: ${counts[idx]}`
               ];
             }
@@ -9345,8 +9345,10 @@ function renderExecutiveTable(schools) {
 
   tbody.innerHTML = schools.map((s, idx) => {
     const graded = Number(s.graded_count || 0);
-    const avg = Number((s.avg_score_percent || s.average_pct || 0).toFixed(1));
-    const rate = Number((s.participation_rate || 0).toFixed(1));
+    const avgNum = Number(s.avg_score_percent ?? s.average_pct ?? 0);
+    const avgStr = avgNum.toFixed(1);
+    const rateNum = Number(s.participation_rate ?? 0);
+    const rateStr = rateNum.toFixed(1);
     const inep = s.inep_code && s.inep_code !== "-" ? s.inep_code : "—";
 
     let badgeCls = "badge-neutral";
@@ -9354,18 +9356,18 @@ function renderExecutiveTable(schools) {
     let avgDisplay = `<span style="color: #94a3b8; font-weight: 500;">—</span>`;
 
     if (graded > 0) {
-      if (avg >= 70) {
+      if (avgNum >= 70) {
         badgeCls = "badge-success";
         badgeLabel = "Excelente";
-        avgDisplay = `<span style="color: #059669; font-weight: 700;">${avg}%</span>`;
-      } else if (avg >= 50) {
+        avgDisplay = `<span style="color: #059669; font-weight: 700;">${avgStr}%</span>`;
+      } else if (avgNum >= 50) {
         badgeCls = "badge-warning";
         badgeLabel = "Regular";
-        avgDisplay = `<span style="color: #d97706; font-weight: 700;">${avg}%</span>`;
+        avgDisplay = `<span style="color: #d97706; font-weight: 700;">${avgStr}%</span>`;
       } else {
         badgeCls = "badge-danger";
         badgeLabel = "Abaixo";
-        avgDisplay = `<span style="color: #dc2626; font-weight: 700;">${avg}%</span>`;
+        avgDisplay = `<span style="color: #dc2626; font-weight: 700;">${avgStr}%</span>`;
       }
     } else if (s.status === "Sem Turmas" || s.status_level === "neutral") {
       badgeCls = "badge-neutral";
@@ -9397,9 +9399,9 @@ function renderExecutiveTable(schools) {
         <!-- 6. Taxa de Participação -->
         <td class="text-center">
           <div style="display: flex; align-items: center; justify-content: center; gap: 0.4rem;" title="${s.evaluated_students || (graded > 0 ? graded : 0)} de ${s.total_students || 0} alunos avaliados (${graded} prova${graded !== 1 ? 's' : ''} corrigida${graded !== 1 ? 's' : ''})">
-            <span style="font-weight: 600; min-width: 38px;">${s.total_students > 0 ? rate + "%" : "—"}</span>
+            <span style="font-weight: 600; min-width: 38px;">${s.total_students > 0 ? rateStr + "%" : "—"}</span>
             <div style="width: 48px; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden;">
-              <div style="width: ${s.total_students > 0 ? Math.min(rate, 100) : 0}%; height: 100%; background: ${graded > 0 ? '#2563eb' : '#cbd5e1'}; border-radius: 3px;"></div>
+              <div style="width: ${s.total_students > 0 ? Math.min(rateNum, 100) : 0}%; height: 100%; background: ${graded > 0 ? '#2563eb' : '#cbd5e1'}; border-radius: 3px;"></div>
             </div>
           </div>
         </td>
@@ -9433,7 +9435,8 @@ function renderAlertsGrid(alerts) {
   }
 
   container.innerHTML = alerts.map(a => {
-    const avg = Number((a.avg_percent || 0).toFixed(1));
+    const avgNum = Number(a.avg_percent || 0);
+    const avgStr = avgNum.toFixed(1);
     return `
       <div class="dash-alert-card">
         <div class="dash-alert-header">
@@ -9441,7 +9444,7 @@ function renderAlertsGrid(alerts) {
             <div class="dash-alert-class">${escapeHtml(a.classroom_name)}</div>
             <div class="dash-alert-school">${escapeHtml(a.school_name)}</div>
           </div>
-          <span class="dash-alert-badge">${avg}%</span>
+          <span class="dash-alert-badge">${avgStr}%</span>
         </div>
         <div class="dash-alert-stats">
           <span>${a.grade_year ? escapeHtml(a.grade_year) : "Ano não inf."}</span>

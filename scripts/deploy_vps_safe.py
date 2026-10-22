@@ -123,10 +123,13 @@ def deploy():
 
     run_ssh_command(client, "systemctl reload nginx 2>/dev/null || true")
 
-    # Validar resposta HTTP da API de Dashboard
+    # Aguardar 2.5s para Uvicorn concluir inicialização
+    time.sleep(2.5)
+
+    # Validar resposta HTTP da API de Dashboard com retry automático
     print("\n🌐 Testando requisição HTTP ao endpoint /api/reports/dashboard...")
     http_test_cmd = (
-        "curl -s -w '\\nHTTP_CODE:%{http_code}' "
+        "curl -s --retry 10 --retry-connrefused --retry-delay 1 -w '\\nHTTP_CODE:%{http_code}' "
         "http://127.0.0.1:8080/api/reports/dashboard"
     )
     _, curl_out, _ = run_ssh_command(client, http_test_cmd)
