@@ -325,7 +325,7 @@ def generate_schools_overview_report_data() -> ReportData:
         ReportTableColumn(key="inep", header="Código INEP", width_ratio=1.8, align="center"),
         ReportTableColumn(key="classrooms", header="Turmas", width_ratio=1.4, align="center"),
         ReportTableColumn(key="students", header="Matriculados", width_ratio=1.6, align="center"),
-        ReportTableColumn(key="graded", header="Corrigidos", width_ratio=1.6, align="center"),
+        ReportTableColumn(key="graded", header="Provas Corrigidas", width_ratio=1.6, align="center"),
         ReportTableColumn(key="average", header="Média Geral", width_ratio=1.6, align="center", is_numeric=True)
     ]
 
@@ -343,7 +343,7 @@ def generate_schools_overview_report_data() -> ReportData:
     summary_cards = [
         {"label": "Total de Escolas", "value": rep["total_schools"]},
         {"label": "Total de Estudantes", "value": rep["total_students"]},
-        {"label": "Total de Avaliados", "value": rep["total_graded"]},
+        {"label": "Provas Corrigidas", "value": rep["total_graded"]},
         {"label": "Média Municipal", "value": f"{rep['network_average']:.1f}"}
     ]
 

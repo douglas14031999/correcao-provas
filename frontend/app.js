@@ -9133,15 +9133,29 @@ function renderDashboardUI(data) {
   const elPart = document.getElementById("dash-kpi-participation") || document.getElementById("dash-kpi-rate");
   const elStudents = document.getElementById("dash-kpi-students-total") || document.getElementById("dash-kpi-students");
   const elPartBar = document.getElementById("dash-kpi-part-bar");
+  const elPartSubtext = document.getElementById("dash-kpi-part-subtext");
   const rate = Number(kpis.participation_rate || 0);
 
   if (elPart) elPart.textContent = `${rate.toFixed(1)}%`;
   if (elStudents) {
     const stCount = Number(kpis.total_students || 0);
-    elStudents.textContent = `${stCount} alunos`;
+    const evCount = Number(kpis.evaluated_students || 0);
+    if (evCount > 0 && stCount > 0) {
+      elStudents.textContent = `${evCount.toLocaleString("pt-BR")} de ${stCount.toLocaleString("pt-BR")} alunos`;
+    } else {
+      elStudents.textContent = `${stCount.toLocaleString("pt-BR")} alunos`;
+    }
   }
   if (elPartBar) {
     elPartBar.style.width = `${Math.min(rate, 100)}%`;
+  }
+  if (elPartSubtext) {
+    const evCount = Number(kpis.evaluated_students || 0);
+    if (evCount > 0) {
+      elPartSubtext.textContent = `${evCount.toLocaleString("pt-BR")} alunos avaliados na rede`;
+    } else {
+      elPartSubtext.textContent = "Alunos avaliados";
+    }
   }
 
   // KPI Card 4: Rede Escolar Ativa
@@ -9255,7 +9269,7 @@ function renderYearsChart(gradeYears) {
   }
 
   const labels = gradeYears.map(g => g.grade_name || g.grade_year);
-  const values = gradeYears.map(g => Number((g.avg_score_percent || g.average_pct || 0).toFixed(1)));
+  const values = gradeYears.map(g => (g.graded_count > 0 && g.average_pct !== null && g.average_pct !== undefined ? Number(g.average_pct) : null));
   const counts = gradeYears.map(g => g.graded_count || 0);
   const allZeroYears = counts.every(c => c === 0);
 
@@ -9269,6 +9283,7 @@ function renderYearsChart(gradeYears) {
         borderColor: allZeroYears ? "#94a3b8" : "#10b981",
         backgroundColor: allZeroYears ? "rgba(148, 163, 184, 0.08)" : "rgba(16, 185, 129, 0.15)",
         fill: true,
+        spanGaps: true,
         tension: 0.35,
         borderWidth: allZeroYears ? 2 : 3,
         pointBackgroundColor: allZeroYears ? "#cbd5e1" : "#10b981",
@@ -9288,7 +9303,7 @@ function renderYearsChart(gradeYears) {
             label: (ctx) => {
               const idx = ctx.dataIndex;
               if (counts[idx] === 0) {
-                return " Aguardando correções para este ano";
+                return " Sem avaliações aplicadas para este ano escolar";
               }
               return [
                 ` Média: ${ctx.parsed.y}%`,
@@ -9352,6 +9367,10 @@ function renderExecutiveTable(schools) {
         badgeLabel = "Abaixo";
         avgDisplay = `<span style="color: #dc2626; font-weight: 700;">${avg}%</span>`;
       }
+    } else if (s.status === "Sem Turmas" || s.status_level === "neutral") {
+      badgeCls = "badge-neutral";
+      badgeLabel = s.status || "Sem Turmas";
+      avgDisplay = `<span style="color: #94a3b8; font-weight: 500;">—</span>`;
     }
 
     return `
@@ -9377,10 +9396,10 @@ function renderExecutiveTable(schools) {
         </td>
         <!-- 6. Taxa de Participação -->
         <td class="text-center">
-          <div style="display: flex; align-items: center; justify-content: center; gap: 0.4rem;">
-            <span style="font-weight: 600; min-width: 38px;">${rate}%</span>
+          <div style="display: flex; align-items: center; justify-content: center; gap: 0.4rem;" title="${s.evaluated_students || (graded > 0 ? graded : 0)} de ${s.total_students || 0} alunos avaliados (${graded} prova${graded !== 1 ? 's' : ''} corrigida${graded !== 1 ? 's' : ''})">
+            <span style="font-weight: 600; min-width: 38px;">${s.total_students > 0 ? rate + "%" : "—"}</span>
             <div style="width: 48px; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden;">
-              <div style="width: ${Math.min(rate, 100)}%; height: 100%; background: ${graded > 0 ? '#2563eb' : '#cbd5e1'}; border-radius: 3px;"></div>
+              <div style="width: ${s.total_students > 0 ? Math.min(rate, 100) : 0}%; height: 100%; background: ${graded > 0 ? '#2563eb' : '#cbd5e1'}; border-radius: 3px;"></div>
             </div>
           </div>
         </td>

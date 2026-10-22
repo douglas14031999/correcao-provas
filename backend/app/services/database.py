@@ -2301,8 +2301,8 @@ def get_exams_by_grade_year(grade_year: str, school_id: Optional[str] = None) ->
 def get_macro_dashboard_data(exam_id: Optional[str] = None) -> Dict[str, Any]:
     """
     Computes aggregated municipal metrics for the executive dashboard:
-    - KPIs: Total Students, Graded Tests, City Average %, Participation Rate %
-    - Schools Comparison: average % and submissions per school
+    - KPIs: Total Students, Graded Tests, City Average %, Participation Rate %, Evaluated Students
+    - Schools Comparison: average % and submissions per school with true student participation rate
     - Grade Years Comparison: 1º to 9º Ano performance
     - Executive School Table with performance badges
     - Alert Classrooms: classes with avg score < 50%
@@ -2311,36 +2311,75 @@ def get_macro_dashboard_data(exam_id: Optional[str] = None) -> Dict[str, Any]:
     conn = get_connection()
     cursor = conn.cursor()
 
+    clean_exam_id = (exam_id or "").strip()
+    is_single_exam = bool(clean_exam_id and clean_exam_id.lower() not in ("all", "todos"))
+
     # Total counts in system
     cursor.execute("SELECT COUNT(*) FROM students")
-    total_students = cursor.fetchone()[0] or 0
+    total_students_system = cursor.fetchone()[0] or 0
 
     cursor.execute("SELECT COUNT(*) FROM schools")
-    total_schools = cursor.fetchone()[0] or 0
+    total_schools_system = cursor.fetchone()[0] or 0
 
     cursor.execute("SELECT COUNT(*) FROM classrooms")
-    total_classrooms = cursor.fetchone()[0] or 0
+    total_classrooms_system = cursor.fetchone()[0] or 0
 
     cursor.execute("SELECT COUNT(*) FROM exams")
-    total_exams = cursor.fetchone()[0] or 0
+    total_exams_system = cursor.fetchone()[0] or 0
+
+    # If single exam is selected, identify targeted classrooms and schools
+    target_classrooms = []
+    if is_single_exam:
+        cursor.execute("""
+            SELECT DISTINCT classroom_id FROM (
+                SELECT classroom_id FROM classroom_exams WHERE exam_id = ?
+                UNION
+                SELECT classroom_id FROM submissions WHERE exam_id = ? AND classroom_id IS NOT NULL AND classroom_id != ''
+            )
+        """, (clean_exam_id, clean_exam_id))
+        target_classrooms = [r[0] for r in cursor.fetchall() if r[0]]
+
+    # Expected students for the selected context
+    if is_single_exam and target_classrooms:
+        placeholders = ",".join(["?"] * len(target_classrooms))
+        cursor.execute(f"SELECT COUNT(*) FROM students WHERE classroom_id IN ({placeholders})", target_classrooms)
+        expected_students = cursor.fetchone()[0] or 0
+        if expected_students == 0:
+            expected_students = total_students_system
+
+        cursor.execute(f"SELECT COUNT(DISTINCT school_id) FROM classrooms WHERE id IN ({placeholders})", target_classrooms)
+        exam_schools_count = cursor.fetchone()[0] or 0
+        exam_classrooms_count = len(target_classrooms)
+    else:
+        expected_students = total_students_system
+        exam_schools_count = total_schools_system
+        exam_classrooms_count = total_classrooms_system
 
     # Submissions KPI filter
     sub_where = "WHERE s.max_score > 0"
     sub_params = []
-    if exam_id and exam_id.strip() and exam_id.strip().lower() not in ("all", "todos"):
+    if is_single_exam:
         sub_where += " AND s.exam_id = ?"
-        sub_params.append(exam_id.strip())
+        sub_params.append(clean_exam_id)
 
     cursor.execute(f"""
-        SELECT COUNT(*), AVG((s.score * 100.0) / s.max_score)
+        SELECT 
+            COUNT(s.id), 
+            AVG((s.score * 100.0) / s.max_score),
+            COUNT(DISTINCT COALESCE(NULLIF(s.student_id, ''), s.student_name))
         FROM submissions s
         {sub_where}
     """, sub_params)
     sub_row = cursor.fetchone()
     total_graded = sub_row[0] or 0
-    overall_avg = round(float(sub_row[1] or 0.0), 1)
+    overall_avg = round(float(sub_row[1] or 0.0), 1) if total_graded > 0 else 0.0
+    evaluated_students = sub_row[2] or 0
 
-    participation_rate = round((total_graded / total_students * 100.0), 1) if total_students > 0 else 0.0
+    effective_total_students = max(expected_students, evaluated_students)
+    participation_rate = (
+        min(100.0, round((evaluated_students / effective_total_students * 100.0), 1))
+        if effective_total_students > 0 else 0.0
+    )
 
     # Available exams for dropdown
     cursor.execute("SELECT id, title, subtitle, num_questions FROM exams ORDER BY title ASC")
@@ -2361,12 +2400,15 @@ def get_macro_dashboard_data(exam_id: Optional[str] = None) -> Dict[str, Any]:
 
         sc_where = "WHERE s.max_score > 0 AND (s.school_id = ? OR cl.school_id = ?)"
         sc_params = [sid, sid]
-        if exam_id and exam_id.strip() and exam_id.strip().lower() not in ("all", "todos"):
+        if is_single_exam:
             sc_where += " AND s.exam_id = ?"
-            sc_params.append(exam_id.strip())
+            sc_params.append(clean_exam_id)
 
         cursor.execute(f"""
-            SELECT COUNT(DISTINCT s.id), AVG((s.score * 100.0) / s.max_score)
+            SELECT 
+                COUNT(DISTINCT s.id), 
+                AVG((s.score * 100.0) / s.max_score),
+                COUNT(DISTINCT COALESCE(NULLIF(s.student_id, ''), s.student_name))
             FROM submissions s
             LEFT JOIN classrooms cl ON s.classroom_id = cl.id
             {sc_where}
@@ -2374,10 +2416,43 @@ def get_macro_dashboard_data(exam_id: Optional[str] = None) -> Dict[str, Any]:
         sc_sub_row = cursor.fetchone()
         sc_graded = sc_sub_row[0] or 0
         sc_avg = round(float(sc_sub_row[1] or 0.0), 1) if sc_graded > 0 else 0.0
+        sc_evaluated = sc_sub_row[2] or 0
+
+        if is_single_exam and target_classrooms:
+            placeholders = ",".join(["?"] * len(target_classrooms))
+            cursor.execute(
+                f"SELECT id FROM classrooms WHERE school_id = ? AND id IN ({placeholders})",
+                [sid] + target_classrooms
+            )
+            sc_target_cls = [r[0] for r in cursor.fetchall()]
+            if sc_target_cls:
+                sc_target_placeholders = ",".join(["?"] * len(sc_target_cls))
+                cursor.execute(
+                    f"SELECT COUNT(*) FROM students WHERE school_id = ? AND classroom_id IN ({sc_target_placeholders})",
+                    [sid] + sc_target_cls
+                )
+                sc_expected_std = cursor.fetchone()[0] or 0
+                display_std = max(sc_expected_std, sc_evaluated)
+                display_cls = len(sc_target_cls)
+            else:
+                display_std = sc_evaluated
+                display_cls = 0
+        else:
+            display_std = max(std_count, sc_evaluated)
+            display_cls = cls_count
+
+        if display_std > 0:
+            sc_rate = min(100.0, round((sc_evaluated / display_std * 100.0), 1))
+        else:
+            sc_rate = 0.0
 
         if sc_graded == 0:
-            status = "Sem Dados"
-            status_level = "neutral"
+            if is_single_exam and display_std == 0:
+                status = "Sem Turmas"
+                status_level = "neutral"
+            else:
+                status = "Sem Dados"
+                status_level = "neutral"
         elif sc_avg >= 70.0:
             status = "Alto Desempenho"
             status_level = "success"
@@ -2388,17 +2463,16 @@ def get_macro_dashboard_data(exam_id: Optional[str] = None) -> Dict[str, Any]:
             status = "Atenção"
             status_level = "danger"
 
-        sc_rate = round((sc_graded / std_count * 100.0), 1) if std_count > 0 else 0.0
-
         schools_table.append({
             "school_id": sid,
             "school_name": sc["name"],
             "name": sc["name"],
             "inep_code": sc["inep_code"] or "-",
-            "classrooms_count": cls_count,
-            "students_count": std_count,
-            "total_students": std_count,
+            "classrooms_count": display_cls,
+            "students_count": display_std,
+            "total_students": display_std,
             "graded_count": sc_graded,
+            "evaluated_students": sc_evaluated,
             "average_pct": sc_avg,
             "avg_score_percent": sc_avg,
             "participation_rate": sc_rate,
@@ -2422,9 +2496,9 @@ def get_macro_dashboard_data(exam_id: Optional[str] = None) -> Dict[str, Any]:
 
         yr_where = f"WHERE s.max_score > 0 AND ({pattern_where})"
         yr_params = list(flat_params)
-        if exam_id and exam_id.strip() and exam_id.strip().lower() not in ("all", "todos"):
+        if is_single_exam:
             yr_where += " AND s.exam_id = ?"
-            yr_params.append(exam_id.strip())
+            yr_params.append(clean_exam_id)
 
         cursor.execute(f"""
             SELECT COUNT(DISTINCT s.id), AVG((s.score * 100.0) / s.max_score)
@@ -2434,22 +2508,23 @@ def get_macro_dashboard_data(exam_id: Optional[str] = None) -> Dict[str, Any]:
         """, yr_params)
         yr_row = cursor.fetchone()
         yr_graded = yr_row[0] or 0
-        yr_avg = round(float(yr_row[1] or 0.0), 1) if yr_graded > 0 else 0.0
+        yr_avg = round(float(yr_row[1] or 0.0), 1) if yr_graded > 0 else None
 
         years_data.append({
             "grade_year": yr,
             "grade_name": yr,
             "graded_count": yr_graded,
             "average_pct": yr_avg,
-            "avg_score_percent": yr_avg
+            "avg_score_percent": yr_avg if yr_avg is not None else 0.0,
+            "has_data": yr_graded > 0
         })
 
     # Alert Classrooms (classes with average < 50% and at least 1 submission)
     alert_where = "WHERE s.max_score > 0"
     alert_params = []
-    if exam_id and exam_id.strip() and exam_id.strip().lower() not in ("all", "todos"):
+    if is_single_exam:
         alert_where += " AND s.exam_id = ?"
-        alert_params.append(exam_id.strip())
+        alert_params.append(clean_exam_id)
 
     cursor.execute(f"""
         SELECT cl.id, cl.name, sc.name as school_name, cl.grade_year, cl.shift,
@@ -2482,10 +2557,11 @@ def get_macro_dashboard_data(exam_id: Optional[str] = None) -> Dict[str, Any]:
 
     return {
         "kpis": {
-            "total_students": total_students,
-            "total_schools": total_schools,
-            "total_classrooms": total_classrooms,
-            "total_exams": total_exams,
+            "total_students": effective_total_students,
+            "evaluated_students": evaluated_students,
+            "total_schools": exam_schools_count if is_single_exam and exam_schools_count > 0 else total_schools_system,
+            "total_classrooms": exam_classrooms_count if is_single_exam and exam_classrooms_count > 0 else total_classrooms_system,
+            "total_exams": 1 if is_single_exam else total_exams_system,
             "total_graded": total_graded,
             "overall_avg_pct": overall_avg,
             "overall_avg_percent": overall_avg,
